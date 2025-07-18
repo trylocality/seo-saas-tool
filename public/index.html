@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locality - Local SEO Audit Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; color: #333; margin-bottom: 30px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .card { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 30px; margin-bottom: 20px; max-width: 500px; margin-left: auto; margin-right: auto; }
+        .wide-card { max-width: 1000px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px; }
+        .required { color: #dc3545; }
+        .btn { background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); color: white; padding: 12px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 10px; transition: transform 0.2s; }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-secondary { background: # 6c757d; }
+        .btn-success { background: #28a745; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .hidden { display: none; }
+        .error { color: #dc3545; margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 5px; }
+        .success { color: #155724; margin-top: 10px; padding: 10px; background: #d4edda; border-radius: 5px; }
+        .auth-switch { text-align: center; margin-top: 20px; color: #666; }
+        .auth-switch a { color: #2c5282; text-decoration: none; font-weight: 600; cursor: pointer; }
+        .loading { opacity: 0.7; pointer-events: none; }
+        
+        /* Custom Checkbox Styles */
+        .checkbox-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            cursor: pointer;
+            line-height: 1.5;
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .checkbox-container input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            opacity: 0;
+            position: absolute;
+        }
+        
+        .checkmark {
+            height: 18px;
+            width: 18px;
+            background-color: #fff;
+            border: 2px solid #e1e5e9;
+            border-radius: 3px;
+            position: relative;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        
+        .checkbox-container input[type="checkbox"]:checked ~ .checkmark {
+            background-color: #2c5282;
+            border-color: #2c5282;
+        }
+        
+        .checkbox-container input[type="checkbox"]:checked ~ .checkmark:after {
+            content: "";
+            position: absolute;
+            left: 5px;
+            top: 1px;
+            width: 4px;
+            height: 8px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        
+        .checkbox-container a {
+            color: #2c5282;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .checkbox-container a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Enhanced Dashboard */
+        .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
+        .credits-section { text-align: right; }
+        .credits-section > div { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 15px 20px; margin-bottom: 10px; }
+        .big-number { font-size: 2rem; font-weight: bold; color: #2c5282; }
+        
+        /* Reports Table Styles */
+        .reports-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .reports-table th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6; }
+        .reports-table td { padding: 15px; border-bottom: 1px solid #f8f9fa; vertical-align: middle; }
+        .reports-table tr:hover { background: #f8f9fa; }
+        .business-name { font-weight: 600; color: #2c5282; font-size: 1.1rem; }
+        .business-location { color: #666; font-size: 0.9rem; margin-top: 2px; }
+        .score-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 1.1rem; min-width: 80px; text-align: center; }
+        .score-good { background: #d4edda; color: #155724; }
+        .score-fair { background: #fff3cd; color: #856404; }
+        .score-poor { background: #f8d7da; color: #721c24; }
+        .run-again-btn { background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; font-size: 0.9rem; }
+        .run-again-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3); }
+        .view-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; margin-right: 8px; }
+        .view-btn:hover { background: #5a6268; }
+        
+        /* Loading Progress */
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #2c5282; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .progress-bar { width: 100%; background: #e9ecef; border-radius: 10px; height: 8px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #2c5282, #1a365d); width: 0%; transition: width 0.5s ease; }
+        .progress-text { text-align: center; margin-top: 15px; color: #666; font-size: 0.9rem; }
+        
+        /* Toast Notifications */
+        .toast { position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 8px; color: white; font-weight: 600; z-index: 1000; transform: translateX(100%); transition: transform 0.3s ease; }
+        .toast.show { transform: translateX(0); }
+        .toast-success { background: #28a745; }
+        .toast-error { background: #dc3545; }
+        .toast-warning { background: #ffc107; color: #212529; }
+        
+        /* NEW REPORT DESIGN */
+        .single-page-report { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
+        
+        /* Business Info Header */
+        .business-info-header { background: white; padding: 20px 30px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: flex-start; }
+        .business-details { font-size: 0.9rem; color: #495057; line-height: 1.6; }
+        .business-details strong { color: #2c5282; }
+        .logo-container { flex-shrink: 0; }
+        .logo { height: 80px; width: auto; }
+        
+        /* Updated Score Display - DONUT CHART - SIMPLIFIED */
+        .score-donut-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin: 40px auto 30px;
+        }
+
+        .score-donut-container svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+            overflow: visible;
+        }
+
+        .donut-bg {
+            fill: none;
+            stroke: #f1f3f5;
+            stroke-width: 12;
+        }
+
+        .donut-fill {
+            fill: none;
+            stroke-width: 12;
+            stroke-linecap: round;
+            stroke-dasharray: 440;
+            stroke: #dc3545;
+        }
+
+        .score-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+        }
+
+        .score-number {
+            font-size: 36px;
+            font-weight: 800;
+            color: #2c3e50;
+            line-height: 1;
+        }
+
+        .score-percentage {
+            font-size: 14px;
+            color: #7f8c8d;
+            font-weight: 600;
+            margin-left: 2px;
+        }
+
+        .score-message { color: #666; max-width: 600px; margin: 20px auto 0; font-size: 1.1rem; text-align: center; }
+        
+        /* Content Sections */
+        .section { margin: 40px 30px; }
+        .section-title { margin-bottom: 25px; color: #2c5282; font-size: 1.5rem; font-weight: 600; }
+        
+        /* Factors Grid */
+        .factors-compact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 15px; }
+        .factor-item-compact { background: #f8f9fa; border-radius: 8px; padding: 15px; border-left: 4px solid #e9ecef; position: relative; cursor: pointer; transition: all 0.3s ease; }
+        .factor-item-compact:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .factor-item-compact.expanded { grid-column: 1 / -1; max-width: none; cursor: default; transform: none; }
+        .factor-item-compact.status-good { border-left-color: #28a745; }
+        .factor-item-compact.status-needs-improvement { border-left-color: #ffc107; }
+        .factor-item-compact.status-missing { border-left-color: #dc3545; }
+        .factor-item-compact.status-uncertain { border-left-color: #6c757d; }
+        
+        .factor-header-compact { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .factor-name { font-weight: 600; color: #2c5282; font-size: 1rem; }
+        .factor-status-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
+        .status-good { background: #d4edda; color: #155724; }
+        .status-needs-improvement { background: #fff3cd; color: #856404; }
+        .status-missing { background: #f8d7da; color: #721c24; }
+        .status-uncertain { background: #e2e3e5; color: #495057; }
+        .factor-message { color: #666; margin: 0; font-size: 0.9rem; }
+        
+        /* Down Arrow */
+        .factor-expand-arrow { color: #2c5282; font-size: 0.8rem; transition: transform 0.3s ease; margin-left: 10px; }
+        .factor-item-compact.expanded .factor-expand-arrow { transform: rotate(180deg); }
+        
+        /* Expanded Content */
+        .factor-expanded-content { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e9ecef; }
+        .factor-expanded-content.show { display: block; animation: slideDown 0.3s ease; }
+        
+        .expanded-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .expanded-section { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; }
+        .expanded-section h4 { color: #2c5282; margin: 0 0 10px 0; font-size: 0.9rem; font-weight: 600; text-transform: uppercase; }
+        .expanded-section p { color: #666; margin: 0; font-size: 0.9rem; line-height: 1.5; }
+        .expanded-section a { color: #007bff; text-decoration: none; font-weight: 600; }
+        .expanded-section a:hover { text-decoration: underline; }
+        
+        .smart-suggestion-section { background: white; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef; margin-top: 15px; }
+        .smart-suggestion-section h4 { color: #2c5282; margin: 0 0 15px 0; font-size: 1rem; font-weight: 600; }
+        .suggestion-textarea { width: 100%; height: 120px; padding: 15px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 0.9rem; line-height: 1.5; resize: vertical; font-family: inherit; }
+        .suggestion-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .copy-suggestion-btn { background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+        .copy-suggestion-btn:hover { background: #218838; transform: translateY(-1px); }
+        .close-expanded-btn { background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+        .close-expanded-btn:hover { background: #545b62; }
+        
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Citations Row */
+        .citations-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 15px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .citation-item-simple { text-align: center; padding: 15px 10px; background: white; border-radius: 8px; border: 2px solid #e9ecef; }
+        .citation-item-simple.found { border-color: #28a745; background: #f8fff8; }
+        .citation-item-simple.missing { border-color: #dc3545; background: #fff8f8; }
+        .citation-icon { font-size: 1.2rem; margin-bottom: 8px; }
+        .citation-logo { width: 32px; height: 32px; margin: 0 auto 8px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+        .citation-name-simple { font-size: 0.8rem; font-weight: 600; color: #495057; }
+        .order-citations-btn { background: #2c5282; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; margin: 20px auto; display: block; transition: all 0.3s ease; }
+        .order-citations-btn:hover { background: #1a365d; transform: translateY(-2px); }
+        
+        /* Action Plan */
+        .action-item-simple { display: flex; align-items: center; padding: 12px 15px; margin-bottom: 8px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #e9ecef; }
+        .action-item-simple.completed { border-left-color: #28a745; background: #f8fff8; }
+        .action-item-simple.incomplete { border-left-color: #dc3545; }
+        .action-checkbox { width: 20px; height: 20px; border: 2px solid #dee2e6; border-radius: 4px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #28a745; font-weight: bold; }
+        .action-text { flex: 1; font-weight: 500; color: #495057; display: flex; justify-content: space-between; align-items: center; }
+        .action-arrow { color: #2c5282; font-size: 0.8rem; cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.3s ease; }
+        .action-arrow:hover { background: #e9ecef; transform: translateY(-1px); }
+        
+        /* Footer Logo */
+        .footer-logo { text-align: center; padding: 30px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
+        .footer-logo img { height: 40px; width: auto; }
+        
+        /* Report Actions */
+        .report-actions { text-align: center; margin: 40px 0; padding: 30px; border-top: 1px solid #eee; }
+        
+        /* Print-specific styles for 2-page PDF */
+        @media print {
+            body { 
+                font-size: 12px; 
+                line-height: 1.3;
+                color: #000 !important;
+                background: white !important;
+            }
+            
+            .container { 
+                max-width: none; 
+                padding: 0; 
+                margin: 0;
+            }
+            
+            /* Hide non-essential elements for print */
+            .btn, .report-actions, .how-to-fix-btn, .view-details-btn,
+            .copy-suggestion-btn, .close-expanded-btn, .order-citations-btn,
+            .factor-expand-arrow, .action-arrow {
+                display: none !important;
+            }
+            
+            /* Page 1: Score and Factors */
+            .print-page-1 {
+                page-break-after: always;
+                min-height: 95vh;
+            }
+            
+            /* Simplified business header on page 1 */
+            .business-info-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 0;
+                margin-bottom: 15px;
+                border-bottom: 2px solid #e9ecef;
+            }
+            
+            .business-details {
+                font-size: 14px;
+                color: #495057;
+                line-height: 1.4;
+            }
+            
+            .logo-container {
+                flex-shrink: 0;
+            }
+            
+            .logo {
+                height: 70px;
+                width: auto;
+            }
+            
+            /* Score section - compact for print with working colors */
+            .score-donut-container {
+                width: 100px;
+                height: 100px;
+                margin: 15px auto;
+            }
+            
+            .donut-fill {
+                /* Force the colors to show in print by removing animations */
+                transition: none !important;
+            }
+            
+            .donut-fill.score-0-59 { 
+                stroke: #e74c3c !important; 
+                stroke-dashoffset: 264 !important; /* 40% fill for visibility */
+            }
+            .donut-fill.score-60-69 { 
+                stroke: #f39c12 !important; 
+                stroke-dashoffset: 176 !important; /* 60% fill */
+            }
+            .donut-fill.score-70-79 { 
+                stroke: #f1c40f !important; 
+                stroke-dashoffset: 132 !important; /* 70% fill */
+            }
+            .donut-fill.score-80-89 { 
+                stroke: #2ecc71 !important; 
+                stroke-dashoffset: 88 !important; /* 80% fill */
+            }
+            .donut-fill.score-90-100 { 
+                stroke: #27ae60 !important; 
+                stroke-dashoffset: 44 !important; /* 90% fill */
+            }
+            
+            .score-number {
+                font-size: 24px;
+            }
+            
+            .score-percentage {
+                font-size: 10px;
+            }
+            
+            .score-message {
+                font-size: 12px;
+                margin: 10px auto;
+                max-width: 400px;
+                text-align: center;
+            }
+            
+            /* Factors grid - 2 columns for print to fit better and save space */
+            .factors-compact-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+                margin-top: 15px;
+            }
+            
+            .factor-item-compact {
+                padding: 6px;
+                margin-bottom: 2px;
+                border-radius: 4px;
+                background: #f8f9fa !important;
+                border-left: 3px solid #e9ecef;
+                break-inside: avoid;
+                font-size: 9px;
+            }
+            
+            .factor-item-compact.status-good { border-left-color: #28a745; }
+            .factor-item-compact.status-needs-improvement { border-left-color: #ffc107; }
+            .factor-item-compact.status-missing { border-left-color: #dc3545; }
+            .factor-item-compact.status-uncertain { border-left-color: #6c757d; }
+            
+            .factor-header-compact {
+                margin-bottom: 2px;
+            }
+            
+            .factor-name {
+                font-size: 10px;
+                font-weight: 600;
+                color: #2c5282 !important;
+            }
+            
+            .factor-status-badge {
+                font-size: 7px;
+                padding: 1px 3px;
+                border-radius: 4px;
+            }
+            
+            .factor-message {
+                font-size: 8px;
+                color: #666 !important;
+                line-height: 1.2;
+            }
+            
+            /* Hide expanded content in print */
+            .factor-expanded-content {
+                display: none !important;
+            }
+            
+            .section-title {
+                font-size: 16px;
+                margin-bottom: 12px;
+                color: #2c5282 !important;
+                font-weight: 600;
+            }
+            
+            /* Page 2: Citations and Action Plan */
+            .print-page-2 {
+                page-break-before: always;
+                min-height: 95vh;
+                padding-top: 20px;
+            }
+            
+            /* Citations section - more compact */
+            .citations-row {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+                padding: 12px;
+                background: #f8f9fa !important;
+                border-radius: 6px;
+                margin-bottom: 25px;
+            }
+            
+            .citation-item-simple {
+                text-align: center;
+                padding: 8px 4px;
+                background: white !important;
+                border-radius: 4px;
+                border: 2px solid #e9ecef;
+            }
+            
+            .citation-item-simple.found { 
+                border-color: #28a745; 
+                background: #f8fff8 !important; 
+            }
+            
+            .citation-item-simple.missing { 
+                border-color: #dc3545; 
+                background: #fff8f8 !important; 
+            }
+            
+            .citation-logo {
+                width: 20px;
+                height: 20px;
+                margin: 0 auto 4px;
+            }
+            
+            .citation-icon {
+                font-size: 12px;
+                margin-bottom: 4px;
+                font-weight: bold;
+            }
+            
+            .citation-name-simple {
+                font-size: 9px;
+                font-weight: 600;
+                color: #495057 !important;
+            }
+            
+            /* Action plan for print - more compact */
+            .action-item-simple {
+                padding: 6px 8px;
+                margin-bottom: 3px;
+                background: #f8f9fa !important;
+                border-radius: 4px;
+                border-left: 3px solid #e9ecef;
+                break-inside: avoid;
+            }
+            
+            .action-item-simple.completed { 
+                border-left-color: #28a745; 
+                background: #f8fff8 !important; 
+            }
+            
+            .action-item-simple.incomplete { 
+                border-left-color: #dc3545; 
+            }
+            
+            .action-checkbox {
+                width: 14px;
+                height: 14px;
+                border: 2px solid #dee2e6;
+                border-radius: 2px;
+                margin-right: 8px;
+                font-size: 10px;
+            }
+            
+            .action-text {
+                font-size: 11px;
+                color: #495057 !important;
+                font-weight: 500;
+            }
+            
+            /* Footer styling - just logo, bottom right */
+            .footer-logo {
+                position: absolute;
+                bottom: 20px;
+                right: 20px;
+                background: none !important;
+                border: none;
+                padding: 0;
+            }
+            
+            .footer-logo img {
+                height: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .header h1 { font-size: 2rem; }
+            .dashboard-header { flex-direction: column; align-items: stretch; }
+            .credits-section { text-align: left; margin-top: 20px; }
+            .reports-table { font-size: 0.9rem; }
+            .reports-table th, .reports-table td { padding: 10px; }
+            .factors-compact-grid { grid-template-columns: 1fr; }
+            .citations-row { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+            .citation-item-simple { padding: 10px 5px; }
+            .citation-name-simple { font-size: 0.7rem; }
+        }
+        /* Upsell Box */
+.upsell-box {
+    background: linear-gradient(135deg, #2c5282 0%, #1a365d 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 12px;
+    text-align: center;
+    margin: 40px 0;
+    box-shadow: 0 8px 25px rgba(44, 82, 130, 0.3);
+}
+
+.upsell-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: white;
+}
+
+.upsell-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    opacity: 0.95;
+}
+
+.upsell-cta {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.upsell-link {
+    color: #ffd700;
+    text-decoration: none;
+    font-weight: 600;
+    border-bottom: 2px solid #ffd700;
+    padding-bottom: 2px;
+    transition: all 0.3s ease;
+}
+
+.upsell-link:hover {
+    color: white;
+    border-bottom-color: white;
+    transform: translateY(-1px);
+}
+
+/* Hide in print */
+@media print {
+    .upsell-box {
+        display: none !important;
+    }
+}
+
+/* Feedback Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    animation: fadeIn 0.3s ease;
+}
+
+.modal.show {
+    display: block;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    animation: slideIn 0.3s ease;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #2c5282;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.close-modal {
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.3s ease;
+}
+
+.close-modal:hover {
+    color: #666;
+}
+
+.modal-content form {
+    padding: 30px;
+}
+
+.star-rating {
+    display: flex;
+    gap: 5px;
+    margin: 10px 0;
+}
+
+.star {
+    font-size: 24px;
+    color: #ddd;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.star:hover,
+.star.active {
+    color: #ffc107;
+}
+
+.star.active ~ .star {
+    color: #ddd;
+}
+
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #2c5282;
+}
+
+.form-group textarea {
+    min-height: 120px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    
+    .modal-header {
+        padding: 15px 20px;
+    }
+    
+    .modal-content form {
+        padding: 20px;
+    }
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Form -->
+        <div id="loginSection" class="card hidden">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #2c5282;">Login to Your Account</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email Address</label>
+                    <input type="email" id="loginEmail" required placeholder="your@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required placeholder="Your password">
+                </div>
+                <button type="submit" class="btn">Login</button>
+                <div id="loginError" class="error hidden"></div>
+            </form>
+            <div class="auth-switch">
+                Don't have an account? <a onclick="showSignup()">Sign up here</a>
+            </div>
+        </div>
+
+        <!-- Signup Form -->
+        <div id="signupSection" class="card hidden">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #2c5282;">Create Your Account</h2>
+            <form id="signupForm">
+                <div class="form-group">
+                    <label for="firstName">First Name</label>
+                    <input type="text" id="firstName" required placeholder="John">
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Last Name</label>
+                    <input type="text" id="lastName" required placeholder="Smith">
+                </div>
+                <div class="form-group">
+                    <label for="signupEmail">Email Address</label>
+                    <input type="email" id="signupEmail" required placeholder="john@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="signupPassword">Password</label>
+                    <input type="password" id="signupPassword" required placeholder="Create a strong password">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="termsAgreement" required>
+                        <span class="checkmark"></span>
+                        I agree to the <a href="https://trylocality.com/terms-of-service/" target="_blank">Terms and Conditions</a> and <a href="https://trylocality.com/privacy-policy/" target="_blank">Privacy Policy</a>
+                    </label>
+                </div>
+                <button type="submit" class="btn">Create Account</button>
+                <div id="signupError" class="error hidden"></div>
+                <div id="signupSuccess" class="success hidden"></div>
+            </form>
+            <div class="auth-switch">
+                Already have an account? <a onclick="showLogin()">Login here</a>
+            </div>
+        </div>
+
+        <!-- Enhanced Dashboard -->
+        <div id="dashboardSection" class="card hidden" style="max-width: 900px;">
+            <div class="header">
+                <img src="Locality Logo (1).png" alt="Locality" style="height: 60px; width: auto;">
+            </div>
+            <div class="dashboard-header">
+                <div>
+                    <h1 style="font-size: 2.5rem; color: #2c5282; margin-bottom: 10px;">Welcome back, <span id="userName"></span>! 👋</h1>
+                    <p style="color: #666; font-size: 1.1rem;">Generate comprehensive local SEO audits for your business</p>
+                </div>
+                <div class="credits-section">
+                    <div>
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">Credits Remaining</div>
+                        <div class="big-number" id="creditsDisplay">0</div>
+                    </div>
+                    <button class="btn btn-success" onclick="buyCredits()" style="width: 100%; padding: 8px 16px; font-size: 0.9rem;">
+                        💳 Buy Credits
+                    </button>
+                    <button onclick="logout()" style="background: none; border: none; color: #999; font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline;">
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Generate Button -->
+            <div style="text-align: center; margin-bottom: 50px;">
+                <button class="btn" onclick="showReportForm()" style="
+                    width: auto; 
+                    padding: 20px 40px; 
+                    font-size: 1.5rem; 
+                    font-weight: bold; 
+                    background: linear-gradient(135deg, #2c5282 0%, #1a365d 100%);
+                    box-shadow: 0 8px 25px rgba(44, 82, 130, 0.3);
+                    transform: scale(1);
+                    transition: all 0.3s ease;
+                " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                     Generate New Audit
+                </button>
+                <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
+                    Comprehensive 12-factor analysis with AI-powered suggestions
+                </p>
+            </div>
+
+            <!-- Previous Reports Table -->
+            <div class="reports-table-section">
+                <h3 style="margin-bottom: 20px; color: #2c5282; font-size: 1.3rem;">Previous Reports</h3>
+                <div id="reportsTableContainer">
+                    <div class="no-reports" style="text-align: center; padding: 40px; color: #666; background: #f8f9fa; border-radius: 10px;">
+                        <h4>No reports yet</h4>
+                        <p>Generate your first SEO audit to get started!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Form -->
+        <div id="reportFormSection" class="card hidden">
+            <button class="btn btn-secondary" onclick="showDashboard()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← Back to Dashboard</button>
+            <h2 style="text-align: center; margin-bottom: 30px; color: #2c5282;">Generate SEO Audit Report</h2>
+            <form id="reportForm">
+                <div class="form-group">
+                    <label for="businessName">Business Name <span class="required">*</span></label>
+                    <input type="text" id="businessName" required placeholder="Exactly as shown on your Google Business Profile">
+                </div>
+                <div class="form-group">
+                    <label for="location">Location <span class="required">*</span></label>
+                    <input type="text" id="location" required placeholder="e.g., Miami, FL or 123 Main St, Miami, FL 33101">
+                </div>
+                <div class="form-group">
+                    <label for="industry">Industry <span class="required">*</span></label>
+                    <input type="text" id="industry" required placeholder="e.g., Accountant or House Cleaner">
+                </div>
+                <div class="form-group">
+                    <label for="website">Website (Optional)</label>
+                    <input type="url" id="website" placeholder="https://www.example.com">
+                </div>
+                <button type="submit" class="btn">Generate Report (1 Credit)</button>
+                <div id="reportError" class="error hidden"></div>
+            </form>
+        </div>
+
+        <!-- Enhanced Loading Section -->
+        <div id="loadingSection" class="card hidden">
+            <div style="text-align: center; padding: 40px;">
+                <div class="spinner"></div>
+                <h3>Generating Your Professional SEO Audit Report...</h3>
+                <p>This may take 60-90 seconds...</p>
+                
+                <div style="margin-top: 20px;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Initializing audit...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW SINGLE PAGE REPORT -->
+        <div id="reportSection" class="single-page-report">
+            <!-- Page 1: Business Info, Score, and Factors -->
+            <div class="print-page-1">
+                <!-- Business Info Header with Logo in Top Right -->
+                <div class="business-info-header">
+                    <div class="business-details">
+                        <div><strong>Business:</strong> <span id="reportBusinessName">SunRoc</span></div>
+                        <div><strong>Location:</strong> <span id="reportLocation">Spanish Fork, UT</span></div>
+                        <div><strong>Date:</strong> <span id="reportDate">July 14, 2025</span></div>
+                    </div>
+                    <div class="logo-container">
+                        <img src="Locality Logo (1).png" alt="Locality Marketing" class="logo">
+                    </div>
+                </div>
+
+                <!-- Score Donut Chart -->
+                <div style="text-align: center;">
+                    <div class="score-donut-container">
+                        <svg viewBox="0 0 180 180">
+                            <circle class="donut-bg" cx="90" cy="90" r="70"></circle>
+                            <circle class="donut-fill" id="scoreDonut" cx="90" cy="90" r="70"></circle>
+                        </svg>
+                        <div class="score-display">
+                            <div class="score-number" id="scoreNumber">44</div>
+                            <div class="score-percentage">%</div>
+                        </div>
+                    </div>
+                    <div class="score-message" id="scoreMessage">Weak local SEO foundation requiring immediate attention</div>
+                </div>
+
+                <!-- Factors Analysis -->
+                <div class="section">
+                    <h3 class="section-title">Ranking Factor Review</h3>
+                    <div class="factors-compact-grid" id="factorsGrid"></div>
+                </div>
+            </div>
+
+            <!-- Page 2: Citations and Action Plan -->
+            <div class="print-page-2">
+                <!-- Citations Section -->
+                <div class="section">
+                    <h3 class="section-title">Local Citations Status</h3>
+                    <div class="citations-row" id="citationsRow"></div>
+                    <button class="order-citations-btn" onclick="orderCitations()">
+                        ORDER CITATIONS
+                    </button>
+                </div>
+
+                <!-- Action Plan -->
+                <div class="section">
+                    <h3 class="section-title">Action Plan</h3>
+                    <div id="actionPlanList"></div>
+                </div>
+<!-- Action Plan -->
+<div class="section">
+    <h3 class="section-title">Action Plan</h3>
+    <div id="actionPlanList"></div>
+</div>
+
+<!-- Upsell Section -->
+<div class="section">
+    <div class="upsell-box">
+        <h3 class="upsell-title">Let Locality Optimize For You!</h3>
+        <p class="upsell-description">
+            One of our SEO professionals will optimize your profile for you, ensuring a strong keyword presence, 
+            a complete profile and a better chance of more leads, starting as low as $149!
+        </p>
+        <p class="upsell-cta">
+            Interested? <a href="https://calendly.com/trylocality/seo-optimization" target="_blank" class="upsell-link">
+                Click here to schedule a call with our team to learn more!
+            </a>
+        </p>
+    </div>
+</div>
+                <!-- Footer Logo - Bottom Right -->
+                <div class="footer-logo">
+                    <img src="Locality Logo (1).png" alt="Locality Marketing">
+                </div>
+            </div>
+
+            <!-- Report Actions -->
+            <div class="report-actions">
+                <button class="btn btn-secondary" onclick="downloadPDF()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
+                    Download PDF Report
+                </button>
+                <button class="btn" onclick="showReportForm()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
+                    Generate Another Report
+                </button>
+                <button class="btn btn-secondary" onclick="showDashboard()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
+                    Back to Dashboard
+                </button>
+                <button class="btn btn-secondary" onclick="showFeedbackForm()" style="width: auto; padding: 12px 25px;">
+                    Share Feedback
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedbackModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Share Your Feedback</h2>
+                <span class="close-modal" onclick="closeFeedbackForm()">&times;</span>
+            </div>
+            <form id="feedbackForm">
+                <div class="form-group">
+                    <label>How would you rate your experience?</label>
+                    <div class="star-rating">
+                        <span class="star" data-rating="1">★</span>
+                        <span class="star" data-rating="2">★</span>
+                        <span class="star" data-rating="3">★</span>
+                        <span class="star" data-rating="4">★</span>
+                        <span class="star" data-rating="5">★</span>
+                    </div>
+                    <input type="hidden" id="feedbackRating" name="rating" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="feedbackType">Type of Feedback <span class="required">*</span></label>
+                    <select id="feedbackType" name="type" required>
+                        <option value="">Select feedback type</option>
+                        <option value="general">General</option>
+                        <option value="bug">Bug Report</option>
+                        <option value="feature">Feature Request</option>
+                        <option value="performance">Performance Issue</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="feedbackMessage">Your Feedback <span class="required">*</span></label>
+                    <textarea id="feedbackMessage" name="message" rows="5" required placeholder="Please share your feedback here..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="feedbackEmail">Email (Optional)</label>
+                    <input type="email" id="feedbackEmail" name="email" placeholder="your@email.com">
+                    <small style="color: #666; display: block; margin-top: 5px;">Provide your email if you'd like us to follow up with you</small>
+                </div>
+                
+                <button type="submit" class="btn" style="width: 100%;">Submit Feedback</button>
+                <div id="feedbackError" class="error hidden"></div>
+                <div id="feedbackSuccess" class="success hidden"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentUser = null;
+        let authToken = localStorage.getItem('authToken');
+        let currentReportData = null;
+        let userReports = [];
+
+        // Directory logos mapping
+        const directoryLogos = {
+            'Yelp': 'Directory Logos/Yelp.png',
+            'Better Business Bureau': 'Directory Logos/BBB.png',
+            'Yellow Pages': 'Directory Logos/YellowPages.png',
+            'Apple Maps': 'Directory Logos/Apple Maps.png',
+            'Facebook Business': 'Directory Logos/Facebook.png',
+            'Foursquare': 'Directory Logos/Foursquare.png',
+            'Bing Maps': 'Directory Logos/Bing Maps.png'
+        };
+
+        // Progress simulation steps
+        const progressSteps = [
+            { percent: 15, text: 'Getting business data from Google...' },
+            { percent: 30, text: 'Taking screenshot of Google Business Profile...' },
+            { percent: 45, text: 'Analyzing profile with AI...' },
+            { percent: 60, text: 'Checking local citations across directories...' },
+            { percent: 75, text: 'Analyzing website integration...' },
+            { percent: 85, text: 'Generating smart suggestions...' },
+            { percent: 95, text: 'Calculating final score...' },
+            { percent: 100, text: 'Finalizing report...' }
+        ];
+
+       window.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Locality App starting...');
+    
+    // Check if user is already logged in
+    if (authToken) {
+        checkAuth();
+    } else {
+        showLogin();
+    }
+});
+        // Get dynamic summary based on status
+        function getDynamicSummary(factorId, status) {
+            const summaries = {
+                'description': {
+                    'GOOD': 'Way to go! Your business description is strong and keyword relevant',
+                    'NEEDS IMPROVEMENT': 'Great start, but a few small tweaks would help you rank higher!',
+                    'MISSING': 'Uh oh! This is a key optimization piece you are missing, lets fix it!'
+                },
+                'claimed': {
+                    'GOOD': 'Perfect! Your Google Business Profile is claimed and verified',
+                    'NEEDS IMPROVEMENT': 'Your profile needs verification to unlock full control',
+                    'MISSING': 'Critical! You need to claim your Google Business Profile immediately'
+                },
+                'categories': {
+                    'GOOD': 'Excellent! You have comprehensive business categories set up',
+                    'NEEDS IMPROVEMENT': 'Good foundation, but adding more categories will help you rank for more searches',
+                    'MISSING': 'You\'re missing important categories that could bring you more customers'
+                },
+                'productTiles': {
+                    'GOOD': 'Great job! Your product/service tiles showcase your offerings well',
+                    'NEEDS IMPROVEMENT': 'You have some tiles, but adding more will give you better keyword coverage',
+                    'MISSING': 'Missing opportunity! Product tiles help customers see what you offer'
+                },
+                'photos': {
+                    'GOOD': 'Fantastic! You have plenty of high-quality photos on your profile',
+                    'NEEDS IMPROVEMENT': 'You have some photos, but adding more will build more trust with customers',
+                    'MISSING': 'Photos are essential for building trust - let\'s get some uploaded!'
+                },
+                'posts': {
+                    'GOOD': 'Awesome! You\'re actively posting and engaging with customers',
+                    'NEEDS IMPROVEMENT': 'You have some posts, but regular posting will boost your visibility',
+                    'MISSING': 'Regular posts show Google your business is active - time to start posting!'
+                },
+                'qa': {
+                    'GOOD': 'Perfect! Your Q&A section helps customers get answers quickly',
+                    'NEEDS IMPROVEMENT': 'Some Q&As are there, but adding more common questions will help customers',
+                    'MISSING': 'Q&As help answer customer questions before they call - let\'s add some!',
+                    'UNCERTAIN': 'We couldn\'t clearly detect your Q&A section - it may exist but isn\'t visible'
+                },
+                'social': {
+                    'GOOD': 'Excellent! Your social media links help customers connect with you',
+                    'NEEDS IMPROVEMENT': 'You have some social links, but adding more platforms increases your reach',
+                    'MISSING': 'Social media links build trust and give customers more ways to find you'
+                },
+                'reviews': {
+                    'GOOD': 'Outstanding! Your reviews show customers love working with you',
+                    'NEEDS IMPROVEMENT': 'You have reviews, but a few improvements could boost your reputation further',
+                    'MISSING': 'Reviews are crucial for trust and rankings - let\'s get your review strategy going!'
+                },
+                'citations': {
+                    'GOOD': 'Great work! You\'re listed in most major directories',
+                    'NEEDS IMPROVEMENT': 'You\'re in some directories, but more citations will boost your local authority',
+                    'MISSING': 'Citations help Google verify your business - let\'s get you listed in key directories'
+                },
+                'gbpEmbed': {
+                    'GOOD': 'Perfect! Your Google Business Profile is embedded on your website',
+                    'NEEDS IMPROVEMENT': 'Close! Your embed needs some optimization to work better',
+                    'MISSING': 'Embedding your Google profile on your website strengthens your local SEO'
+                },
+                'landingPage': {
+                    'GOOD': 'Excellent! You have a strong local landing page targeting your area',
+                    'NEEDS IMPROVEMENT': 'You have a local page, but some tweaks could make it rank even better',
+                    'MISSING': 'A local landing page helps you rank for "[service] in [city]" searches'
+                }
+            };
+            
+            return summaries[factorId]?.[status] || `${status.toLowerCase()} status for ${factorId}`;
+        }
+
+        // Show report with sample data for preview
+        function showReportWithSampleData() {
+            hideAllSections();
+            document.getElementById('reportSection').classList.remove('hidden');
+            
+            // Load sample factors data with dynamic summaries
+            const sampleFactors = [
+                { id: 'claimed', name: 'Claimed Profile', status: 'GOOD', message: getDynamicSummary('claimed', 'GOOD') },
+                { id: 'description', name: 'Business Description', status: 'NEEDS IMPROVEMENT', message: getDynamicSummary('description', 'NEEDS IMPROVEMENT') },
+                { id: 'categories', name: 'Categories', status: 'GOOD', message: getDynamicSummary('categories', 'GOOD') },
+                { id: 'productTiles', name: 'Product/Service Tiles', status: 'GOOD', message: getDynamicSummary('productTiles', 'GOOD') },
+                { id: 'photos', name: 'Photos', status: 'NEEDS IMPROVEMENT', message: getDynamicSummary('photos', 'NEEDS IMPROVEMENT') },
+                { id: 'posts', name: 'Post Activity', status: 'GOOD', message: getDynamicSummary('posts', 'GOOD') },
+                { id: 'qa', name: 'Q&A Section', status: 'UNCERTAIN', message: getDynamicSummary('qa', 'UNCERTAIN') },
+                { id: 'social', name: 'Social Media Links', status: 'GOOD', message: getDynamicSummary('social', 'GOOD') },
+                { id: 'reviews', name: 'Customer Reviews', status: 'GOOD', message: getDynamicSummary('reviews', 'GOOD') },
+                { id: 'citations', name: 'Local Citations', status: 'NEEDS IMPROVEMENT', message: getDynamicSummary('citations', 'NEEDS IMPROVEMENT') },
+                { id: 'gbpEmbed', name: 'GBP Website Embed', status: 'MISSING', message: getDynamicSummary('gbpEmbed', 'MISSING') },
+                { id: 'landingPage', name: 'Localized Landing Page', status: 'GOOD', message: getDynamicSummary('landingPage', 'GOOD') }
+            ];
+            
+            const sampleCitations = {
+                data: {
+                    checked: [
+                        { directory: 'Yelp', found: true },
+                        { directory: 'Better Business Bureau', found: true },
+                        { directory: 'Yellow Pages', found: false },
+                        { directory: 'Apple Maps', found: false },
+                        { directory: 'Facebook Business', found: true },
+                        { directory: 'Foursquare', found: false },
+                        { directory: 'Bing Maps', found: false }
+                    ]
+                }
+            };
+            
+            const sampleActionPlan = {
+                actions: [
+                    { id: 'claimed', task: 'Claim Google Business Profile', completed: true },
+                    { id: 'categories', task: 'Add Secondary Categories', completed: true },
+                    { id: 'productTiles', task: 'Add Product/Service Tiles', completed: true },
+                    { id: 'posts', task: 'Start Weekly Google Posts', completed: true },
+                    { id: 'social', task: 'Add Social Media Links', completed: true },
+                    { id: 'description', task: 'Optimize Business Description', completed: false },
+                    { id: 'citations', task: 'Build Local Citations', completed: false },
+                    { id: 'photos', task: 'Upload High-Quality Photos', completed: false },
+                    { id: 'gbpEmbed', task: 'Embed GBP on Website', completed: false },
+                    { id: 'qa', task: 'Populate Q&A Section', completed: false }
+                ]
+            };
+            
+            displayFactorsCompact(sampleFactors, { suggestions: {} });
+            displayCitationsRow(sampleCitations);
+            displayActionPlanSimple(sampleActionPlan);
+            
+            // Trigger donut animation with sample score
+            updateScoreDonut(44);
+        }
+
+        // Navigation functions
+        function showLogin() {
+            hideAllSections();
+            document.getElementById('loginSection').classList.remove('hidden');
+        }
+
+        function showSignup() {
+            hideAllSections();
+            document.getElementById('signupSection').classList.remove('hidden');
+        }
+
+        function showDashboard() {
+            hideAllSections();
+            document.getElementById('dashboardSection').classList.remove('hidden');
+            if (authToken) {
+                checkAuth();
+                loadUserReports();
+            }
+        }
+
+        function showReportForm() {
+            if (currentUser && currentUser.creditsRemaining <= 0) {
+                showToast('No credits remaining! Please purchase more credits to generate reports.', 'error');
+                return;
+            }
+            hideAllSections();
+            document.getElementById('reportFormSection').classList.remove('hidden');
+            
+            // Clear the form when showing it
+            document.getElementById('reportForm').reset();
+            document.getElementById('reportError').classList.add('hidden');
+        }
+
+        function showLoading() {
+            hideAllSections();
+            document.getElementById('loadingSection').classList.remove('hidden');
+            simulateProgress();
+        }
+
+        function showReport() {
+            hideAllSections();
+            document.getElementById('reportSection').classList.remove('hidden');
+        }
+
+        function hideAllSections() {
+            const sections = ['loginSection', 'signupSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection'];
+            sections.forEach(id => document.getElementById(id).classList.add('hidden'));
+        }
+
+        // Enhanced progress simulation
+        function simulateProgress() {
+            let currentStep = 0;
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            function updateProgress() {
+                if (currentStep < progressSteps.length) {
+                    const step = progressSteps[currentStep];
+                    progressFill.style.width = step.percent + '%';
+                    progressText.textContent = step.text;
+                    currentStep++;
+                    
+                    // Varied timing to make it feel more realistic
+                    const delay = currentStep < 3 ? 3000 : (currentStep < 6 ? 8000 : 5000);
+                    setTimeout(updateProgress, delay);
+                }
+            }
+            
+            updateProgress();
+        }
+
+        // Toast notification system
+        function showToast(message, type = 'success') {
+            // Remove any existing toasts
+            const existingToasts = document.querySelectorAll('.toast');
+            existingToasts.forEach(toast => toast.remove());
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            // Show toast
+            setTimeout(() => toast.classList.add('show'), 100);
+            
+            // Hide toast after 5 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Check if user is authenticated
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    currentUser = data.user;
+                    updateDashboard();
+                    console.log('✅ User authenticated:', currentUser.firstName);
+                } else {
+                    console.log('❌ Token invalid, removing...');
+                    localStorage.removeItem('authToken');
+                    authToken = null;
+                    showLogin();
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                showLogin();
+            }
+        }
+
+        // Update dashboard with user data
+        function updateDashboard() {
+            if (currentUser) {
+                document.getElementById('userName').textContent = currentUser.firstName;
+                document.getElementById('creditsDisplay').textContent = currentUser.creditsRemaining;
+            }
+        }
+
+        // Load user's reports from the backend
+        async function loadUserReports() {
+            try {
+                const response = await fetch('/api/user-reports', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    userReports = data.reports || [];
+                    displayReportsTable();
+                    console.log(`📋 Loaded ${userReports.length} reports`);
+                } else {
+                    console.error('Failed to load reports');
+                    userReports = [];
+                }
+            } catch (error) {
+                console.error('Error loading reports:', error);
+                userReports = [];
+            }
+        }
+
+        // Display reports as a table
+        function displayReportsTable() {
+            const container = document.getElementById('reportsTableContainer');
+            
+            if (!userReports || userReports.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666; background: #f8f9fa; border-radius: 10px;">
+                        <h4>No reports yet</h4>
+                        <p>Generate your first SEO audit to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let tableHTML = `
+                <table class="reports-table">
+                    <thead>
+                        <tr>
+                            <th>Business</th>
+                            <th>Score</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            userReports.forEach(report => {
+                // Get report data for stored reports (we only have limited data from the list endpoint)
+                let score = 'N/A';
+                let grade = 'N/A';
+                
+                const date = new Date(report.created_at).toLocaleDateString();
+                
+                tableHTML += `
+                    <tr>
+                        <td>
+                            <div class="business-name">${report.business_name}</div>
+                            <div class="business-location">${report.city} • ${report.industry}</div>
+                        </td>
+                        <td>
+                            <span class="score-badge score-good">View Report</span>
+                        </td>
+                        <td>${date}</td>
+                        <td>
+                            <button class="view-btn" onclick="viewStoredReport(${report.id})">View</button>
+                            <button class="run-again-btn" onclick="runReportAgain('${report.business_name}', '${report.city}', '${report.industry}', '${report.website || ''}')">
+                                Run Again
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `</tbody></table>`;
+            container.innerHTML = tableHTML;
+        }
+
+        // Function to pre-fill form with previous report data
+        function runReportAgain(businessName, location, industry, website) {
+            showReportForm();
+            
+            // Pre-fill the form
+            document.getElementById('businessName').value = businessName;
+            document.getElementById('location').value = location;
+            document.getElementById('industry').value = industry;
+            document.getElementById('website').value = website;
+        }
+
+        // View a stored report - we need to fetch the full report data
+        async function viewStoredReport(reportId) {
+            try {
+                showToast('Loading stored report...', 'warning');
+                
+                // Since the list endpoint doesn't include full report data, 
+                // we'll need to add an endpoint to get individual reports
+                // For now, let's show a message
+                showToast('Viewing stored reports requires additional backend endpoint. Please generate a new report to see the full interface.', 'warning');
+                
+                console.log(`📊 Would view stored report: ${reportId}`);
+            } catch (error) {
+                console.error('Error loading report:', error);
+                showToast('Failed to load report. Please try again.', 'error');
+            }
+        }
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            submitBtn.textContent = 'Logging in...';
+            submitBtn.disabled = true;
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    authToken = data.token;
+                    localStorage.setItem('authToken', authToken);
+                    currentUser = data.user;
+                    updateDashboard();
+                    showDashboard();
+                    showToast('Logged in successfully!', 'success');
+                    console.log('✅ Login successful!');
+                } else {
+                    errorDiv.textContent = data.error;
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Login failed. Please check your connection.';
+                errorDiv.classList.remove('hidden');
+                console.error('Login error:', error);
+            } finally {
+                submitBtn.textContent = 'Login';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Handle signup form submission
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const email = document.getElementById('signupEmail').value;
+            const password = document.getElementById('signupPassword').value;
+            const termsAgreement = document.getElementById('termsAgreement').checked;
+            const errorDiv = document.getElementById('signupError');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            // Validate terms agreement
+            if (!termsAgreement) {
+                errorDiv.textContent = 'You must agree to the Terms and Conditions and Privacy Policy to create an account.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            submitBtn.textContent = 'Creating Account...';
+            submitBtn.disabled = true;
+            errorDiv.classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName, email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    authToken = data.token;
+                    localStorage.setItem('authToken', authToken);
+                    currentUser = data.user;
+                    updateDashboard();
+                    showDashboard();
+                    showToast('Account created successfully!', 'success');
+                    console.log('✅ Signup successful!');
+                } else {
+                    errorDiv.textContent = data.error;
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Signup failed. Please check your connection.';
+                errorDiv.classList.remove('hidden');
+                console.error('Signup error:', error);
+            } finally {
+                submitBtn.textContent = 'Create Account';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Handle report form submission with proper data mapping
+        document.getElementById('reportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const businessName = document.getElementById('businessName').value;
+            const location = document.getElementById('location').value;
+            const industry = document.getElementById('industry').value;
+            const website = document.getElementById('website').value;
+            const errorDiv = document.getElementById('reportError');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            // Validate location format - must have at least one comma
+            if (!location.includes(',')) {
+                errorDiv.textContent = 'Please enter a valid location (e.g., "Miami, FL" or "123 Main St, Miami, FL 33101")';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            submitBtn.textContent = 'Generating Report...';
+            submitBtn.disabled = true;
+            errorDiv.classList.add('hidden');
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/generate-report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ 
+                        businessName, 
+                        location, 
+                        industry, 
+                        website 
+                    })
+                });
+
+                console.log('📊 Response status:', response.status, response.ok);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('📊 Report data received successfully');
+                console.log('🔍 Data keys:', Object.keys(data));
+                console.log('🔍 Has auditOverview:', !!data.auditOverview);
+
+                // More flexible validation - just check for key required fields
+                if (data && data.auditOverview && data.auditOverview.overallScore && data.auditOverview.factors) {
+                    console.log('✅ Report data validation passed');
+                    currentReportData = data;
+                    displayReport(data);
+                    showReport();
+                    
+                    // Refresh user data and reports after generating new report
+                    await checkAuth();
+                    await loadUserReports();
+                    
+                    showToast('Report generated successfully!', 'success');
+                    console.log('✅ Report displayed successfully!');
+                } else {
+                    console.error('❌ Report data validation failed');
+                    console.log('🔍 Data structure:', JSON.stringify(data, null, 2).substring(0, 500));
+                    throw new Error('Invalid report data structure received');
+                }
+            } catch (error) {
+                console.error('Report generation error:', error);
+                errorDiv.textContent = error.message || 'Failed to generate report. Please try again.';
+                errorDiv.classList.remove('hidden');
+                showReportForm();
+                showToast('Failed to generate report. Please try again.', 'error');
+            } finally {
+                submitBtn.textContent = 'Generate Report (1 Credit)';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Simplified function to handle donut chart - NO ANIMATION
+        function updateScoreDonut(score) {
+            const scoreDonut = document.getElementById('scoreDonut');
+            const circumference = 440;
+            const offset = circumference - (circumference * score / 100);
+
+            // Set color and offset immediately based on score
+            if (score >= 90) {
+                scoreDonut.style.stroke = '#27ae60';
+            } else if (score >= 80) {
+                scoreDonut.style.stroke = '#2ecc71';
+            } else if (score >= 70) {
+                scoreDonut.style.stroke = '#f1c40f';
+            } else if (score >= 60) {
+                scoreDonut.style.stroke = '#f39c12';
+            } else {
+                scoreDonut.style.stroke = '#dc3545';
+            }
+            
+            // Set the fill immediately - no animation
+            scoreDonut.style.strokeDashoffset = offset;
+        }
+
+        // Display the report with new donut chart
+        function displayReport(reportData) {
+            console.log('📊 Displaying single-page report:', reportData);
+            console.log('📊 Data structure check:', Object.keys(reportData));
+            
+            // More flexible data access to handle different backend structures
+            const businessData = reportData.business || reportData.businessData || {};
+            const auditData = reportData.auditOverview || reportData.audit || reportData;
+            const scoreData = auditData.overallScore || auditData.score || { score: 0, message: 'Report generated successfully' };
+            
+            // Update business info header with fallback values
+            document.getElementById('reportBusinessName').textContent = 
+                businessData.name || reportData.businessName || 'Business Report';
+            document.getElementById('reportLocation').textContent = 
+                businessData.location || reportData.location || 'Location';
+            document.getElementById('reportDate').textContent = new Date().toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            // Update score with fallback
+            const score = scoreData.score || reportData.finalScore || 0;
+            
+            document.getElementById('scoreNumber').textContent = score;
+            document.getElementById('scoreMessage').textContent = 
+                scoreData.message || getScoreMessage(score);
+
+            // Animate the donut chart with the new function
+            updateScoreDonut(score);
+
+            // Display factors with fallback data
+            const factors = auditData.factors || reportData.factors || generateDefaultFactors(score);
+            displayFactorsCompact(factors, reportData.smartSuggestions || {});
+            
+            // Display citations with fallback
+            const citations = reportData.citationsAnalysis || reportData.citations || { data: { checked: [] } };
+            displayCitationsRow(citations);
+            
+            // Display action plan with fallback
+            const actionPlan = reportData.actionPlan || generateDefaultActionPlan(factors);
+            displayActionPlanSimple(actionPlan);
+        }
+
+        // Helper function to generate score message
+        function getScoreMessage(score) {
+            if (score >= 90) return 'Excellent! Your local SEO is in great shape.';
+            if (score >= 80) return 'Good foundation with room for optimization.';
+            if (score >= 70) return 'Solid base but needs focused improvements.';
+            if (score >= 60) return 'Several areas need attention to improve rankings.';
+            return 'Significant optimization needed to compete locally.';
+        }
+
+        // Helper function to generate default factors if missing
+        function generateDefaultFactors(score) {
+            return [
+                { id: 'claimed', name: 'Claimed Profile', status: 'GOOD', message: 'Profile is claimed and verified' },
+                { id: 'description', name: 'Business Description', status: score > 50 ? 'GOOD' : 'NEEDS IMPROVEMENT', message: getDynamicSummary('description', score > 50 ? 'GOOD' : 'NEEDS IMPROVEMENT') },
+                { id: 'categories', name: 'Categories', status: 'GOOD', message: getDynamicSummary('categories', 'GOOD') },
+                { id: 'photos', name: 'Photos', status: score > 60 ? 'GOOD' : 'NEEDS IMPROVEMENT', message: getDynamicSummary('photos', score > 60 ? 'GOOD' : 'NEEDS IMPROVEMENT') },
+                { id: 'reviews', name: 'Customer Reviews', status: score > 70 ? 'GOOD' : 'NEEDS IMPROVEMENT', message: getDynamicSummary('reviews', score > 70 ? 'GOOD' : 'NEEDS IMPROVEMENT') }
+            ];
+        }
+
+        // Helper function to generate default action plan
+        function generateDefaultActionPlan(factors) {
+            return {
+                actions: [
+                    { id: 'description', task: 'Optimize Business Description', completed: false },
+                    { id: 'photos', task: 'Upload High-Quality Photos', completed: false },
+                    { id: 'reviews', task: 'Improve Review Strategy', completed: false },
+                    { id: 'citations', task: 'Build Local Citations', completed: false },
+                    { id: 'posts', task: 'Start Regular Google Posts', completed: false }
+                ]
+            };
+        }
+
+        // Display factors in compact format with expandable details
+        function displayFactorsCompact(factors, smartSuggestions) {
+            const factorsGrid = document.getElementById('factorsGrid');
+            let factorsHTML = '';
+            
+            factors.forEach(factor => {
+                const statusClass = factor.status.toLowerCase().replace(/\s+/g, '-');
+                
+                factorsHTML += `
+                    <div class="factor-item-compact status-${statusClass}" onclick="toggleFactorExpanded('${factor.id}')">
+                        <div class="factor-header-compact">
+                            <div style="display: flex; align-items: center;">
+                                <div class="factor-name">${factor.name}</div>
+                                <span class="factor-expand-arrow">▼</span>
+                            </div>
+                            <span class="factor-status-badge status-${statusClass}">${factor.status}</span>
+                        </div>
+                        <p class="factor-message">${factor.message}</p>
+                        
+                        <div class="factor-expanded-content" id="expanded-${factor.id}">
+                            <div class="expanded-sections">
+                                <div class="expanded-section">
+                                    <h4>What Is This?</h4>
+                                    <p>${getFactorDescription(factor.id)}</p>
+                                </div>
+                                <div class="expanded-section">
+                                    <h4>Why It Matters?</h4>
+                                    <p>${getFactorImportance(factor.id)}</p>
+                                </div>
+                                <div class="expanded-section">
+                                    <h4>How to fix it</h4>
+                                    <p>${getFactorHowToFix(factor.id)}</p>
+                                    <a href="https://trylocality.com/blog/how-to-${factor.id}" target="_blank">📖 Read Detailed Guide →</a>
+                                </div>
+                            </div>
+                            
+                            ${(() => {
+                                const suggestion = getSmartSuggestion(factor.id, smartSuggestions);
+                                if (suggestion === null) return '';
+                                return `
+                                    <div class="smart-suggestion-section">
+                                        <h4>🤖 Smart Suggestion</h4>
+                                        <textarea class="suggestion-textarea" id="suggestion-${factor.id}" readonly>${suggestion}</textarea>
+                                        <div class="suggestion-actions">
+                                            <button class="copy-suggestion-btn" onclick="copySuggestionToClipboard('${factor.id}')">
+                                                📋 Copy to Clipboard
+                                            </button>
+                                            <button class="close-expanded-btn" onclick="toggleFactorExpanded('${factor.id}')">
+                                                Close
+                                            </button>
+                                        </div>
+                                    </div>
+                                `;
+                            })()}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            factorsGrid.innerHTML = factorsHTML;
+        }
+
+        // Toggle factor expanded view
+        function toggleFactorExpanded(factorId) {
+            const factorItem = document.querySelector(`#expanded-${factorId}`).closest('.factor-item-compact');
+            const expandedContent = document.getElementById(`expanded-${factorId}`);
+            
+            // Close all other expanded factors
+            document.querySelectorAll('.factor-item-compact.expanded').forEach(item => {
+                if (item !== factorItem) {
+                    item.classList.remove('expanded');
+                    item.querySelector('.factor-expanded-content').classList.remove('show');
+                }
+            });
+            
+            // Toggle this factor
+            factorItem.classList.toggle('expanded');
+            expandedContent.classList.toggle('show');
+        }
+
+        // Get factor descriptions (you can expand this with all 12 factors)
+        function getFactorDescription(factorId) {
+            const descriptions = {
+                'description': 'A short (up to 750 characters) summary that tells customers what your business does and why they should choose you.',
+                'claimed': 'Verifying and claiming ownership of your Google Business Profile.',
+                'categories': 'Your business\'s primary and secondary categories listed on your Google Business Profile. These are preset options provided by Google, not an open field.',
+                'productTiles': 'The product/service section of your GBP where you list specific offerings with names, descriptions, and optional prices. You can include links to those offerings specific landing page.',
+                'photos': 'Images displayed on your Google Business Profile, uploaded by you or your customers.',
+                'posts': 'Updates you can publish on your GBP to share promotions, tips, or business news. Think of it like a mini social media feed but on your Google Profile.',
+                'qa': 'A space on your profile where customers can ask questions about your business, and you (or others) can answer them.',
+                'social': 'Links to your Facebook, Instagram, LinkedIn, or other social profiles listed on your GBP.',
+                'reviews': 'Ratings and feedback left by customers on your Google Business Profile.',
+                'citations': 'Mentions of your business name, address, and phone number (NAP) across online directories like Yelp, BBB, and YP.com. There are thousands of these sites, but getting listed in local directories, or industry specific ones, are most valuable.',
+                'gbpEmbed': 'A map or widget that shows your Google listing embedded directly on your website.',
+                'landingPage': 'A dedicated page on your site targeting your specific service area (e.g., Plumbing in Nashville).'
+            };
+            return descriptions[factorId] || 'Important aspect of your local SEO presence';
+        }
+
+        function getFactorImportance(factorId) {
+            const importance = {
+                'description': 'Google uses this field to understand what you offer. Including the right keywords here helps you show up in more relevant searches.',
+                'claimed': 'Until it\'s claimed, you can\'t update info, respond to reviews, or optimize your listing.',
+                'categories': 'Categories help Google decide which searches your business should appear in. The more accurate and complete, the better.',
+                'productTiles': 'It\'s a chance to highlight all your key services and inject keyword-rich content into your profile. Most businesses skip this piece and miss out on those keyword opportunities.',
+                'photos': 'Photos show Google (and customers) that you\'re active and real. They improve click-through rates and build trust.',
+                'posts': 'Posts signal activity to Google and give potential customers reasons to engage. You can share discounts, new offerings or just help build your brand.',
+                'qa': 'This builds trust, answers common questions up front, and adds valuable keywords to your listing.',
+                'social': 'Social profiles build trust, help customers connect, and boost your visibility beyond search.',
+                'reviews': 'Strong reviews don\'t just boost reputation—they impact how high you rank in local search results. Plus, customers are more likely to pick businesses with strong reviews.',
+                'citations': 'Google uses consistent citations to verify your business\'s credibility and location authority. While most people don\'t go to these sites to find your business, Google does. The more directories you show up in, the more likely you are to rank higher.',
+                'gbpEmbed': 'It links your site and profile together in Google\'s eyes—and helps customers easily find your business.',
+                'landingPage': 'Google likes to match local intent with local content. A strong landing page improves both GBP and organic rankings. It helps local customers too!'
+            };
+            return importance[factorId] || 'This factor impacts your local search visibility and customer trust';
+        }
+
+        function getFactorHowToFix(factorId) {
+            const howToFix = {
+                'description': 'Use a strong local keyword (e.g., best cleaning service in Austin), clearly explain your core offerings, and end with a simple call to action (like "Call today for a free quote!").',
+                'claimed': 'Visit google.com/business, search for your business, and follow the steps to verify it (usually by mail or phone). Once claimed, you\'ll unlock full control.',
+                'categories': 'Make sure your primary category is your main service (e.g., Plumber, CPA), and add at least 5-6 relevant secondary categories based on services you actually offer.',
+                'productTiles': 'Add 3-6 services you offer. Use names people might search (e.g., Drain Cleaning - Emergency Services), and include short, clear descriptions with benefits and keywords.',
+                'photos': 'Upload at least 10 quality photos. Include: logo, interior, exterior, staff/team, and your product/service in action. Add new photos monthly to stay fresh.',
+                'posts': 'Post once per week. Share a tip, a testimonial, a photo of your work, or a promo. Each post should include an image, a short caption, and a clear CTA.',
+                'qa': 'Add 3-5 common questions yourself and answer them. Think of what people typically ask: Do you offer emergency services? What areas do you serve?',
+                'social': 'Add links to all your active profiles via your GBP dashboard. If missing, add them to your website and request a crawl or wait for them to show on Google.',
+                'reviews': 'Aim for steady, ongoing reviews (not a sudden spike). Respond to all reviews, especially new ones, and use your review link in texts, emails, and follow-ups.',
+                'citations': 'List your business on the top 8-10 directories, and ensure your NAP info is identical across all. Consider ordering citations to speed this up.',
+                'gbpEmbed': 'Search your business on Google Maps, click "Share," then "Embed a map." Copy the HTML code and paste it into your website\'s footer or contact page.',
+                'landingPage': 'Create a page with your city name in the title and content. Include services, reviews, a map, and local references. Use your city name in headings and alt text.'
+            };
+            return howToFix[factorId] || 'Follow Google Business Profile best practices to improve this factor';
+        }
+
+        function getSmartSuggestion(factorId, smartSuggestions) {
+            // Factors that should NOT show smart suggestions
+            const noSuggestionFactors = ['claimed', 'photos', 'gbpEmbed', 'social'];
+            if (noSuggestionFactors.includes(factorId)) {
+                return null; // This will hide the suggestion section
+            }
+            
+            // Try to get from AI suggestions
+            const suggestionKey = getSuggestionKey(factorId);
+            if (smartSuggestions && smartSuggestions.suggestions && smartSuggestions.suggestions[suggestionKey]) {
+                return smartSuggestions.suggestions[suggestionKey].content;
+            }
+            
+            // If no AI suggestion is available, show a more helpful message
+            const factorNames = {
+                'description': 'business description',
+                'categories': 'category selection',
+                'productTiles': 'product/service tiles',
+                'posts': 'posting strategy',
+                'qa': 'Q&A content',
+                'reviews': 'review management',
+                'citations': 'citation building',
+                'landingPage': 'landing page optimization'
+            };
+            const factorName = factorNames[factorId] || factorId;
+            return `AI-generated suggestions will appear here once the audit is complete. This section will provide specific recommendations for improving your ${factorName}.`;
+        }
+
+        // Copy suggestion to clipboard
+        function copySuggestionToClipboard(factorId) {
+            const textarea = document.getElementById(`suggestion-${factorId}`);
+            textarea.select();
+            document.execCommand('copy');
+            
+            // Show feedback
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '✅ Copied!';
+            button.style.background = '#28a745';
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = '';
+            }, 2000);
+            
+            showToast('Suggestion copied to clipboard!', 'success');
+        }
+
+        // Display citations in single row format
+        function displayCitationsRow(citationsData) {
+            const citationsRow = document.getElementById('citationsRow');
+            let citationsHTML = '';
+            
+            citationsData.data.checked.forEach(citation => {
+                const status = citation.found ? 'found' : 'missing';
+                const icon = citation.found ? '✓' : '✗';
+                const logoUrl = directoryLogos[citation.directory] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmOGY5ZmEiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiPgo8cGF0aCBkPSJNNCA0TDggOE00IDhMOCA0IiBzdHJva2U9IiM2Yzc1N2QiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+';
+                
+                citationsHTML += `
+                    <div class="citation-item-simple ${status}">
+                        <div class="citation-logo" style="background-image: url('${logoUrl}');"></div>
+                        <div class="citation-icon">${icon}</div>
+                        <div class="citation-name-simple">${citation.directory}</div>
+                    </div>
+                `;
+            });
+            
+            citationsRow.innerHTML = citationsHTML;
+        }
+
+        // Get suggestion key helper function
+        function getSuggestionKey(factorId) {
+            // Map factor IDs to suggestion keys from your backend
+            const keyMapping = {
+                'description': 'businessDescription',
+                'categories': 'categories',
+                'productTiles': 'productTiles',
+                'posts': 'posts',
+                'qa': 'qa',
+                'reviews': 'reviews',
+                'citations': 'citations',
+                'landingPage': 'landingPage'
+            };
+            return keyMapping[factorId] || factorId;
+        }
+
+        // Toggle fix content function
+        function toggleFixContent(factorId) {
+            const fixContent = document.getElementById(`fix-${factorId}`);
+            if (fixContent) {
+                fixContent.classList.toggle('show');
+            }
+        }
+
+        // Display simple action plan
+        function displayActionPlanSimple(actionData) {
+            const actionPlanList = document.getElementById('actionPlanList');
+            let actionHTML = '';
+            
+            actionData.actions.forEach(action => {
+                const statusClass = action.completed ? 'completed' : 'incomplete';
+                const checkmark = action.completed ? '✓' : '';
+                
+                actionHTML += `
+                    <div class="action-item-simple ${statusClass}">
+                        <div class="action-checkbox">${checkmark}</div>
+                        <div class="action-text">
+                            <span>${action.task}</span>
+                            <a href="https://trylocality.com/blog/${action.id}" target="_blank" class="action-arrow">↗</a>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            actionPlanList.innerHTML = actionHTML;
+        }
+
+        // Order citations function
+        function orderCitations() {
+            window.open('https://trylocality.com/citations', '_blank');
+        }
+
+        // Buy credits function
+        function buyCredits() {
+            window.open('https://trylocality.com/pricing', '_blank');
+        }
+
+        // Download PDF function
+        function downloadPDF() {
+            // Hide non-printable elements
+            const elementsToHide = document.querySelectorAll('.btn, .report-actions, .how-to-fix-btn');
+            elementsToHide.forEach(el => el.style.display = 'none');
+            
+            // Trigger print
+            window.print();
+            
+            // Restore elements after print
+            setTimeout(() => {
+                elementsToHide.forEach(el => el.style.display = '');
+            }, 1000);
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('authToken');
+            authToken = null;
+            currentUser = null;
+            userReports = [];
+            showLogin();
+            showToast('Logged out successfully', 'success');
+            console.log('👋 User logged out');
+        }
+
+        // Feedback Form Functions
+        function showFeedbackForm() {
+            document.getElementById('feedbackModal').classList.remove('hidden');
+            document.getElementById('feedbackModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeFeedbackForm() {
+            document.getElementById('feedbackModal').classList.remove('show');
+            document.getElementById('feedbackModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            
+            // Reset form
+            document.getElementById('feedbackForm').reset();
+            document.getElementById('feedbackRating').value = '';
+            document.querySelectorAll('.star').forEach(star => star.classList.remove('active'));
+            document.getElementById('feedbackError').classList.add('hidden');
+            document.getElementById('feedbackSuccess').classList.add('hidden');
+        }
+
+        // Star rating functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const stars = document.querySelectorAll('.star');
+            const ratingInput = document.getElementById('feedbackRating');
+            
+            stars.forEach((star, index) => {
+                star.addEventListener('click', function() {
+                    const rating = parseInt(this.dataset.rating);
+                    ratingInput.value = rating;
+                    
+                    // Update star display
+                    stars.forEach((s, i) => {
+                        if (i < rating) {
+                            s.classList.add('active');
+                        } else {
+                            s.classList.remove('active');
+                        }
+                    });
+                });
+                
+                star.addEventListener('mouseenter', function() {
+                    const rating = parseInt(this.dataset.rating);
+                    stars.forEach((s, i) => {
+                        if (i < rating) {
+                            s.style.color = '#ffc107';
+                        } else {
+                            s.style.color = '#ddd';
+                        }
+                    });
+                });
+                
+                star.addEventListener('mouseleave', function() {
+                    const currentRating = parseInt(ratingInput.value) || 0;
+                    stars.forEach((s, i) => {
+                        if (i < currentRating) {
+                            s.style.color = '#ffc107';
+                        } else {
+                            s.style.color = '#ddd';
+                        }
+                    });
+                });
+            });
+            
+            // Handle feedback form submission
+            document.getElementById('feedbackForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const rating = document.getElementById('feedbackRating').value;
+                const type = document.getElementById('feedbackType').value;
+                const message = document.getElementById('feedbackMessage').value;
+                const email = document.getElementById('feedbackEmail').value;
+                const errorDiv = document.getElementById('feedbackError');
+                const successDiv = document.getElementById('feedbackSuccess');
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                
+                // Validate required fields
+                if (!rating) {
+                    errorDiv.textContent = 'Please select a star rating';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                
+                if (!type) {
+                    errorDiv.textContent = 'Please select a feedback type';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                
+                if (!message.trim()) {
+                    errorDiv.textContent = 'Please enter your feedback';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                
+                // Clear previous messages
+                errorDiv.classList.add('hidden');
+                successDiv.classList.add('hidden');
+                
+                // Disable submit button
+                submitBtn.textContent = 'Submitting...';
+                submitBtn.disabled = true;
+                
+                try {
+                    const response = await fetch('/api/feedback', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            rating: parseInt(rating),
+                            type,
+                            message: message.trim(),
+                            email: email.trim() || null,
+                            reportData: currentReportData ? {
+                                businessName: currentReportData.businessName,
+                                location: currentReportData.location,
+                                industry: currentReportData.industry
+                            } : null
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        successDiv.textContent = 'Thank you for your feedback! We appreciate your input.';
+                        successDiv.classList.remove('hidden');
+                        
+                        // Reset form after successful submission
+                        setTimeout(() => {
+                            closeFeedbackForm();
+                        }, 2000);
+                    } else {
+                        errorDiv.textContent = result.error || 'Failed to submit feedback. Please try again.';
+                        errorDiv.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error('Feedback submission error:', error);
+                    errorDiv.textContent = 'Network error. Please check your connection and try again.';
+                    errorDiv.classList.remove('hidden');
+                } finally {
+                    // Re-enable submit button
+                    submitBtn.textContent = 'Submit Feedback';
+                    submitBtn.disabled = false;
+                }
+            });
+        });
+
+        // Close modal when clicking outside
+        document.addEventListener('click', function(event) {
+            const modal = document.getElementById('feedbackModal');
+            if (event.target === modal) {
+                closeFeedbackForm();
+            }
+        });
+    </script>
+</body>
+</html>
