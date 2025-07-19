@@ -1,0 +1,26 @@
+{
+  "name": "seo-saas-tool",
+  "version": "1.0.0",
+  "description": "Local SEO audit tool",
+  "main": "server-v2.js",
+  "scripts": {
+    "start": "node server-v2.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3",
+    "playwright": "^1.53.2",
+    "puppeteer": "^24.11.2",
+    "sqlite3": "^5.1.7",
+    "stripe": "^18.2.1"
+  }
+}
