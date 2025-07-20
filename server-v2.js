@@ -40,9 +40,10 @@ const CREDIT_AMOUNTS = {
 // White Label Configuration
 const BRAND_CONFIG = {
   name: process.env.BRAND_NAME || 'Locality',
-  logo: process.env.BRAND_LOGO || '/assets/logo.png',
+  logo: process.env.BRAND_LOGO || 'Locality Logo (1).png',
   primaryColor: process.env.BRAND_PRIMARY_COLOR || '#007bff',
-  supportEmail: process.env.BRAND_SUPPORT_EMAIL || 'support@locality.com'
+  supportEmail: process.env.BRAND_SUPPORT_EMAIL || 'support@locality.com',
+  preparedBySuffix: process.env.BRAND_PREPARED_BY_SUFFIX || 'Marketing'
 };
 // ==========================================
 // DATABASE SETUP
@@ -68,6 +69,9 @@ db.serialize(() => {
       last_name TEXT NOT NULL,
       credits_remaining INTEGER DEFAULT 1,
       subscription_tier TEXT DEFAULT 'free',
+      custom_brand_name TEXT DEFAULT NULL,
+      custom_brand_logo TEXT DEFAULT NULL,
+      custom_prepared_by TEXT DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -186,6 +190,68 @@ setInterval(cleanupExpiredCache, 24 * 60 * 60 * 1000);
 // DATA COLLECTION FUNCTIONS
 // ==========================================
 
+// Helper function to detect country and region from location string
+function detectCountryRegion(location) {
+  const locationLower = location.toLowerCase();
+  
+  // Common country indicators
+  const countryMappings = {
+    // Middle East
+    'united arab emirates': { region: 'AE', language: 'en' },
+    'uae': { region: 'AE', language: 'en' },
+    'dubai': { region: 'AE', language: 'en' },
+    'abu dhabi': { region: 'AE', language: 'en' },
+    'sharjah': { region: 'AE', language: 'en' },
+    'saudi arabia': { region: 'SA', language: 'en' },
+    'qatar': { region: 'QA', language: 'en' },
+    'kuwait': { region: 'KW', language: 'en' },
+    'bahrain': { region: 'BH', language: 'en' },
+    'oman': { region: 'OM', language: 'en' },
+    
+    // Europe
+    'united kingdom': { region: 'GB', language: 'en' },
+    'uk': { region: 'GB', language: 'en' },
+    'england': { region: 'GB', language: 'en' },
+    'london': { region: 'GB', language: 'en' },
+    'germany': { region: 'DE', language: 'en' },
+    'france': { region: 'FR', language: 'en' },
+    'spain': { region: 'ES', language: 'en' },
+    'italy': { region: 'IT', language: 'en' },
+    'netherlands': { region: 'NL', language: 'en' },
+    'belgium': { region: 'BE', language: 'en' },
+    'switzerland': { region: 'CH', language: 'en' },
+    
+    // Asia Pacific
+    'australia': { region: 'AU', language: 'en' },
+    'sydney': { region: 'AU', language: 'en' },
+    'melbourne': { region: 'AU', language: 'en' },
+    'new zealand': { region: 'NZ', language: 'en' },
+    'singapore': { region: 'SG', language: 'en' },
+    'hong kong': { region: 'HK', language: 'en' },
+    'japan': { region: 'JP', language: 'en' },
+    'india': { region: 'IN', language: 'en' },
+    
+    // Americas
+    'canada': { region: 'CA', language: 'en' },
+    'toronto': { region: 'CA', language: 'en' },
+    'vancouver': { region: 'CA', language: 'en' },
+    'mexico': { region: 'MX', language: 'en' },
+    'brazil': { region: 'BR', language: 'en' },
+    'argentina': { region: 'AR', language: 'en' }
+  };
+  
+  // Check for country/city matches
+  for (const [key, value] of Object.entries(countryMappings)) {
+    if (locationLower.includes(key)) {
+      console.log(`🌍 Detected location: ${key} -> Region: ${value.region}`);
+      return value;
+    }
+  }
+  
+  // Default to US if no specific country detected
+  return { region: 'US', language: 'en' };
+}
+
 // 1. OUTSCRAPER - Get primary business data
 async function getOutscraperData(businessName, location) {
   try {
@@ -196,11 +262,14 @@ async function getOutscraperData(businessName, location) {
       throw new Error('Outscraper API key not configured');
     }
     
+    // Detect country/region from location
+    const { region, language } = detectCountryRegion(location);
+    
     const response = await axios.get('https://api.outscraper.com/maps/search-v2', {
       params: {
         query: query,
-        language: 'en',
-        region: 'US',
+        language: language,
+        region: region,
         limit: 1
       },
       headers: {
@@ -308,7 +377,11 @@ async function takeBusinessProfileScreenshot(businessName, location) {
     }
     
     const searchQuery = `${businessName} ${location}`;
-    const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+    
+    // Detect location for better screenshot results
+    const { region } = detectCountryRegion(location);
+    const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+    const googleSearchUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
     
     const params = {
       api_key: SCRAPINGBEE_API_KEY,
@@ -321,7 +394,8 @@ async function takeBusinessProfileScreenshot(businessName, location) {
       wait: 4000,
       window_width: 1920,
       window_height: 1080,
-      block_resources: 'false'
+      block_resources: 'false',
+      country_code: region.toLowerCase()
     };
     
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
@@ -470,12 +544,19 @@ async function checkCitations(businessName, location) {
       try {
         const searchQuery = `site:${directory.domain} "${businessName}" ${location}`;
         
+        // Detect location for better search results
+        const { region } = detectCountryRegion(location);
+        const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+        
         const response = await axios.get('https://serpapi.com/search.json', {
           params: {
             engine: 'google',
             q: searchQuery,
             api_key: SERPAPI_KEY,
-            num: 3
+            num: 3,
+            google_domain: googleDomain,
+            gl: region.toLowerCase(),
+            hl: 'en'
           },
           timeout: 10000
         });
@@ -572,10 +653,14 @@ async function analyzeWebsite(websiteUrl, location) {
     ];
     const hasGBPEmbed = gbpIndicators.some(indicator => htmlLower.includes(indicator));
     
-    // Check for localized landing page - search for both city AND state
+    // Check for localized landing page - search for both city AND state/country
     const { city, state } = extractCityState(location);
     const cityLower = city.toLowerCase();
     const stateLower = state.toLowerCase();
+    
+    // For international addresses, also check for country-specific patterns
+    const locationParts = location.toLowerCase().split(/[,\-]/).map(p => p.trim());
+    
     const localizedIndicators = [
       // City-specific patterns
       `/${cityLower}`,
@@ -585,7 +670,7 @@ async function analyzeWebsite(websiteUrl, location) {
       `/serving-${cityLower}`,
       `>${cityLower} location<`,
       `>${cityLower} office<`,
-      // State-specific patterns
+      // State/Country-specific patterns
       `/${stateLower}`,
       `${stateLower}-`,
       `/location/${stateLower}`,
@@ -594,7 +679,10 @@ async function analyzeWebsite(websiteUrl, location) {
       `>${stateLower} location<`,
       `>${stateLower} office<`,
       // Common state name patterns
-      `utah`, `texas`, `california`, `florida`, `nevada`, `colorado`, `arizona` // add more as needed
+      `utah`, `texas`, `california`, `florida`, `nevada`, `colorado`, `arizona`,
+      // Add patterns for any part of the location
+      ...locationParts.filter(part => part.length > 2).map(part => `/${part}`),
+      ...locationParts.filter(part => part.length > 2).map(part => `${part}-`)
     ];
     const hasLocalizedPage = localizedIndicators.some(indicator => htmlLower.includes(indicator));
     
@@ -623,21 +711,34 @@ async function analyzeWebsite(websiteUrl, location) {
   }
 }
 
-// Helper function to extract city and state from location string
+// Helper function to extract city and state/country from location string
 function extractCityState(location) {
   // Handle full address format (e.g., "123 Main St, Miami, FL 33101")
-  const parts = location.split(',').map(p => p.trim());
+  const parts = location.split(/[,\-]/).map(p => p.trim()).filter(p => p.length > 0);
+  
+  // For international addresses, the format might be different
+  // e.g., "Al Sufouh - Dubai - United Arab Emirates"
   
   if (parts.length === 2) {
-    // Simple "City, ST" format
+    // Simple "City, ST" or "City, Country" format
     return {
       city: parts[0],
       state: parts[1]
     };
   } else if (parts.length >= 3) {
-    // Full address format - extract city and state from the last parts
+    // Complex format - try to identify city and state/country
     const lastPart = parts[parts.length - 1].trim();
     const secondLastPart = parts[parts.length - 2].trim();
+    
+    // Check if last part is a country name
+    const countryNames = ['united arab emirates', 'uae', 'united kingdom', 'uk', 'usa', 'united states', 'canada', 'australia', 'germany', 'france', 'spain', 'italy'];
+    if (countryNames.some(country => lastPart.toLowerCase().includes(country))) {
+      // Last part is country, second last is likely city or state
+      return {
+        city: secondLastPart,
+        state: lastPart
+      };
+    }
     
     // Check if last part is a zip code
     if (/^\d{5}(-\d{4})?$/.test(lastPart)) {
@@ -656,12 +757,32 @@ function extractCityState(location) {
         state: lastPart.toUpperCase()
       };
     }
+    
+    // For addresses with many parts, try to identify known city names
+    const knownCities = ['dubai', 'abu dhabi', 'sharjah', 'london', 'paris', 'sydney', 'toronto', 'singapore'];
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if (knownCities.some(city => parts[i].toLowerCase().includes(city))) {
+        return {
+          city: parts[i],
+          state: parts[parts.length - 1] // Use last part as state/country
+        };
+      }
+    }
   }
   
-  // Fallback - try to split by comma and use first two parts
+  // Fallback - use the most significant parts
+  if (parts.length >= 2) {
+    // Try to find the most likely city (usually one of the middle parts)
+    const middleIndex = Math.floor(parts.length / 2);
+    return {
+      city: parts[middleIndex] || parts[0],
+      state: parts[parts.length - 1] || ''
+    };
+  }
+  
   return {
     city: parts[0] || location,
-    state: parts[1] || ''
+    state: ''
   };
 }
 
@@ -713,11 +834,18 @@ async function analyzeReviews(businessName, location, placeId) {
     if (!businessPlaceId) {
       console.log('🔍 Getting place info from SerpAPI...');
       
+      // Detect location for better search results
+      const { region } = detectCountryRegion(location);
+      const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+      
       const searchResponse = await axios.get('https://serpapi.com/search.json', {
         params: {
           engine: 'google_local',
           q: `${businessName} ${location}`,
-          api_key: SERPAPI_KEY
+          api_key: SERPAPI_KEY,
+          google_domain: googleDomain,
+          gl: region.toLowerCase(),
+          hl: 'en'
         },
         timeout: 15000
       });
@@ -1180,24 +1308,44 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
     }
     
     // 8. Landing Page Optimization (if needed)
+    console.log(`🔍 Landing page score: ${scoreData.scores.landingPage}/8`);
     if (scoreData.scores.landingPage < 8) {
+      console.log('🚀 Generating landing page suggestion...');
       const landingPagePrompt = `
-      Create a local landing page optimization strategy for:
+      Create a complete localized landing page for:
       Business: ${businessName}
       Industry: ${industry}
       Location: ${city}, ${state}
       Website: ${website}
       
-      Provide:
-      - 5 key elements for the local landing page
-      - Local SEO keywords to include
-      - Content structure recommendations
-      - Local trust signals to add
+      Provide a ready-to-use landing page with:
       
-      Focus on converting local visitors.
+      1. SUGGESTED URL: Create a SEO-friendly URL path (e.g., /service-city-state)
+      
+      2. META DESCRIPTION: Write a compelling 150-character meta description that includes the business name, service, and location
+      
+      3. PAGE COPY: Write complete page content including:
+         - Compelling headline with location
+         - 2-3 paragraphs about the business serving the local area
+         - Why choose this business in this specific location
+         - Local trust signals and community connection
+         - Clear call-to-action
+      
+      Format your response clearly with headers for each section.
+      Make it conversion-focused and locally relevant.
       `;
       
-      suggestions.landingPage = await callOpenAI(landingPagePrompt, 'landingPage');
+      try {
+        suggestions.landingPage = await callOpenAI(landingPagePrompt, 'landingPage');
+      } catch (error) {
+        console.error('❌ Landing page suggestion failed:', error.message);
+        suggestions.landingPage = {
+          title: 'Landing Page Recommendation',
+          content: `Create a localized landing page for ${businessName} in ${city}, ${state}. Include your business name and location in the page title, write content about serving the local area, and add local keywords throughout the page.`,
+          instructions: 'Create this landing page on your website using local keywords and content.',
+          error: 'AI generation failed - using fallback content'
+        };
+      }
     }
     
     console.log(`✅ Smart suggestions generated for ${Object.keys(suggestions).length} areas`);
@@ -1215,13 +1363,16 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
 // Helper function to call OpenAI
 async function callOpenAI(prompt, type) {
   try {
+    // Use more tokens for landing page content since it needs URL, meta description, and full copy
+    const maxTokens = type === 'landingPage' ? 1000 : 500;
+    
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o-mini',
       messages: [{
         role: 'user',
         content: prompt
       }],
-      max_tokens: 500,
+      max_tokens: maxTokens,
       temperature: 0.7
     }, {
       headers: {
@@ -1257,7 +1408,10 @@ function getInstructionsFor(type) {
     'categories': 'Add these categories in your Google Business Profile > Info > Category section.',
     'product tiles': 'Add these as Products/Services in your Google Business Profile > Products section.',
     'posts': 'Use these as Google Posts - post 1-2 per week for better engagement.',
-    'Q&A': 'Add these questions and answers to your Google Business Profile Q&A section.'
+    'Q&A': 'Add these questions and answers to your Google Business Profile Q&A section.',
+    'landingPage': 'Create this landing page on your website using the suggested URL, meta description, and copy provided. This will help you rank for local searches.',
+    'citations': 'Submit your business information to the directories listed to improve your local search presence.',
+    'reviews': 'Implement these review management strategies to build more positive reviews and respond professionally.'
   };
   
   return instructions[type] || 'Follow Google Business Profile guidelines for implementation.';
@@ -1266,7 +1420,7 @@ function getInstructionsFor(type) {
 // MAIN REPORT GENERATION (COMPLETE VERSION)
 // ==========================================
 
-async function generateCompleteReport(businessName, location, industry, website) {
+async function generateCompleteReport(businessName, location, industry, website, user = null) {
   console.log(`🚀 Generating COMPLETE report for: ${businessName} in ${location}`);
   
   const errors = [];
@@ -1378,10 +1532,20 @@ async function generateCompleteReport(businessName, location, industry, website)
     const actionPlan = generateActionPlan(scoreData);
     
     // Step 11: Build final report
+    // Get user-specific branding or use default
+    const brandName = (user && user.custom_brand_name) || BRAND_CONFIG.name;
+    const brandLogo = (user && user.custom_brand_logo) || BRAND_CONFIG.logo;
+    const preparedBy = (user && user.custom_prepared_by) || `${brandName} ${BRAND_CONFIG.preparedBySuffix}`;
+    
     const report = {
       success: true,
       business: { name: businessName, location, industry, website },
       generatedDate: new Date().toLocaleDateString(),
+      brandInfo: {
+        name: brandName,
+        logo: brandLogo,
+        preparedBy: preparedBy
+      },
       
       // Audit Overview
       auditOverview: {
@@ -1473,12 +1637,12 @@ function getScoreGrade(score) {
 }
 
 function getScoreMessage(score) {
-  if (score >= 90) return 'Excellent local SEO foundation with minor optimization opportunities';
-  if (score >= 80) return 'Strong local presence with some key areas for improvement';
-  if (score >= 70) return 'Good foundation but needs focused optimization in several areas';
-  if (score >= 60) return 'Basic local presence with significant improvement opportunities';
-  if (score >= 40) return 'Weak local SEO foundation requiring immediate attention';
-  return 'Critical local SEO issues that must be addressed immediately';
+  if (score >= 90) return 'Outstanding! Your local SEO strategy is working beautifully with just minor fine-tuning needed';
+  if (score >= 80) return 'Great work! You have a strong foundation with exciting opportunities to reach even more customers';
+  if (score >= 70) return 'You\'re on the right track! A few focused improvements will significantly boost your visibility';
+  if (score >= 60) return 'Good start! There are several valuable opportunities to enhance your local presence';
+  if (score >= 40) return 'You have potential! With some focused effort, you can build a strong local presence';
+  return 'Every business starts somewhere! Let\'s work together to build your local SEO success step by step';
 }
 
 function formatFactorName(key) {
@@ -1734,15 +1898,16 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Business name, location, and industry are required' });
     }
     
-    // Validate location format (should be "City, ST")
-    if (!finalLocation.includes(',')) {
-      return res.status(400).json({ error: 'Location must be in format "City, ST" (e.g., "Denver, CO")' });
+    // Validate location format - more flexible for international addresses
+    // Allow formats like "City, ST", "City - Country", or complex addresses
+    if (finalLocation.length < 3) {
+      return res.status(400).json({ error: 'Please provide a valid location (e.g., "Denver, CO" or "Dubai, UAE")' });
     }
     
     console.log(`🏢 Generating COMPLETE report for: ${businessName} in ${finalLocation} (${finalIndustry})`);
     
     // Generate complete report with all features
-    const report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website);
+    const report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user);
     
     // Save report
     db.run(
@@ -1807,6 +1972,47 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error in user-reports endpoint:', error);
     res.status(500).json({ error: 'Failed to load reports' });
+  }
+});
+
+// Get a specific report by ID
+app.get('/api/reports/:id', authenticateToken, async (req, res) => {
+  try {
+    const reportId = req.params.id;
+    console.log(`📊 Loading report ${reportId} for user ${req.user.id}`);
+    
+    db.get(
+      'SELECT * FROM reports WHERE id = ? AND user_id = ?',
+      [reportId, req.user.id],
+      (err, report) => {
+        if (err) {
+          console.error('Error loading report:', err);
+          return res.status(500).json({ error: 'Failed to load report' });
+        }
+        
+        if (!report) {
+          console.log(`❌ Report ${reportId} not found for user ${req.user.id}`);
+          return res.status(404).json({ error: 'Report not found' });
+        }
+        
+        try {
+          // Parse the stored JSON report data
+          const reportData = JSON.parse(report.report_data);
+          console.log(`✅ Successfully loaded report ${reportId}`);
+          
+          res.json({
+            success: true,
+            report: reportData
+          });
+        } catch (parseError) {
+          console.error('Error parsing report data:', parseError);
+          return res.status(500).json({ error: 'Report data is corrupted' });
+        }
+      }
+    );
+  } catch (error) {
+    console.error('Error in report retrieval endpoint:', error);
+    res.status(500).json({ error: 'Failed to load report' });
   }
 });
 
