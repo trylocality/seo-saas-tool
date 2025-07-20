@@ -9,6 +9,8 @@ const path = require('path');
 const axios = require('axios');
 const fs = require('fs').promises;
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const https = require('https');
+const querystring = require('querystring');
 
 // ==========================================
 // CONFIGURATION & ENVIRONMENT VARIABLES
@@ -251,6 +253,77 @@ function detectCountryRegion(location) {
   // Default to US if no specific country detected
   return { region: 'US', language: 'en' };
 }
+
+// ==========================================
+// EMAIL FUNCTIONS
+// ==========================================
+
+// Send feedback email notification
+async function sendFeedbackEmail(feedbackData) {
+  const { rating, type, message, email, reportData, userId, userName } = feedbackData;
+  
+  // Email content
+  const subject = `🔔 New Feedback Submission - ${rating}/5 stars`;
+  const emailBody = `
+New feedback received from SEO Audit Tool:
+
+👤 User Information:
+   • Name: ${userName}
+   • User ID: ${userId}
+   • Contact Email: ${email || 'Not provided'}
+
+⭐ Rating: ${rating}/5 stars
+📂 Type: ${type}
+
+💬 Message:
+${message}
+
+📊 Related Report:
+${reportData ? `   • Business: ${reportData.businessName}
+   • Location: ${reportData.location}
+   • Industry: ${reportData.industry}` : 'No report data associated'}
+
+⏰ Submitted: ${new Date().toLocaleString()}
+
+---
+This feedback was submitted through the Locality SEO Audit Tool.
+  `.trim();
+
+  try {
+    // Method 1: Log to console (always works for debugging)
+    console.log('📧 FEEDBACK EMAIL NOTIFICATION:');
+    console.log('To: trylocality@gmail.com');
+    console.log('Subject:', subject);
+    console.log('Body:', emailBody);
+    
+    // Method 2: Try to use a webhook service (like Zapier, n8n, or similar)
+    // This allows you to set up email forwarding without SMTP credentials
+    if (process.env.FEEDBACK_WEBHOOK_URL) {
+      const webhookData = {
+        to: 'trylocality@gmail.com',
+        subject: subject,
+        body: emailBody,
+        feedbackData: feedbackData
+      };
+      
+      await axios.post(process.env.FEEDBACK_WEBHOOK_URL, webhookData, {
+        timeout: 5000,
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      console.log('✅ Feedback webhook sent successfully');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Email sending failed:', error.message);
+    throw error;
+  }
+}
+
+// ==========================================
+// BUSINESS ANALYSIS FUNCTIONS
+// ==========================================
 
 // 1. OUTSCRAPER - Get primary business data
 async function getOutscraperData(businessName, location) {
@@ -2114,6 +2187,23 @@ app.post('/api/feedback', authenticateToken, async (req, res) => {
     stmt.finalize();
     
     console.log(`✅ Feedback saved successfully for user ${userId}`);
+    
+    // Send email notification
+    try {
+      await sendFeedbackEmail({
+        rating,
+        type,
+        message,
+        email,
+        reportData,
+        userId,
+        userName: req.user.firstName || 'Unknown User'
+      });
+      console.log(`📧 Feedback email sent successfully`);
+    } catch (emailError) {
+      console.error('⚠️ Failed to send feedback email:', emailError);
+      // Don't fail the request if email fails, just log it
+    }
     
     res.json({ 
       success: true, 
