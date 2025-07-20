@@ -364,10 +364,12 @@
         .action-arrow:hover { background: #e9ecef; transform: translateY(-1px); }
         
         /* Upsell Section */
-        .upsell-box { background: #f8f9fa; border-radius: 12px; padding: 30px; text-align: center; border: 2px solid #e9ecef; }
-        .upsell-title { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; color: #2c5282; margin-bottom: 15px; font-weight: 600; }
-        .upsell-description { font-size: 1rem; color: #495057; margin-bottom: 20px; line-height: 1.6; }
-        .upsell-cta { font-size: 1.1rem; color: #28a745; font-weight: 600; }
+        .upsell-box { background: #2c5282; border-radius: 12px; padding: 30px; text-align: center; border: 2px solid #1a365d; }
+        .upsell-title { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; color: white; margin-bottom: 15px; font-weight: 600; }
+        .upsell-description { font-size: 1rem; color: white; margin-bottom: 20px; line-height: 1.6; }
+        .upsell-cta { font-size: 1.1rem; color: white; font-weight: 600; }
+        .upsell-link { color: #ffd700; text-decoration: underline; font-weight: 600; }
+        .upsell-link:hover { color: white; text-decoration: none; }
         
         /* Footer Logo */
         .footer-logo { text-align: center; padding: 30px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
@@ -1106,16 +1108,16 @@
 
             <!-- Report Actions -->
             <div class="report-actions">
-                <button class="btn btn-secondary" onclick="downloadPDF()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
+                <button class="btn" onclick="downloadPDF()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
                     Download PDF Report
                 </button>
                 <button class="btn" onclick="showReportForm()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
                     Generate Another Report
                 </button>
-                <button class="btn btn-secondary" onclick="showDashboard()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
+                <button class="btn" onclick="showDashboard()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
                     Back to Dashboard
                 </button>
-                <button class="btn btn-secondary" onclick="showFeedbackForm()" style="width: auto; padding: 12px 25px;">
+                <button class="btn" onclick="showFeedbackForm()" style="width: auto; padding: 12px 25px;">
                     Share Feedback
                 </button>
             </div>
