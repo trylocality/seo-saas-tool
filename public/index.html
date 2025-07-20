@@ -188,13 +188,41 @@
         .business-name { font-weight: 600; color: #2c5282; font-size: 1.1rem; }
         .business-location { color: #666; font-size: 0.9rem; margin-top: 2px; }
         .score-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 1.1rem; min-width: 80px; text-align: center; }
+        /* Score display styling */
+        .score-display { 
+            font-weight: 600; 
+            font-size: 1.1rem; 
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            text-align: center; 
+            min-width: 60px; 
+            display: inline-block; 
+        }
         .score-good { background: #d4edda; color: #155724; }
         .score-fair { background: #fff3cd; color: #856404; }
         .score-poor { background: #f8d7da; color: #721c24; }
-        .run-again-btn { background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; font-size: 0.9rem; }
-        .run-again-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3); }
-        .view-btn { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; margin-right: 8px; }
-        .view-btn:hover { background: #5a6268; }
+        .score-neutral { background: #e9ecef; color: #495057; }
+        
+        /* Report action buttons - consistent styling */
+        .report-action-btn { 
+            background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%); 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            border-radius: 6px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+            font-size: 0.85rem; 
+            margin-right: 8px; 
+            min-width: 80px;
+        }
+        .report-action-btn:hover { 
+            background: linear-gradient(135deg, #2c5282 0%, #1a365d 100%); 
+            transform: translateY(-1px); 
+            box-shadow: 0 4px 8px rgba(44, 82, 130, 0.3); 
+        }
+        .report-action-btn:last-child { margin-right: 0; }
         
         /* Loading Progress */
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #2c5282; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
@@ -1515,11 +1543,13 @@
             `;
             
             userReports.forEach(report => {
-                // Get report data for stored reports (we only have limited data from the list endpoint)
-                let score = 'N/A';
-                let grade = 'N/A';
-                
                 const date = new Date(report.created_at).toLocaleDateString();
+                
+                // Display actual score if available, otherwise show placeholder
+                const score = report.score || 'N/A';
+                const scoreClass = score === 'N/A' ? 'score-neutral' : 
+                                 score >= 80 ? 'score-good' : 
+                                 score >= 60 ? 'score-fair' : 'score-poor';
                 
                 tableHTML += `
                     <tr>
@@ -1528,13 +1558,13 @@
                             <div class="business-location">${report.city} • ${report.industry}</div>
                         </td>
                         <td>
-                            <span class="score-badge score-good">View Report</span>
+                            <div class="score-display ${scoreClass}">${score}${score !== 'N/A' ? '/100' : ''}</div>
                         </td>
                         <td>${date}</td>
                         <td>
-                            <button class="view-btn" onclick="viewStoredReport(${report.id})">View</button>
-                            <button class="run-again-btn" onclick="runReportAgain('${report.business_name}', '${report.city}', '${report.industry}', '${report.website || ''}')">
-                                Run Again
+                            <button class="report-action-btn view-btn" onclick="viewStoredReport(${report.id})">VIEW</button>
+                            <button class="report-action-btn run-again-btn" onclick="runReportAgain('${report.business_name}', '${report.city}', '${report.industry}', '${report.website || ''}')">
+                                RUN AGAIN
                             </button>
                         </td>
                     </tr>

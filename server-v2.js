@@ -1953,7 +1953,7 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
     console.log(`📋 Loading reports for user ${req.user.id}`);
     
     db.all(
-      'SELECT id, business_name, city, industry, website, created_at FROM reports WHERE user_id = ? ORDER BY created_at DESC',
+      'SELECT id, business_name, city, industry, website, created_at, report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC',
       [req.user.id],
       (err, reports) => {
         if (err) {
@@ -1961,11 +1961,34 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
           return res.status(500).json({ error: 'Failed to load reports' });
         }
         
+        // Extract score from each report's JSON data
+        const reportsWithScores = reports.map(report => {
+          let score = null;
+          try {
+            if (report.report_data) {
+              const reportData = JSON.parse(report.report_data);
+              score = reportData.auditOverview?.overallScore || reportData.finalScore || null;
+            }
+          } catch (parseError) {
+            console.error(`Error parsing report data for report ${report.id}:`, parseError);
+          }
+          
+          return {
+            id: report.id,
+            business_name: report.business_name,
+            city: report.city,
+            industry: report.industry,
+            website: report.website,
+            created_at: report.created_at,
+            score: score
+          };
+        });
+        
         console.log(`✅ Found ${reports.length} reports for user ${req.user.id}`);
         
         res.json({
           success: true,
-          reports: reports
+          reports: reportsWithScores
         });
       }
     );
