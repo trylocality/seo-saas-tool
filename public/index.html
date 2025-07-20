@@ -1451,7 +1451,7 @@
                 
                 const response = await fetch(`/api/reports/${reportId}`, {
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        'Authorization': `Bearer ${authToken}`
                     }
                 });
                 
