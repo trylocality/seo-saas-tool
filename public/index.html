@@ -153,7 +153,23 @@
         .business-details { font-size: 0.9rem; color: #495057; line-height: 1.6; }
         .business-details strong { color: #2c5282; }
         .logo-container { flex-shrink: 0; }
-        .logo { height: 80px; width: auto; }
+        .logo { height: 80px; width: auto; max-width: 200px; display: block; }
+        
+        /* Logo styling improvements */
+        img[src*="locality-logo"] { 
+            display: block; 
+            max-width: 100%; 
+            height: auto;
+            object-fit: contain;
+            background-color: transparent;
+        }
+        
+        /* Ensure logos are visible on all backgrounds */
+        .header img, .logo, .footer-logo img {
+            background-color: transparent;
+            border: none;
+            outline: none;
+        }
         
         /* Updated Score Display - DONUT CHART - SIMPLIFIED */
         .score-donut-container {
@@ -290,7 +306,10 @@
         
         /* Footer Logo */
         .footer-logo { text-align: center; padding: 30px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
-        .footer-logo img { height: 40px; width: auto; }
+        .footer-logo img { height: 40px; width: auto; max-width: 150px; }
+        
+        /* Dashboard header logo */
+        .header img { max-width: 200px; height: auto; }
         
         /* Report Actions */
         .report-actions { text-align: center; margin: 40px 0; padding: 30px; border-top: 1px solid #eee; }
@@ -755,6 +774,32 @@
     .modal-content form {
         padding: 20px;
     }
+    
+    /* Mobile logo adjustments */
+    .header img {
+        height: 40px !important;
+        max-width: 150px !important;
+    }
+    
+    .logo {
+        height: 60px !important;
+        max-width: 150px !important;
+    }
+    
+    .footer-logo img {
+        height: 30px !important;
+        max-width: 120px !important;
+    }
+    
+    .business-info-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .logo-container {
+        margin-top: 15px;
+    }
 }
     </style>
 </head>
@@ -823,7 +868,7 @@
         <!-- Enhanced Dashboard -->
         <div id="dashboardSection" class="card hidden" style="max-width: 900px;">
             <div class="header">
-                <img src="Locality Logo (1).png" alt="Locality" style="height: 60px; width: auto;">
+                <img src="locality-logo.png" alt="Locality" style="height: 60px; width: auto;">
             </div>
             <div class="dashboard-header">
                 <div>
@@ -930,7 +975,7 @@
                         <div><strong>Prepared By:</strong> <span id="reportPreparedBy">Locality Marketing</span></div>
                     </div>
                     <div class="logo-container">
-                        <img src="Locality Logo (1).png" alt="Locality Marketing" class="logo">
+                        <img src="locality-logo.png" alt="Locality Marketing" class="logo">
                     </div>
                 </div>
 
@@ -990,7 +1035,7 @@
 </div>
                 <!-- Footer Logo - Bottom Right -->
                 <div class="footer-logo">
-                    <img src="Locality Logo (1).png" alt="Locality Marketing">
+                    <img src="locality-logo.png" alt="Locality Marketing">
                 </div>
             </div>
 
@@ -1105,10 +1150,10 @@
             'Yelp': 'Directory Logos/Yelp.png',
             'Better Business Bureau': 'Directory Logos/BBB.png',
             'Yellow Pages': 'Directory Logos/YellowPages.png',
-            'Apple Maps': 'Directory Logos/Apple Maps.png',
+            'Apple Maps': 'Directory Logos/Apple-Maps.png',
             'Facebook Business': 'Directory Logos/Facebook.png',
             'Foursquare': 'Directory Logos/Foursquare.png',
-            'Bing Maps': 'Directory Logos/Bing Maps.png'
+            'Bing Maps': 'Directory Logos/Bing-Maps.png'
         };
 
         // Progress simulation steps
