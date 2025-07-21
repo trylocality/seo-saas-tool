@@ -1,0 +1,27 @@
+[dotenv@17.2.0] injecting env (6) from .env (tip: ⚙️  enable debug logging with { debug: true })
+🚀 Local SEO Audit v3 (COMPLETE) running on http://localhost:3000
+
+🎯 COMPLETE VERSION - ALL FEATURES:
+✅ Complete 12-factor scoring system (100 points)
+✅ Outscraper integration with async polling
+✅ ScrapingBee screenshot capture
+✅ OpenAI screenshot analysis (posts, tiles, Q&A, social)
+✅ Citation checking across 7 directories
+✅ Website analysis (GBP embed + service extraction)
+✅ SerpAPI reviews analysis
+✅ AI-powered smart suggestions
+✅ Complete action plan generation
+✅ Production-ready error handling
+
+🔧 API STATUS:
+📍 Outscraper: ✅ Ready
+📸 ScrapingBee: ✅ Ready
+🤖 OpenAI: ✅ Ready
+🔍 SerpAPI: ✅ Ready
+
+🏷️ Brand: Locality
+💰 Estimated cost per report: ~$0.085
+📈 Profit margin: 99.83% at $49/report
+
+🚀 Ready for production deployment!
+✅ Connected to SQLite database (v3)

@@ -3,8 +3,8 @@ require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
+const DatabaseAdapter = require('./database-adapter');
 const path = require('path');
 const axios = require('axios');
 const fs = require('fs').promises;
@@ -51,93 +51,20 @@ const BRAND_CONFIG = {
 // DATABASE SETUP
 // ==========================================
 
-const db = new sqlite3.Database('./seo_audit_v3.db', (err) => {
-  if (err) {
-    console.error('❌ Database connection failed:', err.message);
+// Initialize database
+const db = new DatabaseAdapter();
+
+// Initialize database connection
+(async () => {
+  try {
+    await db.initialize();
+    await db.setupTables();
+    console.log('✅ Database ready for connections');
+  } catch (err) {
+    console.error('❌ Database initialization failed:', err);
     process.exit(1);
   }
-  console.log('✅ Connected to SQLite database (v3)');
-});
-
-// Create tables
-db.serialize(() => {
-  // Users table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      first_name TEXT NOT NULL,
-      last_name TEXT NOT NULL,
-      credits_remaining INTEGER DEFAULT 1,
-      subscription_tier TEXT DEFAULT 'free',
-      custom_brand_name TEXT DEFAULT NULL,
-      custom_brand_logo TEXT DEFAULT NULL,
-      custom_prepared_by TEXT DEFAULT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Reports table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS reports (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      business_name TEXT NOT NULL,
-      city TEXT NOT NULL,
-      industry TEXT NOT NULL,
-      website TEXT,
-      report_data TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users (id)
-    )
-  `);
-
-  // Screenshot cache table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS screenshot_cache (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      business_name TEXT NOT NULL,
-      city TEXT NOT NULL,
-      screenshot_filename TEXT NOT NULL,
-      screenshot_url TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      expires_at DATETIME NOT NULL,
-      file_size INTEGER,
-      UNIQUE(business_name, city)
-    )
-  `);
-
-  // Payments table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS payments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      amount INTEGER NOT NULL,
-      credits_purchased INTEGER NOT NULL,
-      stripe_payment_id TEXT,
-      status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users (id)
-    )
-  `);
-
-  // Feedback table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS feedback (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      rating INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      message TEXT NOT NULL,
-      email TEXT,
-      report_data TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users (id)
-    )
-  `);
-});
+})();
 
 // ==========================================
 // MIDDLEWARE
