@@ -214,22 +214,26 @@
         .business-details { font-size: 0.9rem; color: #495057; line-height: 1.6; }
         .business-details strong { color: #0e192b; }
         .logo-container { flex-shrink: 0; }
-        .logo { height: 80px; width: auto; max-width: 200px; display: block; }
         
-        /* Logo styling improvements */
-        img[src*="locality-logo"] { 
-            display: block; 
-            max-width: 100%; 
-            height: auto;
-            object-fit: contain;
-            background-color: transparent;
-        }
-        
-        /* Ensure logos are visible on all backgrounds */
-        .header img, .logo, .footer-logo img {
+        /* Consistent logo sizing across all locations */
+        .logo,
+        .header img[src*="logo"],
+        .footer-logo img,
+        img[src*="locality-logo"] {
+            height: 60px;
+            width: auto;
+            max-width: 200px;
+            display: block;
             background-color: transparent;
             border: none;
             outline: none;
+            object-fit: contain;
+        }
+        
+        /* Specific size for footer to be slightly smaller */
+        .footer-logo img {
+            height: 50px;
+            max-width: 180px;
         }
         
         /* Updated Score Display - DONUT CHART - SIMPLIFIED */
@@ -369,10 +373,6 @@
         
         /* Footer Logo */
         .footer-logo { text-align: center; padding: 30px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
-        .footer-logo img { height: 40px; width: auto; max-width: 150px; }
-        
-        /* Dashboard header logo */
-        .header img { max-width: 200px; height: auto; }
         
         /* Report Actions */
         .report-actions { text-align: center; margin: 40px 0; padding: 30px; border-top: 1px solid #eee; }
@@ -434,11 +434,6 @@
             
             .logo-container {
                 flex-shrink: 0;
-            }
-            
-            .logo {
-                height: 70px;
-                width: auto;
             }
             
             /* Score section - compact for print with working colors */
@@ -656,7 +651,8 @@
             }
             
             .footer-logo img {
-                height: 20px;
+                height: 45px;
+                max-width: 150px;
             }
         }
 
@@ -887,19 +883,16 @@
     }
     
     /* Mobile logo adjustments */
-    .header img {
-        height: 40px !important;
-        max-width: 150px !important;
-    }
-    
-    .logo {
-        height: 60px !important;
-        max-width: 150px !important;
+    .logo,
+    .header img[src*="logo"],
+    img[src*="locality-logo"] {
+        height: 45px;
+        max-width: 150px;
     }
     
     .footer-logo img {
-        height: 30px !important;
-        max-width: 120px !important;
+        height: 40px;
+        max-width: 130px;
     }
     
     .business-info-header {
@@ -978,7 +971,7 @@
         <!-- Enhanced Dashboard -->
         <div id="dashboardSection" class="card hidden" style="max-width: 900px;">
             <div class="header">
-                <img src="locality-logo.png" alt="Locality" style="height: 60px; width: auto;">
+                <img src="locality-logo.png" alt="Locality" class="logo">
             </div>
             <div class="dashboard-header">
                 <div>
