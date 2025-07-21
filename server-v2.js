@@ -42,8 +42,8 @@ const CREDIT_AMOUNTS = {
 // White Label Configuration
 const BRAND_CONFIG = {
   name: process.env.BRAND_NAME || 'Locality',
-  logo: process.env.BRAND_LOGO || 'Locality Logo (1).png',
-  primaryColor: process.env.BRAND_PRIMARY_COLOR || '#007bff',
+  logo: process.env.BRAND_LOGO || 'locality-logo.png',
+  primaryColor: process.env.BRAND_PRIMARY_COLOR || '#0e192b',
   supportEmail: process.env.BRAND_SUPPORT_EMAIL || 'support@locality.com',
   preparedBySuffix: process.env.BRAND_PREPARED_BY_SUFFIX || 'Marketing'
 };
@@ -118,6 +118,21 @@ db.serialize(() => {
       credits_purchased INTEGER NOT NULL,
       stripe_payment_id TEXT,
       status TEXT DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+  `);
+
+  // Feedback table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      rating INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      email TEXT,
+      report_data TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id)
     )
@@ -2040,7 +2055,7 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
           try {
             if (report.report_data) {
               const reportData = JSON.parse(report.report_data);
-              score = reportData.auditOverview?.overallScore || reportData.finalScore || null;
+              score = reportData.auditOverview?.overallScore?.score || reportData.finalScore || null;
             }
           } catch (parseError) {
             console.error(`Error parsing report data for report ${report.id}:`, parseError);
@@ -2156,59 +2171,57 @@ app.post('/api/feedback', authenticateToken, async (req, res) => {
     
     console.log(`💬 Feedback received: ${rating} stars, Type: ${type}, User: ${userId}`);
     
-    // Create feedback table if it doesn't exist
-    db.run(`CREATE TABLE IF NOT EXISTS feedback (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      rating INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      message TEXT NOT NULL,
-      email TEXT,
-      report_data TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users (id)
-    )`);
-    
-    // Insert feedback into database
-    const stmt = db.prepare(`
-      INSERT INTO feedback (user_id, rating, type, message, email, report_data)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    
-    stmt.run(
-      userId,
-      rating,
-      type,
-      message,
-      email || null,
-      reportData ? JSON.stringify(reportData) : null
-    );
-    
-    stmt.finalize();
-    
-    console.log(`✅ Feedback saved successfully for user ${userId}`);
-    
-    // Send email notification
     try {
-      await sendFeedbackEmail({
+      // Insert feedback into database
+      const stmt = db.prepare(`
+        INSERT INTO feedback (user_id, rating, type, message, email, report_data)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      
+      stmt.run(
+        userId,
         rating,
         type,
         message,
-        email,
-        reportData,
-        userId,
-        userName: req.user.firstName || 'Unknown User'
-      });
-      console.log(`📧 Feedback email sent successfully`);
-    } catch (emailError) {
-      console.error('⚠️ Failed to send feedback email:', emailError);
-      // Don't fail the request if email fails, just log it
+        email || null,
+        reportData ? JSON.stringify(reportData) : null,
+        async function(err) {
+          if (err) {
+            console.error('❌ Error saving feedback:', err);
+            stmt.finalize();
+            return res.status(500).json({ error: 'Failed to save feedback. Please try again.' });
+          }
+          
+          console.log(`✅ Feedback saved successfully for user ${userId} with ID: ${this.lastID}`);
+          stmt.finalize();
+          
+          // Send email notification
+          try {
+            await sendFeedbackEmail({
+              rating,
+              type,
+              message,
+              email,
+              reportData,
+              userId,
+              userName: req.user.firstName || 'Unknown User'
+            });
+            console.log(`📧 Feedback email sent successfully`);
+          } catch (emailError) {
+            console.error('⚠️ Failed to send feedback email:', emailError);
+            // Don't fail the request if email fails, just log it
+          }
+          
+          res.json({ 
+            success: true, 
+            message: 'Feedback submitted successfully. Thank you for your input!' 
+          });
+        }
+      );
+    } catch (error) {
+      console.error('❌ Database error:', error);
+      return res.status(500).json({ error: 'Failed to save feedback. Please try again.' });
     }
-    
-    res.json({ 
-      success: true, 
-      message: 'Feedback submitted successfully. Thank you for your input!' 
-    });
     
   } catch (error) {
     console.error('❌ Feedback submission error:', error);
