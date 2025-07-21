@@ -215,14 +215,14 @@
         .business-details strong { color: #0e192b; }
         .logo-container { flex-shrink: 0; }
         
-        /* Consistent logo sizing across all locations */
+        /* Consistent logo sizing across all locations - doubled size */
         .logo,
         .header img[src*="logo"],
         .footer-logo img,
         img[src*="locality-logo"] {
-            height: 60px;
+            height: 120px;
             width: auto;
-            max-width: 200px;
+            max-width: 400px;
             display: block;
             background-color: transparent;
             border: none;
@@ -232,8 +232,14 @@
         
         /* Specific size for footer to be slightly smaller */
         .footer-logo img {
-            height: 50px;
-            max-width: 180px;
+            height: 100px;
+            max-width: 360px;
+            margin: 0 auto;
+        }
+        
+        /* Center dashboard logo */
+        .header img {
+            margin: 0 auto;
         }
         
         /* Updated Score Display - DONUT CHART - SIMPLIFIED */
@@ -371,8 +377,16 @@
         .upsell-link { color: #ffd700; text-decoration: underline; font-weight: 600; }
         .upsell-link:hover { color: white; text-decoration: none; }
         
-        /* Footer Logo */
-        .footer-logo { text-align: center; padding: 30px; border-top: 1px solid #e9ecef; background: #f8f9fa; }
+        /* Footer Logo - centered */
+        .footer-logo { 
+            text-align: center; 
+            padding: 30px; 
+            border-top: 1px solid #e9ecef; 
+            background: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
         
         /* Report Actions */
         .report-actions { text-align: center; margin: 40px 0; padding: 30px; border-top: 1px solid #eee; }
@@ -651,8 +665,8 @@
             }
             
             .footer-logo img {
-                height: 45px;
-                max-width: 150px;
+                height: 80px;
+                max-width: 300px;
             }
         }
 
@@ -882,17 +896,17 @@
         padding: 20px;
     }
     
-    /* Mobile logo adjustments */
+    /* Mobile logo adjustments - scaled proportionally */
     .logo,
     .header img[src*="logo"],
     img[src*="locality-logo"] {
-        height: 45px;
-        max-width: 150px;
+        height: 80px;
+        max-width: 280px;
     }
     
     .footer-logo img {
-        height: 40px;
-        max-width: 130px;
+        height: 70px;
+        max-width: 250px;
     }
     
     .business-info-header {
