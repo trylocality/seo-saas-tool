@@ -117,14 +117,20 @@ async function ensureScreenshotsDir() {
 }
 
 // Clean expired cache entries
-function cleanupExpiredCache() {
-  db.run('DELETE FROM screenshot_cache WHERE expires_at < datetime("now")', function(err) {
-    if (err) {
-      console.error('Cache cleanup error:', err);
-    } else if (this.changes > 0) {
-      console.log(`🧹 Cleaned up ${this.changes} expired cached screenshots`);
+async function cleanupExpiredCache() {
+  try {
+    // Use NOW() for PostgreSQL compatibility, DATETIME('now') for SQLite
+    const query = db.dbType === 'postgresql' 
+      ? 'DELETE FROM screenshot_cache WHERE expires_at < NOW()'
+      : 'DELETE FROM screenshot_cache WHERE expires_at < datetime("now")';
+    
+    const result = await db.run(query);
+    if (result.changes > 0) {
+      console.log(`🧹 Cleaned up ${result.changes} expired cached screenshots`);
     }
-  });
+  } catch (err) {
+    console.error('Cache cleanup error:', err);
+  }
 }
 
 // Run cleanup every 24 hours
@@ -1788,46 +1794,42 @@ app.post('/api/signup', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
     
-    db.get('SELECT id FROM users WHERE email = ?', [email], async (err, existingUser) => {
-      if (err) {
-        console.error('Database error in signup:', err);
-        return res.status(500).json({ error: 'Database error' });
+    // Check if user already exists
+    const existingUser = await db.get('SELECT id FROM users WHERE email = $1', [email]);
+    
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists with this email' });
+    }
+    
+    const passwordHash = await bcrypt.hash(password, 10);
+    
+    // Insert new user with RETURNING clause for PostgreSQL compatibility
+    const insertQuery = db.dbType === 'postgresql' 
+      ? 'INSERT INTO users (email, password_hash, first_name, last_name) VALUES ($1, $2, $3, $4) RETURNING id'
+      : 'INSERT INTO users (email, password_hash, first_name, last_name) VALUES ($1, $2, $3, $4)';
+    
+    const result = await db.run(insertQuery, [email, passwordHash, firstName, lastName]);
+    const userId = result.lastID || result.rows?.[0]?.id;
+    
+    if (!userId) {
+      throw new Error('Failed to get user ID after insert');
+    }
+    
+    const token = jwt.sign({ userId: userId }, JWT_SECRET, { expiresIn: '7d' });
+    
+    console.log(`✅ New user created: ${email} (ID: ${userId})`);
+    
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: userId,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+        creditsRemaining: 1,
+        subscriptionTier: 'free'
       }
-      
-      if (existingUser) {
-        return res.status(400).json({ error: 'User already exists with this email' });
-      }
-      
-      const passwordHash = await bcrypt.hash(password, 10);
-      
-      db.run(
-        'INSERT INTO users (email, password_hash, first_name, last_name) VALUES (?, ?, ?, ?)',
-        [email, passwordHash, firstName, lastName],
-        function(err) {
-          if (err) {
-            console.error('Error creating user:', err);
-            return res.status(500).json({ error: 'Failed to create user' });
-          }
-          
-          const userId = this.lastID;
-          const token = jwt.sign({ userId: userId }, JWT_SECRET, { expiresIn: '7d' });
-          
-          console.log(`✅ New user created: ${email}`);
-          
-          res.json({
-            success: true,
-            token,
-            user: {
-              id: userId,
-              email: email,
-              firstName: firstName,
-              lastName: lastName,
-              creditsRemaining: 1,
-              subscriptionTier: 'free'
-            }
-          });
-        }
-      );
     });
   } catch (error) {
     console.error('Signup error:', error);
@@ -1843,37 +1845,32 @@ app.post('/api/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
     
-    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
-      if (err) {
-        console.error('Database error in login:', err);
-        return res.status(500).json({ error: 'Database error' });
+    const user = await db.get('SELECT * FROM users WHERE email = $1', [email]);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    
+    console.log(`✅ User logged in: ${email}`);
+    
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        creditsRemaining: user.credits_remaining,
+        subscriptionTier: user.subscription_tier
       }
-      
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
-      
-      const validPassword = await bcrypt.compare(password, user.password_hash);
-      if (!validPassword) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
-      
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-      
-      console.log(`✅ User logged in: ${email}`);
-      
-      res.json({
-        success: true,
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          creditsRemaining: user.credits_remaining,
-          subscriptionTier: user.subscription_tier
-        }
-      });
     });
   } catch (error) {
     console.error('Login error:', error);
