@@ -207,6 +207,53 @@ function detectCountryRegion(location) {
 // EMAIL FUNCTIONS
 // ==========================================
 
+// Send new user notification
+async function sendNewUserNotification(userData) {
+  const { userId, email, firstName, lastName, signupDate, plan, initialCredits } = userData;
+  
+  // Notification content
+  const subject = `🎉 New User Signup - ${email}`;
+  const notificationBody = `
+New user registered on SEO Audit Tool:
+
+👤 User Information:
+   • Name: ${firstName} ${lastName}
+   • Email: ${email}
+   • User ID: ${userId}
+   • Plan: ${plan}
+   • Initial Credits: ${initialCredits}
+   • Signup Date: ${new Date(signupDate).toLocaleString()}
+
+📊 Quick Actions:
+   • View all users: https://yourdomain.com/api/admin/users
+   • Export to CSV: https://yourdomain.com/api/admin/users/export
+`;
+
+  // Log to console (always works)
+  console.log('===============================================');
+  console.log('🎉 NEW USER NOTIFICATION');
+  console.log('===============================================');
+  console.log(notificationBody);
+  console.log('===============================================');
+  
+  // Send to webhook if configured
+  const webhookUrl = process.env.NEW_USER_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
+  if (webhookUrl) {
+    try {
+      await axios.post(webhookUrl, {
+        subject,
+        body: notificationBody,
+        type: 'new_user',
+        data: userData,
+        timestamp: new Date().toISOString()
+      });
+      console.log('✅ New user webhook notification sent');
+    } catch (error) {
+      console.error('❌ Failed to send new user webhook:', error.message);
+    }
+  }
+}
+
 // Send feedback email notification
 async function sendFeedbackEmail(feedbackData) {
   const { rating, type, message, email, reportData, userId, userName } = feedbackData;
@@ -1820,6 +1867,22 @@ app.post('/api/signup', async (req, res) => {
     
     console.log(`✅ New user created: ${email} (ID: ${userId})`);
     
+    // Send notification for new user
+    try {
+      await sendNewUserNotification({
+        userId,
+        email,
+        firstName,
+        lastName,
+        signupDate: new Date().toISOString(),
+        plan: 'free',
+        initialCredits: 1
+      });
+    } catch (notifyError) {
+      console.error('Failed to send new user notification:', notifyError);
+      // Don't fail the signup if notification fails
+    }
+    
     res.json({
       success: true,
       token,
@@ -2137,6 +2200,124 @@ app.post('/api/feedback', authenticateToken, async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to submit feedback. Please try again.' 
     });
+  }
+});
+
+// ==========================================
+// ADMIN ENDPOINTS
+// ==========================================
+
+// Get all users (admin endpoint - protect this in production!)
+app.get('/api/admin/users', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin (you should implement proper admin authentication)
+    // For now, only allow specific email
+    if (req.user.email !== 'trylocality@gmail.com') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    const users = await db.all(`
+      SELECT 
+        id, 
+        email, 
+        first_name, 
+        last_name, 
+        credits_remaining, 
+        subscription_tier,
+        created_at,
+        updated_at,
+        (SELECT COUNT(*) FROM reports WHERE user_id = users.id) as report_count
+      FROM users 
+      ORDER BY created_at DESC
+    `);
+    
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Export users to CSV
+app.get('/api/admin/users/export', async (req, res) => {
+  try {
+    // Handle token from query params for CSV download
+    const token = req.query.token || (req.headers['authorization'] && req.headers['authorization'].split(' ')[1]);
+    
+    if (!token) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+    
+    let user;
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      user = await db.get('SELECT * FROM users WHERE id = $1', [decoded.userId]);
+    } catch (err) {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+    
+    // Check if user is admin
+    if (!user || user.email !== 'trylocality@gmail.com') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    const users = await db.all(`
+      SELECT 
+        id, 
+        email, 
+        first_name, 
+        last_name, 
+        credits_remaining, 
+        subscription_tier,
+        created_at,
+        (SELECT COUNT(*) FROM reports WHERE user_id = users.id) as report_count
+      FROM users 
+      ORDER BY created_at DESC
+    `);
+    
+    // Create CSV content
+    const csvHeader = 'ID,Email,First Name,Last Name,Credits,Subscription,Reports Generated,Joined Date\n';
+    const csvRows = users.map(user => {
+      const joinedDate = new Date(user.created_at).toLocaleDateString();
+      return `${user.id},"${user.email}","${user.first_name}","${user.last_name}",${user.credits_remaining},"${user.subscription_tier}",${user.report_count},"${joinedDate}"`;
+    }).join('\n');
+    
+    const csvContent = csvHeader + csvRows;
+    
+    // Send as downloadable CSV file
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="users-export.csv"');
+    res.send(csvContent);
+    
+  } catch (error) {
+    console.error('Error exporting users:', error);
+    res.status(500).json({ error: 'Failed to export users' });
+  }
+});
+
+// Get user analytics
+app.get('/api/admin/analytics', authenticateToken, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.email !== 'trylocality@gmail.com') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    const stats = await db.get(`
+      SELECT 
+        COUNT(DISTINCT users.id) as total_users,
+        COUNT(DISTINCT CASE WHEN users.subscription_tier != 'free' THEN users.id END) as paid_users,
+        COUNT(DISTINCT reports.id) as total_reports,
+        SUM(CASE WHEN users.created_at >= datetime('now', '-7 days') THEN 1 ELSE 0 END) as new_users_week,
+        SUM(CASE WHEN users.created_at >= datetime('now', '-30 days') THEN 1 ELSE 0 END) as new_users_month
+      FROM users
+      LEFT JOIN reports ON users.id = reports.user_id
+    `);
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
 

@@ -1,5 +1,47 @@
 # SEO SaaS Tool - Development Notes
 
+## Admin Dashboard & User Tracking
+
+The application now includes comprehensive user tracking and admin features.
+
+### Admin Dashboard Access:
+- **URL**: `/admin.html`
+- **Login**: Use trylocality@gmail.com account
+- **Features**:
+  - View all registered users
+  - See user statistics (total users, paid users, reports generated)
+  - Export user data to CSV
+  - Track new signups (7-day and 30-day metrics)
+
+### New User Notifications:
+1. **Console Logging**: All new signups are logged to server console with full details
+2. **Webhook Support**: Configure `NEW_USER_WEBHOOK_URL` in .env to receive notifications
+3. **Data Included**:
+   - User name and email
+   - Signup date and time
+   - Initial plan and credits
+   - User ID
+
+### API Endpoints:
+- `GET /api/admin/users` - Get all users (requires admin auth)
+- `GET /api/admin/users/export` - Download users as CSV
+- `GET /api/admin/analytics` - Get user statistics
+
+### CSV Export Format:
+The exported CSV includes:
+- User ID
+- Email
+- First Name, Last Name
+- Credits Remaining
+- Subscription Tier
+- Number of Reports Generated
+- Join Date
+
+### Security:
+- Only trylocality@gmail.com can access admin features
+- All admin endpoints require authentication
+- Consider implementing proper role-based access control for production
+
 ## Email Feedback System
 
 The application now includes an email notification system for user feedback submissions.
@@ -20,7 +62,7 @@ The application now includes an email notification system for user feedback subm
 
 #### Option 1: Console Monitoring (Currently Active)
 - All feedback appears in server console logs
-- Look for "=ç FEEDBACK EMAIL NOTIFICATION" messages
+- Look for "=ï¿½ FEEDBACK EMAIL NOTIFICATION" messages
 - Includes full feedback details, user info, and timestamps
 
 #### Option 2: Webhook Setup (Optional)
@@ -33,7 +75,7 @@ The application now includes an email notification system for user feedback subm
 
 ### Example Zapier Setup:
 1. Go to zapier.com
-2. Create new Zap: "Webhooks by Zapier" ’ "Gmail"
+2. Create new Zap: "Webhooks by Zapier" ï¿½ "Gmail"
 3. Use webhook URL in .env file
 4. Configure email template with feedback data
 5. Test and activate
