@@ -220,9 +220,9 @@
         .header img[src*="logo"],
         .footer-logo img,
         img[src*="locality-logo"] {
-            height: 120px;
+            height: 240px;
             width: auto;
-            max-width: 400px;
+            max-width: 800px;
             display: block;
             background-color: transparent;
             border: none;
@@ -232,8 +232,8 @@
         
         /* Specific size for footer to be slightly smaller */
         .footer-logo img {
-            height: 100px;
-            max-width: 360px;
+            height: 200px;
+            max-width: 720px;
             margin: 0 auto;
         }
         
@@ -691,8 +691,8 @@
             }
             
             .footer-logo img {
-                height: 80px;
-                max-width: 300px;
+                height: 160px;
+                max-width: 600px;
             }
         }
 
@@ -928,13 +928,13 @@
     .logo,
     .header img[src*="logo"],
     img[src*="locality-logo"] {
-        height: 80px;
-        max-width: 280px;
+        height: 160px;
+        max-width: 560px;
     }
     
     .footer-logo img {
-        height: 70px;
-        max-width: 250px;
+        height: 140px;
+        max-width: 500px;
     }
     
     .business-info-header {
@@ -1139,7 +1139,7 @@
             
             <div class="dashboard-header">
                 <div>
-                    <h1 style="font-size: 2.5rem; color: #0e192b; margin-bottom: 10px;">Welcome back, <span id="userName"></span>! 👋</h1>
+                    <h1 style="font-size: 2.5rem; color: #0e192b; margin-bottom: 10px;">Welcome, <span id="userName"></span></h1>
                     <p style="color: #666; font-size: 1.1rem;">Generate comprehensive local SEO audits for your business</p>
                 </div>
                 <div class="credits-section">
@@ -1148,7 +1148,7 @@
                         <div class="big-number" id="creditsDisplay">0</div>
                     </div>
                     <button class="btn btn-success" onclick="buyCredits()" style="width: 100%; padding: 8px 16px; font-size: 0.9rem;">
-                        💳 Buy Credits
+                        Buy Credits
                     </button>
                     <button onclick="logout()" style="background: none; border: none; color: #999; font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline;">
                         Logout
@@ -2617,8 +2617,8 @@
             
             try {
                 // Get business data from current report
-                const businessName = window.currentReportData?.businessName || '';
-                const location = window.currentReportData?.location || '';
+                const businessName = currentReportData?.businessName || '';
+                const location = currentReportData?.location || '';
                 
                 if (!businessName || !location) {
                     throw new Error('Business information not available');
@@ -2662,7 +2662,7 @@
             const gridElement = document.getElementById('detailedResultsGrid');
             
             // Update score display - combine with essential citations score
-            const essentialScore = window.currentReportData?.citations?.stats?.found || 0;
+            const essentialScore = currentReportData?.citations?.stats?.found || 0;
             const totalFound = essentialScore + data.summary.found;
             scoreElement.textContent = `${totalFound} out of 50`;
             
