@@ -12,9 +12,11 @@ class DatabaseAdapter {
     
     if (DATABASE_URL) {
       // Use PostgreSQL in production
+      console.log('🐘 DATABASE_URL detected, using PostgreSQL');
       await this.initializePostgreSQL(DATABASE_URL);
     } else {
       // Use SQLite for local development
+      console.log('📁 No DATABASE_URL, using SQLite for local development');
       await this.initializeSQLite();
     }
   }
@@ -22,22 +24,33 @@ class DatabaseAdapter {
   async initializePostgreSQL(connectionString) {
     const { Pool } = require('pg');
     
+    // Enhanced configuration for Render PostgreSQL
     const dbConfig = {
       connectionString,
-      ssl: connectionString.includes('localhost') ? false : {
-        rejectUnauthorized: false
-      }
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: false,
+        require: true
+      } : false,
+      // Connection pool settings for better reliability
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
     };
     
     this.pool = new Pool(dbConfig);
     this.dbType = 'postgresql';
     
-    // Test connection
+    // Test connection with better error handling
     try {
-      await this.pool.query('SELECT NOW()');
+      console.log('🔄 Attempting PostgreSQL connection...');
+      const result = await this.pool.query('SELECT NOW()');
       console.log('✅ Connected to PostgreSQL database');
+      console.log(`📊 Connection test result: ${result.rows[0].now}`);
     } catch (err) {
-      console.error('❌ PostgreSQL connection failed:', err.message);
+      console.error('❌ PostgreSQL connection failed:');
+      console.error('Error message:', err.message);
+      console.error('Error code:', err.code);
+      console.error('Connection string (masked):', connectionString.replace(/:[^:@]*@/, ':***@'));
       throw err;
     }
   }
@@ -69,8 +82,21 @@ class DatabaseAdapter {
 
   // Unified query method
   async query(text, params = []) {
+    // Validate query
+    if (!text || typeof text !== 'string' || text.trim() === '') {
+      throw new Error('Invalid query: query text is empty or not a string');
+    }
+    
     if (this.dbType === 'postgresql') {
-      return await this.pool.query(text, params);
+      try {
+        return await this.pool.query(text, params);
+      } catch (err) {
+        console.error('PostgreSQL query error:');
+        console.error('Query:', text);
+        console.error('Params:', params);
+        console.error('Error:', err);
+        throw err;
+      }
     } else {
       // SQLite
       return new Promise((resolve, reject) => {
@@ -110,23 +136,59 @@ class DatabaseAdapter {
 
   // Get a single row
   async get(text, params = []) {
-    const result = await this.query(text, params);
-    return result.rows[0] || null;
+    // Ensure text is a valid string
+    if (!text || typeof text !== 'string') {
+      throw new Error(`Invalid query text in get(): ${JSON.stringify(text)}`);
+    }
+    
+    try {
+      const result = await this.query(text, params);
+      return result.rows[0] || null;
+    } catch (err) {
+      console.error('Error in get() method:');
+      console.error('Query text:', text);
+      console.error('Params:', params);
+      throw err;
+    }
   }
 
   // Get all rows
   async all(text, params = []) {
-    const result = await this.query(text, params);
-    return result.rows;
+    // Ensure text is a valid string
+    if (!text || typeof text !== 'string') {
+      throw new Error(`Invalid query text in all(): ${JSON.stringify(text)}`);
+    }
+    
+    try {
+      const result = await this.query(text, params);
+      return result.rows;
+    } catch (err) {
+      console.error('Error in all() method:');
+      console.error('Query text:', text);
+      console.error('Params:', params);
+      throw err;
+    }
   }
 
   // Run a query (for INSERT, UPDATE, DELETE)
   async run(text, params = []) {
-    const result = await this.query(text, params);
-    return {
-      lastID: result.rows[0]?.id,
-      changes: result.rowCount
-    };
+    // Ensure text is a valid string
+    if (!text || typeof text !== 'string') {
+      throw new Error(`Invalid query text in run(): ${JSON.stringify(text)}`);
+    }
+    
+    try {
+      const result = await this.query(text, params);
+      return {
+        lastID: result.rows[0]?.id,
+        changes: result.rowCount
+      };
+    } catch (err) {
+      console.error('Error in run() method:');
+      console.error('Query text:', text);
+      console.error('Params:', params);
+      throw err;
+    }
   }
 
   // Setup database tables
