@@ -718,13 +718,16 @@ async function checkCitations(businessName, location) {
     }
     
     const directories = [
-      { name: 'Yelp', domain: 'yelp.com' },
+      { name: 'Angi', domain: 'angi.com' },
+      { name: 'Apple Maps Business Connect', domain: 'mapsconnect.apple.com' },
       { name: 'Better Business Bureau', domain: 'bbb.org' },
-      { name: 'Yellow Pages', domain: 'yellowpages.com' },
-      { name: 'Apple Maps', domain: 'maps.apple.com' },
-      { name: 'Facebook Business', domain: 'facebook.com' },
+      { name: 'Bing Places', domain: 'bing.com/maps' },
+      { name: 'Chamber of Commerce', domain: 'chamberofcommerce.com' },
+      { name: 'DNB (Dun & Bradstreet)', domain: 'dnb.com' },
+      { name: 'Facebook', domain: 'facebook.com' },
       { name: 'Foursquare', domain: 'foursquare.com' },
-      { name: 'Bing Maps', domain: 'bing.com/maps' }
+      { name: 'Nextdoor', domain: 'nextdoor.com' },
+      { name: 'Yelp', domain: 'yelp.com' }
     ];
     
     const found = [];
@@ -792,7 +795,7 @@ async function checkCitations(businessName, location) {
         found: found.length,
         missing: directories.length - found.length,
         percentage: Math.round((found.length / directories.length) * 100),
-        score: found.length * 2 // 2 points per citation found
+        score: Math.ceil(found.length * 1.5) // 1.5 points per citation found, rounded up
       }
     };
     
@@ -1265,14 +1268,14 @@ function calculateScore(data) {
     message: `${data.outscraper.reviews} reviews, ${data.outscraper.rating} rating. Has: ${reviewCriteria.join(', ') || 'none'}` 
   };
   
-  // 10. CITATIONS (14 pts) - 2 pts per directory found
+  // 10. CITATIONS (16 pts) - 1.5 pts per directory found, rounded up
   scores.citations = data.citations.stats.score;
-  if (scores.citations >= 10) {
-    details.citations = { status: 'GOOD', message: `Found in ${data.citations.stats.found}/7 directories` };
-  } else if (scores.citations >= 6) {
-    details.citations = { status: 'NEEDS IMPROVEMENT', message: `Found in ${data.citations.stats.found}/7 directories` };
+  if (scores.citations >= 12) {
+    details.citations = { status: 'GOOD', message: `Found in ${data.citations.stats.found}/10 directories` };
+  } else if (scores.citations >= 8) {
+    details.citations = { status: 'NEEDS IMPROVEMENT', message: `Found in ${data.citations.stats.found}/10 directories` };
   } else {
-    details.citations = { status: 'MISSING', message: `Found in ${data.citations.stats.found}/7 directories - need more` };
+    details.citations = { status: 'MISSING', message: `Found in ${data.citations.stats.found}/10 directories - need more` };
   }
   
   // 11. GBP EMBED (8 pts) - Binary
@@ -1479,7 +1482,7 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
     }
     
     // 7. Citation Building (if needed)
-    if (scoreData.scores.citations < 8) {
+    if (scoreData.scores.citations < 12) {
       const citationsPrompt = `
       Create a citation building strategy for:
       Business: ${businessName}
@@ -1857,7 +1860,7 @@ function getMaxScore(key) {
   const maxScores = {
     claimed: 8, description: 10, categories: 8, productTiles: 10,
     photos: 8, posts: 8, qa: 4, social: 2,
-    reviews: 12, citations: 14, gbpEmbed: 8, landingPage: 8
+    reviews: 12, citations: 16, gbpEmbed: 8, landingPage: 8
   };
   return maxScores[key] || 0;
 }
@@ -2390,6 +2393,175 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error in user-reports endpoint:', error);
     res.status(500).json({ error: 'Failed to load reports' });
+  }
+});
+
+// Detailed Citation Analysis endpoint
+app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) => {
+  try {
+    const { businessName, location } = req.body;
+    
+    if (!businessName || !location) {
+      return res.status(400).json({ error: 'Business name and location are required' });
+    }
+
+    console.log(`🔍 Starting detailed citation analysis for: ${businessName} in ${location}`);
+
+    // Define 40 premium directories grouped into sets of 4
+    const premiumDirectories = [
+      // Group 1: General Business Directories
+      [
+        { name: 'About.me', domain: 'about.me' },
+        { name: 'AmericanTowns', domain: 'americantowns.com' },
+        { name: 'BizHWY', domain: 'bizhwy.com' },
+        { name: 'Brownbook', domain: 'brownbook.net' }
+      ],
+      // Group 2: Local/City Directories
+      [
+        { name: 'City-Data', domain: 'city-data.com' },
+        { name: 'CitySquares', domain: 'citysquares.com' },
+        { name: 'Cybo', domain: 'cybo.com' },
+        { name: 'Cylex', domain: 'cylex.us.com' }
+      ],
+      // Group 3: Business Search Directories
+      [
+        { name: 'EZLocal', domain: 'ezlocal.com' },
+        { name: 'FindUsLocal', domain: 'finduslocal.com' },
+        { name: 'Fyple', domain: 'fyple.com' },
+        { name: 'Geebo', domain: 'geebo.com' }
+      ],
+      // Group 4: Local Search Platforms
+      [
+        { name: 'GoLocal247', domain: 'golocal247.com' },
+        { name: 'Hotfrog', domain: 'hotfrog.com' },
+        { name: 'InfoUSA', domain: 'infousa.com' },
+        { name: 'Kompass US', domain: 'us.kompass.com' }
+      ],
+      // Group 5: Professional/Industry Directories
+      [
+        { name: 'Lexology', domain: 'lexology.com' },
+        { name: 'Local.com', domain: 'local.com' },
+        { name: 'LocalEdge', domain: 'localedge.com' },
+        { name: 'Manta', domain: 'manta.com' }
+      ],
+      // Group 6: Business Network Directories
+      [
+        { name: 'MerchantCircle', domain: 'merchantcircle.com' },
+        { name: 'MyHuckleberry', domain: 'myhuckleberry.com' },
+        { name: 'n49', domain: 'n49.com' },
+        { name: 'OpenStreetMap', domain: 'openstreetmap.org' }
+      ],
+      // Group 7: Content & Social Platforms
+      [
+        { name: 'Blogger', domain: 'blogger.com' },
+        { name: 'Flipboard', domain: 'flipboard.com' },
+        { name: 'Issuu', domain: 'issuu.com' },
+        { name: 'Patch', domain: 'patch.com' }
+      ],
+      // Group 8: Social & Review Platforms
+      [
+        { name: 'Pinterest', domain: 'pinterest.com' },
+        { name: 'Quora', domain: 'quora.com' },
+        { name: 'Sitejabber', domain: 'sitejabber.com' },
+        { name: 'Storeboard', domain: 'storeboard.com' }
+      ],
+      // Group 9: Professional & Industry Specific
+      [
+        { name: 'TED', domain: 'ted.com' },
+        { name: 'ThreeBestRated', domain: 'threebestrated.com' },
+        { name: 'Thomasnet', domain: 'thomasnet.com' },
+        { name: 'Thumbtack', domain: 'thumbtack.com' }
+      ],
+      // Group 10: Yellow Pages & Local Search
+      [
+        { name: 'Yalwa', domain: 'yalwa.com' },
+        { name: 'Yellow.place', domain: 'yellow.place' },
+        { name: 'YellowPageCity', domain: 'yellowpagecity.com' },
+        { name: 'ZeeMaps', domain: 'zeemaps.com' }
+      ]
+    ];
+
+    const results = [];
+    const { region } = detectCountryRegion(location);
+    const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+
+    // Process each group of 4 directories
+    for (let groupIndex = 0; groupIndex < premiumDirectories.length; groupIndex++) {
+      const group = premiumDirectories[groupIndex];
+      try {
+        // Create OR query for the group of 4 directories
+        const siteQueries = group.map(dir => `site:${dir.domain}`).join(' OR ');
+        const searchQuery = `(${siteQueries}) "${businessName}" ${location}`;
+        
+        console.log(`🔍 Group ${groupIndex + 1}/10: Searching ${group.map(d => d.name).join(', ')}`);
+
+        const response = await axios.get('https://serpapi.com/search.json', {
+          params: {
+            engine: 'google',
+            q: searchQuery,
+            api_key: SERPAPI_KEY,
+            num: 10, // More results to catch all 4 potential directories
+            google_domain: googleDomain,
+            gl: region.toLowerCase(),
+            hl: 'en'
+          },
+          timeout: 10000
+        });
+
+        // Process results for each directory in the group
+        group.forEach(directory => {
+          const found = response.data.organic_results?.some(result => 
+            result.link && result.link.includes(directory.domain)
+          ) || false;
+
+          results.push({
+            name: directory.name,
+            domain: directory.domain,
+            found: found,
+            status: found ? 'FOUND' : 'MISSING'
+          });
+        });
+
+        // Rate limiting delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (groupError) {
+        console.error(`❌ Group ${groupIndex + 1} search failed:`, groupError.message);
+        // Mark all directories in this group as error
+        group.forEach(directory => {
+          results.push({
+            name: directory.name,
+            domain: directory.domain,
+            found: false,
+            status: 'ERROR'
+          });
+        });
+      }
+    }
+
+    // Calculate summary stats
+    const foundCount = results.filter(r => r.found).length;
+    const totalScore = foundCount; // Simple 1 point per directory for premium
+    
+    const summary = {
+      totalDirectories: 40,
+      found: foundCount,
+      missing: 40 - foundCount,
+      percentage: Math.round((foundCount / 40) * 100),
+      score: totalScore
+    };
+
+    console.log(`✅ Detailed citation analysis complete: ${foundCount}/40 directories found`);
+
+    res.json({
+      success: true,
+      summary,
+      results
+    });
+
+  } catch (error) {
+    console.error('❌ Detailed citation analysis error:', error.message);
+    res.status(500).json({ error: 'Failed to complete detailed citation analysis' });
   }
 });
 

@@ -347,7 +347,7 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         
         /* Citations Row */
-        .citations-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 15px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .citations-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 15px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
         .citation-item-simple { text-align: center; padding: 15px 10px; background: white; border-radius: 8px; border: 2px solid #e9ecef; }
         .citation-item-simple.found { border-color: #28a745; background: #f8fff8; }
         .citation-item-simple.missing { border-color: #dc3545; background: #fff8f8; }
@@ -356,6 +356,32 @@
         .citation-name-simple { font-size: 0.8rem; font-weight: 600; color: #495057; }
         .order-citations-btn { background: #0e192b; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; margin: 20px auto; display: block; transition: all 0.3s ease; }
         .order-citations-btn:hover { background: #1a2332; transform: translateY(-2px); }
+        
+        /* Detailed Citation Analysis */
+        .detailed-analysis-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef; }
+        .detailed-analysis-btn { background: #17a2b8; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; margin: 0 auto 10px; display: block; transition: all 0.3s ease; }
+        .detailed-analysis-btn:hover { background: #138496; transform: translateY(-2px); }
+        .detailed-analysis-btn:disabled { background: #6c757d; cursor: not-allowed; transform: none; }
+        .detailed-analysis-subtext { text-align: center; color: #6c757d; font-size: 0.9rem; margin: 0 0 20px 0; }
+        
+        /* Detailed Results */
+        .detailed-results-container { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .detailed-results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .detailed-results-header h4 { margin: 0; color: #0e192b; }
+        .detailed-score { font-size: 1.2rem; font-weight: 700; color: #17a2b8; }
+        .detailed-results-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; }
+        .detailed-result-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: white; border-radius: 6px; font-size: 0.85rem; }
+        .detailed-result-item.found { background: #d4edda; color: #155724; }
+        .detailed-result-item.missing { background: #f8d7da; color: #721c24; }
+        .detailed-result-item.error { background: #fff3cd; color: #856404; }
+        .detailed-result-name { font-weight: 500; }
+        .detailed-result-status { font-size: 1rem; }
+        
+        /* Loading Spinner */
+        .detailed-loading { text-align: center; padding: 40px 20px; }
+        .loading-spinner { width: 40px; height: 40px; border: 4px solid #e9ecef; border-top: 4px solid #17a2b8; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .detailed-loading p { color: #6c757d; margin: 0; }
         
         /* Action Plan */
         .action-item-simple { display: flex; align-items: center; padding: 12px 15px; margin-bottom: 8px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #e9ecef; }
@@ -678,9 +704,11 @@
             .reports-table { font-size: 0.9rem; }
             .reports-table th, .reports-table td { padding: 10px; }
             .factors-compact-grid { grid-template-columns: 1fr; }
-            .citations-row { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+            .citations-row { grid-template-columns: repeat(5, 1fr); gap: 10px; }
             .citation-item-simple { padding: 10px 5px; }
             .citation-name-simple { font-size: 0.7rem; }
+            .detailed-results-grid { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+            .detailed-result-item { padding: 6px 8px; font-size: 0.75rem; }
         }
         /* Upsell Box */
 .upsell-box {
@@ -1246,6 +1274,31 @@
                     <button class="order-citations-btn" onclick="orderCitations()">
                         ORDER CITATIONS
                     </button>
+                    
+                    <!-- Detailed Citation Analysis Section -->
+                    <div class="detailed-analysis-section">
+                        <button class="detailed-analysis-btn" id="detailedAnalysisBtn" onclick="runDetailedCitationAnalysis()">
+                            RUN DETAILED CITATION ANALYSIS
+                        </button>
+                        <p class="detailed-analysis-subtext">
+                            We have a curated list of directories that can add SEO value. Run a report to see if you are listed.
+                        </p>
+                        
+                        <!-- Results container (initially hidden) -->
+                        <div class="detailed-results-container" id="detailedResultsContainer" style="display: none;">
+                            <div class="detailed-results-header">
+                                <h4>Detailed Citation Analysis Results</h4>
+                                <div class="detailed-score" id="detailedScore"></div>
+                            </div>
+                            <div class="detailed-results-grid" id="detailedResultsGrid"></div>
+                        </div>
+                        
+                        <!-- Loading state -->
+                        <div class="detailed-loading" id="detailedLoading" style="display: none;">
+                            <div class="loading-spinner"></div>
+                            <p>Scanning directories... This may take a moment.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -2541,6 +2594,103 @@
         // Order citations function
         function orderCitations() {
             window.open('https://trylocality.com/citations', '_blank');
+        }
+
+        // Detailed Citation Analysis function
+        async function runDetailedCitationAnalysis() {
+            const button = document.getElementById('detailedAnalysisBtn');
+            const loading = document.getElementById('detailedLoading');
+            const resultsContainer = document.getElementById('detailedResultsContainer');
+            
+            // Show loading state
+            button.disabled = true;
+            button.textContent = 'ANALYZING...';
+            loading.style.display = 'block';
+            resultsContainer.style.display = 'none';
+            
+            try {
+                // Get business data from current report
+                const businessName = window.currentReportData?.businessName || '';
+                const location = window.currentReportData?.location || '';
+                
+                if (!businessName || !location) {
+                    throw new Error('Business information not available');
+                }
+                
+                // Make API call
+                const response = await fetch('/api/detailed-citation-analysis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        businessName,
+                        location
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Analysis failed: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayDetailedResults(data);
+                
+            } catch (error) {
+                console.error('Detailed analysis error:', error);
+                alert('Failed to run detailed citation analysis. Please try again.');
+            } finally {
+                // Reset button state
+                button.disabled = false;
+                button.textContent = 'RUN DETAILED CITATION ANALYSIS';
+                loading.style.display = 'none';
+            }
+        }
+        
+        // Display detailed citation results
+        function displayDetailedResults(data) {
+            const resultsContainer = document.getElementById('detailedResultsContainer');
+            const scoreElement = document.getElementById('detailedScore');
+            const gridElement = document.getElementById('detailedResultsGrid');
+            
+            // Update score display - combine with essential citations score
+            const essentialScore = window.currentReportData?.citations?.stats?.found || 0;
+            const totalFound = essentialScore + data.summary.found;
+            scoreElement.textContent = `${totalFound} out of 50`;
+            
+            // Clear and populate grid
+            gridElement.innerHTML = '';
+            
+            // Create rows of 10 items each
+            for (let i = 0; i < data.results.length; i += 10) {
+                const row = document.createElement('div');
+                row.className = 'detailed-results-row';
+                row.style.display = 'grid';
+                row.style.gridTemplateColumns = 'repeat(10, 1fr)';
+                row.style.gap = '8px';
+                row.style.marginBottom = '8px';
+                
+                for (let j = i; j < Math.min(i + 10, data.results.length); j++) {
+                    const result = data.results[j];
+                    const item = document.createElement('div');
+                    item.className = `detailed-result-item ${result.status.toLowerCase()}`;
+                    
+                    const statusIcon = result.found ? '✅' : result.status === 'ERROR' ? '⚠️' : '❌';
+                    
+                    item.innerHTML = `
+                        <span class="detailed-result-name">${result.name}</span>
+                        <span class="detailed-result-status">${statusIcon}</span>
+                    `;
+                    
+                    row.appendChild(item);
+                }
+                
+                gridElement.appendChild(row);
+            }
+            
+            // Show results
+            resultsContainer.style.display = 'block';
         }
 
         // Buy credits function
