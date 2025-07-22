@@ -350,21 +350,31 @@ class DatabaseAdapter {
     await this.query('CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)');
     
     // Add new columns if they don't exist (for existing databases)
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE');
-    } catch (e) { /* Column may already exist */ }
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN email_verification_token TEXT DEFAULT NULL');
-    } catch (e) { /* Column may already exist */ }
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN email_verification_expires TIMESTAMP DEFAULT NULL');
-    } catch (e) { /* Column may already exist */ }
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN password_reset_token TEXT DEFAULT NULL');
-    } catch (e) { /* Column may already exist */ }
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN password_reset_expires TIMESTAMP DEFAULT NULL');
-    } catch (e) { /* Column may already exist */ }
+    const columnsToAdd = [
+      { name: 'email_verified', definition: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'email_verification_token', definition: 'TEXT DEFAULT NULL' },
+      { name: 'email_verification_expires', definition: 'TIMESTAMP DEFAULT NULL' },
+      { name: 'password_reset_token', definition: 'TEXT DEFAULT NULL' },
+      { name: 'password_reset_expires', definition: 'TIMESTAMP DEFAULT NULL' }
+    ];
+
+    for (const column of columnsToAdd) {
+      try {
+        // Check if column exists first
+        const columnCheck = await this.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'users' AND column_name = $1
+        `, [column.name]);
+        
+        if (columnCheck.length === 0) {
+          await this.query(`ALTER TABLE users ADD COLUMN ${column.name} ${column.definition}`);
+          console.log(`✅ Added column: ${column.name}`);
+        }
+      } catch (e) {
+        console.warn(`⚠️ Column ${column.name} setup skipped:`, e.message);
+      }
+    }
     
     console.log('✅ PostgreSQL tables created/verified');
   }
@@ -461,21 +471,28 @@ class DatabaseAdapter {
     await this.query('CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)');
     
     // Add new columns if they don't exist (for existing databases)
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0');
-    } catch (e) { /* Column may already exist */ }
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN email_verification_token TEXT DEFAULT NULL');
-    } catch (e) { /* Column may already exist */ }
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN email_verification_expires DATETIME DEFAULT NULL');
-    } catch (e) { /* Column may already exist */ }
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN password_reset_token TEXT DEFAULT NULL');
-    } catch (e) { /* Column may already exist */ }
-    try {
-      await this.query('ALTER TABLE users ADD COLUMN password_reset_expires DATETIME DEFAULT NULL');
-    } catch (e) { /* Column may already exist */ }
+    const columnsToAdd = [
+      { name: 'email_verified', definition: 'INTEGER DEFAULT 0' },
+      { name: 'email_verification_token', definition: 'TEXT DEFAULT NULL' },
+      { name: 'email_verification_expires', definition: 'DATETIME DEFAULT NULL' },
+      { name: 'password_reset_token', definition: 'TEXT DEFAULT NULL' },
+      { name: 'password_reset_expires', definition: 'DATETIME DEFAULT NULL' }
+    ];
+
+    for (const column of columnsToAdd) {
+      try {
+        // Check if column exists first using PRAGMA table_info
+        const columnCheck = await this.query('PRAGMA table_info(users)');
+        const columnExists = columnCheck.some(col => col.name === column.name);
+        
+        if (!columnExists) {
+          await this.query(`ALTER TABLE users ADD COLUMN ${column.name} ${column.definition}`);
+          console.log(`✅ Added column: ${column.name}`);
+        }
+      } catch (e) {
+        console.warn(`⚠️ Column ${column.name} setup skipped:`, e.message);
+      }
+    }
     
     console.log('✅ SQLite tables created/verified');
   }
