@@ -11,6 +11,7 @@ const fs = require('fs').promises;
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const https = require('https');
 const querystring = require('querystring');
+const crypto = require('crypto');
 
 // ==========================================
 // CONFIGURATION & ENVIRONMENT VARIABLES
@@ -75,6 +76,11 @@ app.use(cors());
 app.use('/api/stripe-webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.static('public'));
+
+// Serve email verification page
+app.get('/verify-email', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'verify-email.html'));
+});
 
 // Auth middleware
 const authenticateToken = async (req, res, next) => {
@@ -207,6 +213,11 @@ function detectCountryRegion(location) {
 // EMAIL FUNCTIONS
 // ==========================================
 
+// Generate secure random token
+function generateSecureToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
 // Send new user notification
 async function sendNewUserNotification(userData) {
   const { userId, email, firstName, lastName, signupDate, plan, initialCredits } = userData;
@@ -252,6 +263,116 @@ New user registered on SEO Audit Tool:
       console.error('❌ Failed to send new user webhook:', error.message);
     }
   }
+}
+
+// Generic email sending function
+async function sendEmail(to, subject, htmlContent, textContent) {
+  try {
+    // Method 1: Log to console (always works for debugging)
+    console.log('📧 EMAIL NOTIFICATION:');
+    console.log('To:', to);
+    console.log('Subject:', subject);
+    console.log('Body:', textContent || htmlContent);
+    
+    // Method 2: Try to use a webhook service (like Zapier, n8n, or similar)
+    const webhookUrl = process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
+    if (webhookUrl) {
+      const webhookData = {
+        to: to,
+        subject: subject,
+        html: htmlContent,
+        text: textContent,
+        timestamp: new Date().toISOString()
+      };
+      
+      await axios.post(webhookUrl, webhookData, {
+        timeout: 5000,
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      console.log('✅ Email webhook sent successfully');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Email sending failed:', error.message);
+    throw error;
+  }
+}
+
+// Send email verification
+async function sendVerificationEmail(email, firstName, verificationToken) {
+  const verificationUrl = `${process.env.APP_URL || `http://localhost:${PORT}`}/verify-email?token=${verificationToken}`;
+  
+  const subject = 'Verify your email - Locality';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Welcome to Locality, ${firstName}!</h2>
+      <p>Please verify your email address by clicking the button below:</p>
+      <div style="margin: 30px 0;">
+        <a href="${verificationUrl}" style="background-color: #0e192b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          Verify Email Address
+        </a>
+      </div>
+      <p>Or copy and paste this link into your browser:</p>
+      <p style="word-break: break-all;">${verificationUrl}</p>
+      <p style="color: #666; font-size: 14px;">This link will expire in 24 hours.</p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+      <p style="color: #999; font-size: 12px;">If you didn't create an account with Locality, please ignore this email.</p>
+    </div>
+  `;
+  
+  const textContent = `
+Welcome to Locality, ${firstName}!
+
+Please verify your email address by visiting this link:
+${verificationUrl}
+
+This link will expire in 24 hours.
+
+If you didn't create an account with Locality, please ignore this email.
+  `.trim();
+  
+  return sendEmail(email, subject, htmlContent, textContent);
+}
+
+// Send password reset email
+async function sendPasswordResetEmail(email, firstName, resetToken) {
+  const resetUrl = `${process.env.APP_URL || `http://localhost:${PORT}`}/reset-password.html?token=${resetToken}`;
+  
+  const subject = 'Reset your password - Locality';
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Password Reset Request</h2>
+      <p>Hi ${firstName},</p>
+      <p>We received a request to reset your password. Click the button below to create a new password:</p>
+      <div style="margin: 30px 0;">
+        <a href="${resetUrl}" style="background-color: #0e192b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          Reset Password
+        </a>
+      </div>
+      <p>Or copy and paste this link into your browser:</p>
+      <p style="word-break: break-all;">${resetUrl}</p>
+      <p style="color: #666; font-size: 14px;">This link will expire in 1 hour.</p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+      <p style="color: #999; font-size: 12px;">If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+    </div>
+  `;
+  
+  const textContent = `
+Password Reset Request
+
+Hi ${firstName},
+
+We received a request to reset your password. Visit this link to create a new password:
+${resetUrl}
+
+This link will expire in 1 hour.
+
+If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
+  `.trim();
+  
+  return sendEmail(email, subject, htmlContent, textContent);
 }
 
 // Send feedback email notification
@@ -1851,12 +1972,17 @@ app.post('/api/signup', async (req, res) => {
     
     const passwordHash = await bcrypt.hash(password, 10);
     
+    // Generate email verification token
+    const verificationToken = generateSecureToken();
+    const verificationExpires = new Date();
+    verificationExpires.setHours(verificationExpires.getHours() + 24); // 24 hour expiry
+    
     // Insert new user with RETURNING clause for PostgreSQL compatibility
     const insertQuery = db.dbType === 'postgresql' 
-      ? 'INSERT INTO users (email, password_hash, first_name, last_name) VALUES ($1, $2, $3, $4) RETURNING id'
-      : 'INSERT INTO users (email, password_hash, first_name, last_name) VALUES ($1, $2, $3, $4)';
+      ? 'INSERT INTO users (email, password_hash, first_name, last_name, email_verification_token, email_verification_expires) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id'
+      : 'INSERT INTO users (email, password_hash, first_name, last_name, email_verification_token, email_verification_expires) VALUES ($1, $2, $3, $4, $5, $6)';
     
-    const result = await db.run(insertQuery, [email, passwordHash, firstName, lastName]);
+    const result = await db.run(insertQuery, [email, passwordHash, firstName, lastName, verificationToken, verificationExpires]);
     const userId = result.lastID || result.rows?.[0]?.id;
     
     if (!userId) {
@@ -1866,6 +1992,15 @@ app.post('/api/signup', async (req, res) => {
     const token = jwt.sign({ userId: userId }, JWT_SECRET, { expiresIn: '7d' });
     
     console.log(`✅ New user created: ${email} (ID: ${userId})`);
+    
+    // Send verification email
+    try {
+      await sendVerificationEmail(email, firstName, verificationToken);
+      console.log(`📧 Verification email sent to ${email}`);
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError);
+      // Don't fail the signup if email fails
+    }
     
     // Send notification for new user
     try {
@@ -1892,12 +2027,51 @@ app.post('/api/signup', async (req, res) => {
         firstName: firstName,
         lastName: lastName,
         creditsRemaining: 1,
-        subscriptionTier: 'free'
-      }
+        subscriptionTier: 'free',
+        emailVerified: false
+      },
+      message: 'Account created successfully. Please check your email to verify your account.'
     });
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ error: 'Failed to create account' });
+  }
+});
+
+// Email verification endpoint
+app.get('/api/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+    
+    if (!token) {
+      return res.status(400).json({ error: 'Verification token is required' });
+    }
+    
+    // Find user with this token
+    const user = await db.get(
+      'SELECT * FROM users WHERE email_verification_token = $1 AND email_verification_expires > $2',
+      [token, new Date()]
+    );
+    
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired verification token' });
+    }
+    
+    // Update user as verified
+    await db.run(
+      'UPDATE users SET email_verified = $1, email_verification_token = NULL, email_verification_expires = NULL WHERE id = $2',
+      [db.dbType === 'postgresql' ? true : 1, user.id]
+    );
+    
+    console.log(`✅ Email verified for user: ${user.email}`);
+    
+    res.json({
+      success: true,
+      message: 'Email verified successfully! You can now log in to your account.'
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({ error: 'Failed to verify email' });
   }
 });
 
@@ -1933,12 +2107,148 @@ app.post('/api/login', async (req, res) => {
         firstName: user.first_name,
         lastName: user.last_name,
         creditsRemaining: user.credits_remaining,
-        subscriptionTier: user.subscription_tier
+        subscriptionTier: user.subscription_tier,
+        emailVerified: db.dbType === 'postgresql' ? user.email_verified : user.email_verified === 1
       }
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Password reset request endpoint
+app.post('/api/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    // Find user by email
+    const user = await db.get('SELECT * FROM users WHERE email = $1', [email]);
+    
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({
+        success: true,
+        message: 'If an account exists with this email, you will receive password reset instructions.'
+      });
+    }
+    
+    // Generate password reset token
+    const resetToken = generateSecureToken();
+    const resetExpires = new Date();
+    resetExpires.setHours(resetExpires.getHours() + 1); // 1 hour expiry
+    
+    // Update user with reset token
+    await db.run(
+      'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
+      [resetToken, resetExpires, user.id]
+    );
+    
+    // Send password reset email
+    try {
+      await sendPasswordResetEmail(user.email, user.first_name, resetToken);
+      console.log(`📧 Password reset email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      // Don't reveal email sending failure to user
+    }
+    
+    res.json({
+      success: true,
+      message: 'If an account exists with this email, you will receive password reset instructions.'
+    });
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+});
+
+// Password reset endpoint
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+    
+    // Find user with valid reset token
+    const user = await db.get(
+      'SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_expires > $2',
+      [token, new Date()]
+    );
+    
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+    
+    // Hash new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    
+    // Update password and clear reset token
+    await db.run(
+      'UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2',
+      [passwordHash, user.id]
+    );
+    
+    console.log(`✅ Password reset for user: ${user.email}`);
+    
+    res.json({
+      success: true,
+      message: 'Password reset successfully! You can now log in with your new password.'
+    });
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Resend verification email endpoint
+app.post('/api/resend-verification', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // Check if user is already verified
+    const emailVerified = db.dbType === 'postgresql' ? user.email_verified : user.email_verified === 1;
+    if (emailVerified) {
+      return res.status(400).json({ error: 'Email is already verified' });
+    }
+    
+    // Generate new verification token
+    const verificationToken = generateSecureToken();
+    const verificationExpires = new Date();
+    verificationExpires.setHours(verificationExpires.getHours() + 24); // 24 hour expiry
+    
+    // Update user with new token
+    await db.run(
+      'UPDATE users SET email_verification_token = $1, email_verification_expires = $2 WHERE id = $3',
+      [verificationToken, verificationExpires, user.id]
+    );
+    
+    // Send verification email
+    try {
+      await sendVerificationEmail(user.email, user.first_name, verificationToken);
+      console.log(`📧 Resent verification email to ${user.email}`);
+    } catch (emailError) {
+      console.error('Failed to resend verification email:', emailError);
+      return res.status(500).json({ error: 'Failed to send verification email' });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Verification email sent successfully'
+    });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({ error: 'Failed to resend verification email' });
   }
 });
 
@@ -1950,7 +2260,8 @@ app.get('/api/profile', authenticateToken, (req, res) => {
       firstName: req.user.first_name,
       lastName: req.user.last_name,
       creditsRemaining: req.user.credits_remaining,
-      subscriptionTier: req.user.subscription_tier
+      subscriptionTier: req.user.subscription_tier,
+      emailVerified: db.dbType === 'postgresql' ? req.user.email_verified : req.user.email_verified === 1
     }
   });
 });

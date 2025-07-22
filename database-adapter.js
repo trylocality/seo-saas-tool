@@ -275,6 +275,11 @@ class DatabaseAdapter {
         custom_brand_name TEXT DEFAULT NULL,
         custom_brand_logo TEXT DEFAULT NULL,
         custom_prepared_by TEXT DEFAULT NULL,
+        email_verified BOOLEAN DEFAULT FALSE,
+        email_verification_token TEXT DEFAULT NULL,
+        email_verification_expires TIMESTAMP DEFAULT NULL,
+        password_reset_token TEXT DEFAULT NULL,
+        password_reset_expires TIMESTAMP DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -344,6 +349,23 @@ class DatabaseAdapter {
     await this.query('CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)');
     
+    // Add new columns if they don't exist (for existing databases)
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE');
+    } catch (e) { /* Column may already exist */ }
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN email_verification_token TEXT DEFAULT NULL');
+    } catch (e) { /* Column may already exist */ }
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN email_verification_expires TIMESTAMP DEFAULT NULL');
+    } catch (e) { /* Column may already exist */ }
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN password_reset_token TEXT DEFAULT NULL');
+    } catch (e) { /* Column may already exist */ }
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN password_reset_expires TIMESTAMP DEFAULT NULL');
+    } catch (e) { /* Column may already exist */ }
+    
     console.log('✅ PostgreSQL tables created/verified');
   }
 
@@ -361,6 +383,11 @@ class DatabaseAdapter {
         custom_brand_name TEXT DEFAULT NULL,
         custom_brand_logo TEXT DEFAULT NULL,
         custom_prepared_by TEXT DEFAULT NULL,
+        email_verified INTEGER DEFAULT 0,
+        email_verification_token TEXT DEFAULT NULL,
+        email_verification_expires DATETIME DEFAULT NULL,
+        password_reset_token TEXT DEFAULT NULL,
+        password_reset_expires DATETIME DEFAULT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -432,6 +459,23 @@ class DatabaseAdapter {
     await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_expires ON screenshot_cache(expires_at)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)');
+    
+    // Add new columns if they don't exist (for existing databases)
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0');
+    } catch (e) { /* Column may already exist */ }
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN email_verification_token TEXT DEFAULT NULL');
+    } catch (e) { /* Column may already exist */ }
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN email_verification_expires DATETIME DEFAULT NULL');
+    } catch (e) { /* Column may already exist */ }
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN password_reset_token TEXT DEFAULT NULL');
+    } catch (e) { /* Column may already exist */ }
+    try {
+      await this.query('ALTER TABLE users ADD COLUMN password_reset_expires DATETIME DEFAULT NULL');
+    } catch (e) { /* Column may already exist */ }
     
     console.log('✅ SQLite tables created/verified');
   }

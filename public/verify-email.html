@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - Locality</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Source+Sans+Pro:wght@400;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Lato', 'Source Sans Pro', sans-serif; 
+            background: linear-gradient(135deg, #1a2332 0%, #0e192b 100%); 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container { 
+            max-width: 500px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            width: 100%;
+        }
+        .card { 
+            background: white; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            padding: 40px; 
+            text-align: center;
+        }
+        .logo {
+            margin-bottom: 30px;
+        }
+        .logo img {
+            height: 60px;
+            width: auto;
+        }
+        h2 {
+            margin-bottom: 20px;
+            color: #0e192b;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .message {
+            margin-bottom: 30px;
+            color: #666;
+            line-height: 1.6;
+        }
+        .btn { 
+            background: linear-gradient(135deg, #1a2332 0%, #0e192b 100%); 
+            color: white; 
+            padding: 12px 30px; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 16px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-block;
+            text-decoration: none;
+            transition: transform 0.2s; 
+        }
+        .btn:hover { 
+            transform: translateY(-2px); 
+        }
+        .error { 
+            color: #dc3545; 
+            padding: 20px; 
+            background: #f8d7da; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+        }
+        .success { 
+            color: #155724; 
+            padding: 20px; 
+            background: #d4edda; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+        }
+        .loading {
+            color: #666;
+            padding: 20px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0e192b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="logo">
+                <img src="locality-logo.png" alt="Locality Logo">
+            </div>
+            
+            <div id="loadingSection">
+                <div class="spinner"></div>
+                <h2>Verifying your email...</h2>
+                <p class="message">Please wait while we verify your email address.</p>
+            </div>
+            
+            <div id="successSection" style="display: none;">
+                <h2>Email Verified! ✅</h2>
+                <div class="success">
+                    Your email has been successfully verified. You can now log in to your account and start using all features.
+                </div>
+                <a href="/" class="btn">Go to Login</a>
+            </div>
+            
+            <div id="errorSection" style="display: none;">
+                <h2>Verification Failed</h2>
+                <div class="error" id="errorMessage">
+                    This verification link is invalid or has expired. Please request a new verification email.
+                </div>
+                <a href="/" class="btn">Go to Login</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        // Verify email on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            if (!token) {
+                showError('No verification token provided.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/verify-email?token=${encodeURIComponent(token)}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showSuccess();
+                } else {
+                    showError(data.error || 'Verification failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Verification error:', error);
+                showError('Network error. Please check your connection and try again.');
+            }
+        });
+        
+        function showSuccess() {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('successSection').style.display = 'block';
+        }
+        
+        function showError(message) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'block';
+            if (message) {
+                document.getElementById('errorMessage').textContent = message;
+            }
+        }
+    </script>
+</body>
+</html>

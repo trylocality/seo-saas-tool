@@ -935,11 +935,31 @@
                     <label for="loginPassword">Password</label>
                     <input type="password" id="loginPassword" required placeholder="Your password">
                 </div>
+                <div style="text-align: right; margin-bottom: 15px;">
+                    <a onclick="showForgotPassword()" style="color: #0e192b; font-size: 14px; cursor: pointer; text-decoration: none;">Forgot password?</a>
+                </div>
                 <button type="submit" class="btn">Login</button>
                 <div id="loginError" class="error hidden"></div>
             </form>
             <div class="auth-switch">
                 Don't have an account? <a onclick="showSignup()">Sign up here</a>
+            </div>
+        </div>
+
+        <!-- Forgot Password Form -->
+        <div id="forgotPasswordSection" class="card hidden">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Reset Your Password</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 20px;">Enter your email address and we'll send you a link to reset your password.</p>
+            <form id="forgotPasswordForm">
+                <div class="form-group">
+                    <label for="resetEmail">Email Address</label>
+                    <input type="email" id="resetEmail" required placeholder="your@email.com">
+                </div>
+                <button type="submit" class="btn">Send Reset Link</button>
+                <div id="forgotPasswordMessage" class="hidden" style="margin-top: 15px;"></div>
+            </form>
+            <div class="auth-switch">
+                Remember your password? <a onclick="showLogin()">Back to login</a>
             </div>
         </div>
 
@@ -987,6 +1007,33 @@
             <div class="header">
                 <img src="locality-logo.png" alt="Locality" class="logo">
             </div>
+            
+            <!-- Email Verification Banner -->
+            <div id="emailVerificationBanner" class="hidden" style="
+                background: #fff3cd; 
+                border: 1px solid #ffeaa7; 
+                border-radius: 8px; 
+                padding: 15px; 
+                margin-bottom: 20px;
+                text-align: center;
+            ">
+                <div style="color: #856404; margin-bottom: 10px;">
+                    📧 <strong>Please verify your email address</strong>
+                </div>
+                <div style="color: #856404; font-size: 14px; margin-bottom: 15px;">
+                    We sent a verification link to your email. Please check your inbox and click the link to verify your account.
+                </div>
+                <button onclick="resendVerificationEmail()" class="btn" style="
+                    padding: 8px 20px; 
+                    font-size: 14px; 
+                    width: auto;
+                    background: #ffc107;
+                    color: #212529;
+                ">
+                    Resend Verification Email
+                </button>
+            </div>
+            
             <div class="dashboard-header">
                 <div>
                     <h1 style="font-size: 2.5rem; color: #0e192b; margin-bottom: 10px;">Welcome back, <span id="userName"></span>! 👋</h1>
@@ -1389,6 +1436,11 @@
             document.getElementById('signupSection').classList.remove('hidden');
         }
 
+        function showForgotPassword() {
+            hideAllSections();
+            document.getElementById('forgotPasswordSection').classList.remove('hidden');
+        }
+
         function showDashboard() {
             hideAllSections();
             clearReportState(); // Clear any stale report data
@@ -1511,6 +1563,39 @@
             if (currentUser) {
                 document.getElementById('userName').textContent = currentUser.firstName;
                 document.getElementById('creditsDisplay').textContent = currentUser.creditsRemaining;
+                
+                // Show/hide email verification banner
+                const verificationBanner = document.getElementById('emailVerificationBanner');
+                if (currentUser.emailVerified) {
+                    verificationBanner.classList.add('hidden');
+                } else {
+                    verificationBanner.classList.remove('hidden');
+                }
+            }
+        }
+
+        // Resend verification email
+        async function resendVerificationEmail() {
+            if (!currentUser) return;
+            
+            try {
+                const response = await fetch('/api/resend-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    showToast('Verification email sent! Please check your inbox.', 'success');
+                } else {
+                    const data = await response.json();
+                    showToast(data.error || 'Failed to send verification email', 'error');
+                }
+            } catch (error) {
+                console.error('Resend verification error:', error);
+                showToast('Network error. Please try again.', 'error');
             }
         }
 
@@ -1737,6 +1822,45 @@
                 console.error('Signup error:', error);
             } finally {
                 submitBtn.textContent = 'Create Account';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Handle forgot password form submission
+        document.getElementById('forgotPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('resetEmail').value;
+            const messageDiv = document.getElementById('forgotPasswordMessage');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            
+            submitBtn.textContent = 'Sending...';
+            submitBtn.disabled = true;
+            messageDiv.classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    messageDiv.innerHTML = `<div class="success">${data.message}</div>`;
+                    messageDiv.classList.remove('hidden');
+                    e.target.reset();
+                } else {
+                    messageDiv.innerHTML = `<div class="error">${data.error || 'Failed to send reset link'}</div>`;
+                    messageDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                messageDiv.innerHTML = '<div class="error">Network error. Please try again.</div>';
+                messageDiv.classList.remove('hidden');
+                console.error('Forgot password error:', error);
+            } finally {
+                submitBtn.textContent = 'Send Reset Link';
                 submitBtn.disabled = false;
             }
         });
@@ -1971,7 +2095,7 @@
                             </div>
                             
                             ${(() => {
-                                const suggestion = getSmartSuggestion(factor.id, smartSuggestions);
+                                const suggestion = getSmartSuggestion(factor, smartSuggestions);
                                 if (suggestion === null) return '';
                                 return `
                                     <div class="smart-suggestion-section">
@@ -2066,32 +2190,27 @@
             return howToFix[factorId] || 'Follow Google Business Profile best practices to improve this factor';
         }
 
-        function getSmartSuggestion(factorId, smartSuggestions) {
-            // Factors that should NOT show smart suggestions
+        function getSmartSuggestion(factor, smartSuggestions) {
+            // If the factor has GOOD status or achieved full score, hide the suggestion box
+            if (factor.status === 'GOOD' || factor.score === factor.maxScore) {
+                return null; // This will hide the suggestion section
+            }
+            
+            // Factors that should NOT show smart suggestions regardless of score
             const noSuggestionFactors = ['claimed', 'photos', 'gbpEmbed', 'social'];
-            if (noSuggestionFactors.includes(factorId)) {
+            if (noSuggestionFactors.includes(factor.id)) {
                 return null; // This will hide the suggestion section
             }
             
             // Try to get from AI suggestions
-            const suggestionKey = getSuggestionKey(factorId);
+            const suggestionKey = getSuggestionKey(factor.id);
             if (smartSuggestions && smartSuggestions.suggestions && smartSuggestions.suggestions[suggestionKey]) {
                 return smartSuggestions.suggestions[suggestionKey].content;
             }
             
-            // If no AI suggestion is available, show a more helpful message
-            const factorNames = {
-                'description': 'business description',
-                'categories': 'category selection',
-                'productTiles': 'product/service tiles',
-                'posts': 'posting strategy',
-                'qa': 'Q&A content',
-                'reviews': 'review management',
-                'citations': 'citation building',
-                'landingPage': 'landing page optimization'
-            };
-            const factorName = factorNames[factorId] || factorId;
-            return `AI-generated suggestions will appear here once the audit is complete. This section will provide specific recommendations for improving your ${factorName}.`;
+            // If no AI suggestion was generated (likely because score was GOOD/full points),
+            // return null to hide the suggestion box entirely
+            return null;
         }
 
         // Copy suggestion to clipboard
