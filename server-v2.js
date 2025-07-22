@@ -60,6 +60,7 @@ const db = new DatabaseAdapter();
     await db.initialize();
     await db.setupTables();
     console.log('✅ Database ready for connections');
+    
   } catch (err) {
     console.error('❌ Database initialization failed:', err);
     process.exit(1);
@@ -84,23 +85,23 @@ const authenticateToken = async (req, res, next) => {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid token' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await db.get('SELECT * FROM users WHERE id = $1', [decoded.userId]);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
     
-    db.get('SELECT * FROM users WHERE id = ?', [decoded.userId], (err, user) => {
-      if (err) {
-        console.error('Database error in auth:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      req.user = user;
-      next();
-    });
-  });
+    req.user = user;
+    next();
+  } catch (err) {
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+    console.error('Database error in auth:', err);
+    return res.status(500).json({ error: 'Database error' });
+  }
 };
 // ==========================================
 // UTILITY FUNCTIONS
@@ -1922,30 +1923,26 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
     const report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user);
     
     // Save report
-    db.run(
-      'INSERT INTO reports (user_id, business_name, city, industry, website, report_data) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.user.id, businessName, finalLocation, finalIndustry, website || null, JSON.stringify(report)],
-      function(err) {
-        if (err) {
-          console.error('Error saving report:', err);
-        } else {
-          console.log(`💾 Report saved with ID: ${this.lastID}`);
-        }
-      }
-    );
+    try {
+      const result = await db.run(
+        'INSERT INTO reports (user_id, business_name, city, industry, website, report_data) VALUES ($1, $2, $3, $4, $5, $6)',
+        [req.user.id, businessName, finalLocation, finalIndustry, website || null, JSON.stringify(report)]
+      );
+      console.log(`💾 Report saved with ID: ${result.lastID}`);
+    } catch (err) {
+      console.error('Error saving report:', err);
+    }
     
     // Deduct credit
-    db.run(
-      'UPDATE users SET credits_remaining = credits_remaining - 1 WHERE id = ?',
-      [req.user.id],
-      function(err) {
-        if (err) {
-          console.error('Error updating credits:', err);
-        } else {
-          console.log(`💳 Credit deducted. User has ${req.user.credits_remaining - 1} credits remaining`);
-        }
-      }
-    );
+    try {
+      await db.run(
+        'UPDATE users SET credits_remaining = credits_remaining - 1 WHERE id = $1',
+        [req.user.id]
+      );
+      console.log(`💳 Credit deducted. User has ${req.user.credits_remaining - 1} credits remaining`);
+    } catch (err) {
+      console.error('Error updating credits:', err);
+    }
 
     console.log(`✅ COMPLETE Report generated successfully for ${businessName}`);
     res.json(report);
@@ -1964,46 +1961,40 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
   try {
     console.log(`📋 Loading reports for user ${req.user.id}`);
     
-    db.all(
-      'SELECT id, business_name, city, industry, website, created_at, report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC',
-      [req.user.id],
-      (err, reports) => {
-        if (err) {
-          console.error('Error loading reports:', err);
-          return res.status(500).json({ error: 'Failed to load reports' });
-        }
-        
-        // Extract score from each report's JSON data
-        const reportsWithScores = reports.map(report => {
-          let score = null;
-          try {
-            if (report.report_data) {
-              const reportData = JSON.parse(report.report_data);
-              score = reportData.auditOverview?.overallScore?.score || reportData.finalScore || null;
-            }
-          } catch (parseError) {
-            console.error(`Error parsing report data for report ${report.id}:`, parseError);
-          }
-          
-          return {
-            id: report.id,
-            business_name: report.business_name,
-            city: report.city,
-            industry: report.industry,
-            website: report.website,
-            created_at: report.created_at,
-            score: score
-          };
-        });
-        
-        console.log(`✅ Found ${reports.length} reports for user ${req.user.id}`);
-        
-        res.json({
-          success: true,
-          reports: reportsWithScores
-        });
-      }
+    const reports = await db.all(
+      'SELECT id, business_name, city, industry, website, created_at, report_data FROM reports WHERE user_id = $1 ORDER BY created_at DESC',
+      [req.user.id]
     );
+    
+    // Extract score from each report's JSON data
+    const reportsWithScores = reports.map(report => {
+      let score = null;
+      try {
+        if (report.report_data) {
+          const reportData = JSON.parse(report.report_data);
+          score = reportData.auditOverview?.overallScore?.score || reportData.finalScore || null;
+        }
+      } catch (parseError) {
+        console.error(`Error parsing report data for report ${report.id}:`, parseError);
+      }
+      
+      return {
+        id: report.id,
+        business_name: report.business_name,
+        city: report.city,
+        industry: report.industry,
+        website: report.website,
+        created_at: report.created_at,
+        score: score
+      };
+    });
+    
+    console.log(`✅ Found ${reports.length} reports for user ${req.user.id}`);
+    
+    res.json({
+      success: true,
+      reports: reportsWithScores
+    });
   } catch (error) {
     console.error('Error in user-reports endpoint:', error);
     res.status(500).json({ error: 'Failed to load reports' });
@@ -2016,35 +2007,29 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
     const reportId = req.params.id;
     console.log(`📊 Loading report ${reportId} for user ${req.user.id}`);
     
-    db.get(
-      'SELECT * FROM reports WHERE id = ? AND user_id = ?',
-      [reportId, req.user.id],
-      (err, report) => {
-        if (err) {
-          console.error('Error loading report:', err);
-          return res.status(500).json({ error: 'Failed to load report' });
-        }
-        
-        if (!report) {
-          console.log(`❌ Report ${reportId} not found for user ${req.user.id}`);
-          return res.status(404).json({ error: 'Report not found' });
-        }
-        
-        try {
-          // Parse the stored JSON report data
-          const reportData = JSON.parse(report.report_data);
-          console.log(`✅ Successfully loaded report ${reportId}`);
-          
-          res.json({
-            success: true,
-            report: reportData
-          });
-        } catch (parseError) {
-          console.error('Error parsing report data:', parseError);
-          return res.status(500).json({ error: 'Report data is corrupted' });
-        }
-      }
+    const report = await db.get(
+      'SELECT * FROM reports WHERE id = $1 AND user_id = $2',
+      [reportId, req.user.id]
     );
+    
+    if (!report) {
+      console.log(`❌ Report ${reportId} not found for user ${req.user.id}`);
+      return res.status(404).json({ error: 'Report not found' });
+    }
+    
+    try {
+      // Parse the stored JSON report data
+      const reportData = JSON.parse(report.report_data);
+      console.log(`✅ Successfully loaded report ${reportId}`);
+      
+      res.json({
+        success: true,
+        report: reportData
+      });
+    } catch (parseError) {
+      console.error('Error parsing report data:', parseError);
+      return res.status(500).json({ error: 'Report data is corrupted' });
+    }
   } catch (error) {
     console.error('Error in report retrieval endpoint:', error);
     res.status(500).json({ error: 'Failed to load report' });

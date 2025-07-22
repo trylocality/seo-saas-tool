@@ -5,6 +5,8 @@ class DatabaseAdapter {
   constructor() {
     this.dbType = null;
     this.db = null;
+    this.pool = null;
+    this.sqliteDb = null;
   }
 
   async initialize() {
@@ -24,6 +26,8 @@ class DatabaseAdapter {
   async initializePostgreSQL(connectionString) {
     const { Pool } = require('pg');
     
+    console.log('🔍 Initializing PostgreSQL with NODE_ENV:', process.env.NODE_ENV);
+    
     // Enhanced configuration for Render PostgreSQL
     const dbConfig = {
       connectionString,
@@ -39,6 +43,8 @@ class DatabaseAdapter {
     
     this.pool = new Pool(dbConfig);
     this.dbType = 'postgresql';
+    
+    console.log('🔍 Database type set to:', this.dbType);
     
     // Test connection with better error handling
     try {
@@ -88,6 +94,21 @@ class DatabaseAdapter {
     }
     
     if (this.dbType === 'postgresql') {
+      // IMPORTANT: PostgreSQL queries should NOT be converted
+      if (text.includes('?')) {
+        console.error('⚠️ WARNING: PostgreSQL query contains SQLite-style placeholder: ?');
+        console.error('Query:', text);
+        // Auto-fix the query
+        let fixedQuery = text;
+        let paramIndex = 1;
+        while (fixedQuery.includes('?')) {
+          fixedQuery = fixedQuery.replace('?', '$' + paramIndex);
+          paramIndex++;
+        }
+        console.log('Auto-fixed to:', fixedQuery);
+        text = fixedQuery;
+      }
+      
       try {
         return await this.pool.query(text, params);
       } catch (err) {
@@ -141,6 +162,20 @@ class DatabaseAdapter {
       throw new Error(`Invalid query text in get(): ${JSON.stringify(text)}`);
     }
     
+    // CRITICAL FIX: If we're using PostgreSQL and the query has been incorrectly converted to SQLite style,
+    // convert it back to PostgreSQL style
+    if (this.dbType === 'postgresql' && text.includes('?')) {
+      console.warn('⚠️ Fixing incorrectly converted query for PostgreSQL');
+      let fixedQuery = text;
+      let paramIndex = 1;
+      while (fixedQuery.includes('?')) {
+        fixedQuery = fixedQuery.replace('?', '$' + paramIndex);
+        paramIndex++;
+      }
+      console.log(`Fixed query: "${fixedQuery}"`);
+      text = fixedQuery;
+    }
+    
     try {
       const result = await this.query(text, params);
       return result.rows[0] || null;
@@ -159,6 +194,19 @@ class DatabaseAdapter {
       throw new Error(`Invalid query text in all(): ${JSON.stringify(text)}`);
     }
     
+    // CRITICAL FIX: If we're using PostgreSQL and the query has been incorrectly converted to SQLite style,
+    // convert it back to PostgreSQL style
+    if (this.dbType === 'postgresql' && text.includes('?')) {
+      console.warn('⚠️ Fixing incorrectly converted query for PostgreSQL in all()');
+      let fixedQuery = text;
+      let paramIndex = 1;
+      while (fixedQuery.includes('?')) {
+        fixedQuery = fixedQuery.replace('?', '$' + paramIndex);
+        paramIndex++;
+      }
+      text = fixedQuery;
+    }
+    
     try {
       const result = await this.query(text, params);
       return result.rows;
@@ -175,6 +223,19 @@ class DatabaseAdapter {
     // Ensure text is a valid string
     if (!text || typeof text !== 'string') {
       throw new Error(`Invalid query text in run(): ${JSON.stringify(text)}`);
+    }
+    
+    // CRITICAL FIX: If we're using PostgreSQL and the query has been incorrectly converted to SQLite style,
+    // convert it back to PostgreSQL style
+    if (this.dbType === 'postgresql' && text.includes('?')) {
+      console.warn('⚠️ Fixing incorrectly converted query for PostgreSQL in run()');
+      let fixedQuery = text;
+      let paramIndex = 1;
+      while (fixedQuery.includes('?')) {
+        fixedQuery = fixedQuery.replace('?', '$' + paramIndex);
+        paramIndex++;
+      }
+      text = fixedQuery;
     }
     
     try {
