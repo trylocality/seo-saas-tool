@@ -919,6 +919,81 @@
         margin-top: 15px;
     }
 }
+
+/* Locked Report Styles */
+.report-locked-overlay {
+    position: relative;
+}
+
+.report-locked-blur {
+    filter: blur(4px);
+    pointer-events: none;
+    user-select: none;
+}
+
+.unlock-report-banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 2px solid #0e192b;
+    border-radius: 15px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    max-width: 400px;
+    width: 90%;
+}
+
+.unlock-banner-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #0e192b;
+    margin-bottom: 15px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.unlock-banner-subtitle {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 20px;
+    padding: 10px 15px;
+    background: #e7f3ff;
+    border-radius: 8px;
+    border-left: 4px solid #0066cc;
+}
+
+.unlock-btn {
+    background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+.unlock-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+}
+
+.factors-locked {
+    position: relative;
+}
+
+.factors-locked .factors-compact-grid {
+    filter: blur(2px);
+    pointer-events: none;
+    user-select: none;
+}
     </style>
 </head>
 <body>
@@ -1452,10 +1527,6 @@
         }
 
         function showReportForm() {
-            if (currentUser && currentUser.creditsRemaining <= 0) {
-                showToast('No credits remaining! Please purchase more credits to generate reports.', 'error');
-                return;
-            }
             hideAllSections();
             clearReportState(); // Clear any stale report data
             document.getElementById('reportFormSection').classList.remove('hidden');
@@ -1463,6 +1534,14 @@
             // Clear the form when showing it
             document.getElementById('reportForm').reset();
             document.getElementById('reportError').classList.add('hidden');
+            
+            // Update button text based on credits
+            const submitBtn = document.querySelector('#reportForm button[type="submit"]');
+            if (currentUser && currentUser.creditsRemaining <= 0) {
+                submitBtn.textContent = 'Generate Preview Report (Free)';
+            } else {
+                submitBtn.textContent = 'Generate Report (1 Credit)';
+            }
         }
 
         function showLoading() {
@@ -1570,6 +1649,16 @@
                     verificationBanner.classList.add('hidden');
                 } else {
                     verificationBanner.classList.remove('hidden');
+                }
+                
+                // Update report form button text if form is visible
+                const submitBtn = document.querySelector('#reportForm button[type="submit"]');
+                if (submitBtn) {
+                    if (currentUser.creditsRemaining <= 0) {
+                        submitBtn.textContent = 'Generate Preview Report (Free)';
+                    } else {
+                        submitBtn.textContent = 'Generate Report (1 Credit)';
+                    }
                 }
             }
         }
@@ -1940,7 +2029,12 @@
                 showReportForm();
                 showToast('Failed to generate report. Please try again.', 'error');
             } finally {
-                submitBtn.textContent = 'Generate Report (1 Credit)';
+                // Reset button text based on credits
+                if (currentUser && currentUser.creditsRemaining <= 0) {
+                    submitBtn.textContent = 'Generate Preview Report (Free)';
+                } else {
+                    submitBtn.textContent = 'Generate Report (1 Credit)';
+                }
                 submitBtn.disabled = false;
             }
         });
@@ -2014,15 +2108,68 @@
 
             // Display factors with fallback data
             const factors = auditData.factors || reportData.factors || generateDefaultFactors(score);
-            displayFactorsCompact(factors, reportData.smartSuggestions || {});
             
-            // Display citations with fallback
-            const citations = reportData.citationsAnalysis || reportData.citations || { data: { checked: [] } };
-            displayCitationsRow(citations);
+            // Handle locked report display
+            if (reportData.isLocked) {
+                displayLockedReport(factors, reportData.optimizationOpportunities || 0);
+            } else {
+                displayFactorsCompact(factors, reportData.smartSuggestions || {});
+                
+                // Display citations with fallback
+                const citations = reportData.citationsAnalysis || reportData.citations || { data: { checked: [] } };
+                displayCitationsRow(citations);
+                
+                // Display action plan with fallback
+                const actionPlan = reportData.actionPlan || generateDefaultActionPlan(factors);
+                displayActionPlanSimple(actionPlan);
+            }
+        }
+
+        // Display locked report with blur effect and unlock overlay
+        function displayLockedReport(factors, optimizationOpportunities) {
+            const factorsGrid = document.getElementById('factorsGrid');
             
-            // Display action plan with fallback
-            const actionPlan = reportData.actionPlan || generateDefaultActionPlan(factors);
-            displayActionPlanSimple(actionPlan);
+            // First display the factors normally (but they'll be blurred via CSS)
+            displayFactorsCompact(factors, {});
+            
+            // Add locked class to enable blur
+            factorsGrid.classList.add('factors-locked');
+            
+            // Create unlock overlay
+            const unlockOverlay = document.createElement('div');
+            unlockOverlay.className = 'unlock-report-banner';
+            unlockOverlay.innerHTML = `
+                <div class="unlock-banner-title">ANALYSIS COMPLETE</div>
+                <div class="unlock-banner-subtitle">
+                    ${optimizationOpportunities} Optimization Opportunities Found
+                </div>
+                <button class="unlock-btn" onclick="redirectToPricing()">
+                    UNLOCK FULL REPORT
+                </button>
+            `;
+            
+            // Insert overlay into the factors container
+            const factorsContainer = factorsGrid.parentElement;
+            factorsContainer.style.position = 'relative';
+            factorsContainer.appendChild(unlockOverlay);
+            
+            // Hide citations and action plan sections for locked reports
+            const citationsSection = document.getElementById('citationsSection');
+            const actionPlanSection = document.getElementById('actionPlanSection');
+            
+            if (citationsSection) {
+                citationsSection.style.display = 'none';
+            }
+            if (actionPlanSection) {
+                actionPlanSection.style.display = 'none';
+            }
+        }
+
+        // Redirect to pricing page
+        function redirectToPricing() {
+            // You can customize this URL to your pricing page
+            window.location.href = '/#pricing';
+            showToast('Please purchase credits to unlock the full report!', 'info');
         }
 
         // Helper function to generate score message
@@ -2062,6 +2209,20 @@
         // Display factors in compact format with expandable details
         function displayFactorsCompact(factors, smartSuggestions) {
             const factorsGrid = document.getElementById('factorsGrid');
+            
+            // Clean up any previous locked state
+            factorsGrid.classList.remove('factors-locked');
+            const existingOverlay = factorsGrid.parentElement.querySelector('.unlock-report-banner');
+            if (existingOverlay) {
+                existingOverlay.remove();
+            }
+            
+            // Show citations and action plan sections for unlocked reports
+            const citationsSection = document.getElementById('citationsSection');
+            const actionPlanSection = document.getElementById('actionPlanSection');
+            if (citationsSection) citationsSection.style.display = 'block';
+            if (actionPlanSection) actionPlanSection.style.display = 'block';
+            
             let factorsHTML = '';
             
             factors.forEach(factor => {

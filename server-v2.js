@@ -2272,9 +2272,7 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
     console.log(`📊 Report request from user ${req.user.email}`);
     console.log('🔍 DEBUG: Request body:', req.body);
     
-    if (req.user.credits_remaining <= 0) {
-      return res.status(402).json({ error: 'No credits remaining. Please purchase more credits.' });
-    }
+    const hasCredits = req.user.credits_remaining > 0;
     
     // Handle both old and new frontend formats
     const { businessName, location, city, industry, category, website } = req.body;
@@ -2307,19 +2305,39 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
       console.error('Error saving report:', err);
     }
     
-    // Deduct credit
-    try {
-      await db.run(
-        'UPDATE users SET credits_remaining = credits_remaining - 1 WHERE id = $1',
-        [req.user.id]
-      );
-      console.log(`💳 Credit deducted. User has ${req.user.credits_remaining - 1} credits remaining`);
-    } catch (err) {
-      console.error('Error updating credits:', err);
+    // Deduct credit only if user has credits
+    if (hasCredits) {
+      try {
+        await db.run(
+          'UPDATE users SET credits_remaining = credits_remaining - 1 WHERE id = $1',
+          [req.user.id]
+        );
+        console.log(`💳 Credit deducted. User has ${req.user.credits_remaining - 1} credits remaining`);
+      } catch (err) {
+        console.error('Error updating credits:', err);
+      }
+    } else {
+      console.log(`👀 Preview report generated for user without credits: ${req.user.email}`);
+    }
+
+    // Calculate optimization opportunities if the report is locked
+    let optimizationOpportunities = 0;
+    if (!hasCredits && report.factors) {
+      optimizationOpportunities = report.factors.filter(factor => 
+        factor.status === 'MISSING' || factor.status === 'NEEDS IMPROVEMENT'
+      ).length;
     }
 
     console.log(`✅ COMPLETE Report generated successfully for ${businessName}`);
-    res.json(report);
+    
+    // Add locked status and optimization count to response
+    const responseReport = {
+      ...report,
+      isLocked: !hasCredits,
+      optimizationOpportunities: hasCredits ? 0 : optimizationOpportunities
+    };
+    
+    res.json(responseReport);
     
   } catch (error) {
     console.error('❌ Report generation error:', error);
