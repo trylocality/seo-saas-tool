@@ -75,7 +75,21 @@ const db = new DatabaseAdapter();
 app.use(cors());
 app.use('/api/stripe-webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
-app.use(express.static('public'));
+// Serve static files with cache control
+app.use(express.static('public', {
+  setHeaders: (res, path) => {
+    // Cache HTML files for a short time to prevent auth state issues
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    // Cache other assets normally
+    else {
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours
+    }
+  }
+}));
 
 // Serve email verification page
 app.get('/verify-email', (req, res) => {

@@ -1471,9 +1471,12 @@
     document.getElementById('reportSection').classList.add('hidden');
     
     // Check if user is already logged in
+    console.log('🔍 Page load - Auth token exists:', !!authToken);
     if (authToken) {
+        console.log('🔍 Checking authentication...');
         checkAuth();
     } else {
+        console.log('🔍 No auth token, showing login...');
         showLogin();
     }
 });
@@ -1667,6 +1670,7 @@
         // Check if user is authenticated
         async function checkAuth() {
             try {
+                console.log('🔍 Making auth request...');
                 const response = await fetch('/api/profile', {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
@@ -1679,13 +1683,16 @@
                     updateDashboard();
                     console.log('✅ User authenticated:', currentUser.firstName);
                 } else {
-                    console.log('❌ Token invalid, removing...');
+                    console.log('❌ Token invalid (status:', response.status, '), clearing auth state...');
                     localStorage.removeItem('authToken');
                     authToken = null;
                     showLogin();
                 }
             } catch (error) {
-                console.error('Auth check failed:', error);
+                console.error('❌ Auth check failed:', error);
+                console.log('🔄 Clearing auth state and showing login...');
+                localStorage.removeItem('authToken');
+                authToken = null;
                 showLogin();
             }
         }
