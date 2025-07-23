@@ -459,6 +459,75 @@ h1, h2, h3 { font-family: 'Montserrat', sans-serif; }
     50% { box-shadow: 0 10px 40px rgba(14, 25, 43, 0.3); }
 }
 
+/* Email Verification Banner */
+.email-verification-banner {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.verification-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.verification-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.verification-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.verification-text strong {
+    color: #856404;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.verification-description {
+    color: #856404;
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.resend-btn {
+    background: #ffc107;
+    color: #212529;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.resend-btn:hover {
+    background: #e0a800;
+    transform: translateY(-1px);
+}
+
+.resend-btn:disabled {
+    background: #6c757d;
+    color: white;
+    cursor: not-allowed;
+    transform: none;
+}
+
 /* Pricing Modal Styles */
 .pricing-modal-content {
     max-width: 1000px;
@@ -664,5 +733,27 @@ h1, h2, h3 { font-family: 'Montserrat', sans-serif; }
     
     .price-modal .amount {
         font-size: 2rem;
+    }
+    
+    /* Email Verification Banner Mobile */
+    .email-verification-banner {
+        margin: 0 10px 20px 10px;
+        padding: 10px 12px;
+    }
+    
+    .verification-content {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+    
+    .verification-text {
+        text-align: center;
+    }
+    
+    .resend-btn {
+        align-self: center;
+        padding: 8px 16px;
+        font-size: 0.9rem;
     }
 }

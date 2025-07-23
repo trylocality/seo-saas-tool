@@ -1112,29 +1112,17 @@
             </div>
             
             <!-- Email Verification Banner -->
-            <div id="emailVerificationBanner" class="hidden" style="
-                background: #fff3cd; 
-                border: 1px solid #ffeaa7; 
-                border-radius: 8px; 
-                padding: 15px; 
-                margin-bottom: 20px;
-                text-align: center;
-            ">
-                <div style="color: #856404; margin-bottom: 10px;">
-                    📧 <strong>Please verify your email address</strong>
+            <div id="emailVerificationBanner" class="email-verification-banner hidden">
+                <div class="verification-content">
+                    <span class="verification-icon">📧</span>
+                    <div class="verification-text">
+                        <strong>Please verify your email address</strong>
+                        <span class="verification-description">Check your inbox and click the verification link</span>
+                    </div>
+                    <button id="resendBtn" onclick="resendVerificationEmail()" class="resend-btn">
+                        Resend Email
+                    </button>
                 </div>
-                <div style="color: #856404; font-size: 14px; margin-bottom: 15px;">
-                    We sent a verification link to your email. Please check your inbox and click the link to verify your account.
-                </div>
-                <button onclick="resendVerificationEmail()" class="btn" style="
-                    padding: 8px 20px; 
-                    font-size: 14px; 
-                    width: auto;
-                    background: #ffc107;
-                    color: #212529;
-                ">
-                    Resend Verification Email
-                </button>
             </div>
             
             <div class="dashboard-header">
@@ -1839,7 +1827,14 @@
         async function resendVerificationEmail() {
             if (!currentUser) return;
             
+            const button = document.getElementById('resendBtn');
+            const originalText = button.textContent;
+            
             try {
+                // Show loading state
+                button.disabled = true;
+                button.textContent = 'Sending...';
+                
                 const response = await fetch('/api/resend-verification', {
                     method: 'POST',
                     headers: {
@@ -1848,14 +1843,26 @@
                     }
                 });
 
+                const data = await response.json();
+
                 if (response.ok) {
                     showToast('Verification email sent! Please check your inbox.', 'success');
+                    button.textContent = 'Email Sent ✓';
+                    
+                    // Re-enable button after 30 seconds
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }, 30000);
                 } else {
-                    const data = await response.json();
+                    button.disabled = false;
+                    button.textContent = originalText;
                     showToast(data.error || 'Failed to send verification email', 'error');
                 }
             } catch (error) {
                 console.error('Resend verification error:', error);
+                button.disabled = false;
+                button.textContent = originalText;
                 showToast('Network error. Please try again.', 'error');
             }
         }
