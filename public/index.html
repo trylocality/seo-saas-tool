@@ -1399,6 +1399,106 @@
         </div>
     </div>
 
+    <!-- Pricing Modal -->
+    <div id="pricingModal" class="modal hidden">
+        <div class="modal-content pricing-modal-content">
+            <div class="modal-header">
+                <h2>Choose Your Plan</h2>
+                <span class="close-modal" onclick="closePricingModal()">&times;</span>
+            </div>
+            
+            <div class="pricing-modal-body">
+                <p class="pricing-subtitle">Get comprehensive citation analysis for your business</p>
+                
+                <div class="pricing-grid-modal">
+                    <!-- Single Report -->
+                    <div class="pricing-card-modal">
+                        <div class="pricing-header-modal">
+                            <h3>Single Report</h3>
+                            <div class="price-modal">
+                                <span class="currency">$</span>
+                                <span class="amount">45</span>
+                            </div>
+                            <p class="price-description">One-time purchase</p>
+                        </div>
+                        <div class="pricing-features-modal">
+                            <ul>
+                                <li><span class="checkmark">✓</span> Complete citation analysis</li>
+                                <li><span class="checkmark">✓</span> 50 directory scan</li>
+                                <li><span class="checkmark">✓</span> Competitor comparison</li>
+                                <li><span class="checkmark">✓</span> Actionable recommendations</li>
+                                <li><span class="checkmark">✓</span> PDF export</li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-secondary" onclick="purchaseSingleReportModal()">
+                            Buy Now
+                        </button>
+                    </div>
+
+                    <!-- Starter Plan -->
+                    <div class="pricing-card-modal featured-modal">
+                        <div class="popular-badge-modal">Most Popular</div>
+                        <div class="pricing-header-modal">
+                            <h3>Starter</h3>
+                            <div class="price-modal">
+                                <span class="currency">$</span>
+                                <span class="amount">99</span>
+                                <span class="period">/month</span>
+                            </div>
+                            <p class="price-description">50 reports per month</p>
+                        </div>
+                        <div class="pricing-features-modal">
+                            <ul>
+                                <li><span class="checkmark">✓</span> Everything in Single Report</li>
+                                <li><span class="checkmark">✓</span> 50 reports/month</li>
+                                <li><span class="checkmark">✓</span> White-label capabilities</li>
+                                <li><span class="checkmark">✓</span> Priority support</li>
+                                <li><span class="checkmark">✓</span> Bulk export options</li>
+                                <li><span class="checkmark">✓</span> Custom branding</li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-primary" onclick="subscribePlanModal('starter')">
+                            Subscribe Now
+                        </button>
+                    </div>
+
+                    <!-- Pro Plan -->
+                    <div class="pricing-card-modal">
+                        <div class="pricing-header-modal">
+                            <h3>Pro</h3>
+                            <div class="price-modal">
+                                <span class="currency">$</span>
+                                <span class="amount">199</span>
+                                <span class="period">/month</span>
+                            </div>
+                            <p class="price-description">100 reports per month</p>
+                        </div>
+                        <div class="pricing-features-modal">
+                            <ul>
+                                <li><span class="checkmark">✓</span> Everything in Starter</li>
+                                <li><span class="checkmark">✓</span> 100 reports/month</li>
+                                <li><span class="checkmark">✓</span> Advanced analytics</li>
+                                <li><span class="checkmark">✓</span> API access</li>
+                                <li><span class="checkmark">✓</span> Team collaboration</li>
+                                <li><span class="checkmark">✓</span> Dedicated account manager</li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-secondary" onclick="subscribePlanModal('pro')">
+                            Subscribe Now
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pricing-footer-modal">
+                    <p class="guarantee-modal">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2328a745' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z'%3E%3C/path%3E%3C/svg%3E" alt="Secure" class="icon">
+                        30-day money-back guarantee • Cancel anytime
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global variables
         let currentUser = null;
@@ -2239,7 +2339,7 @@
 
         // Redirect to pricing page
         function redirectToPricing() {
-            window.location.href = '/pricing.html?from=preview';
+            showPricingModal(true); // true = highlight single report option
             showToast('Please purchase credits to unlock the full report!', 'info');
         }
 
@@ -2713,7 +2813,7 @@
 
         // Buy credits function
         function buyCredits() {
-            window.location.href = '/pricing.html';
+            showPricingModal();
         }
 
         // Download PDF function
@@ -2896,7 +2996,107 @@
             if (event.target === modal) {
                 closeFeedbackForm();
             }
+            
+            const pricingModal = document.getElementById('pricingModal');
+            if (event.target === pricingModal) {
+                closePricingModal();
+            }
         });
+
+        // Pricing Modal Functions
+        function showPricingModal(highlightSingle = false) {
+            document.getElementById('pricingModal').classList.remove('hidden');
+            document.getElementById('pricingModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            
+            // Highlight single report if coming from preview
+            if (highlightSingle) {
+                const singleCard = document.querySelector('.pricing-card-modal:first-child');
+                singleCard.classList.add('highlight-animation');
+                setTimeout(() => {
+                    singleCard.classList.remove('highlight-animation');
+                }, 1000);
+            }
+        }
+
+        function closePricingModal() {
+            document.getElementById('pricingModal').classList.remove('show');
+            document.getElementById('pricingModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Get auth token
+        function getAuthToken() {
+            return localStorage.getItem('authToken');
+        }
+
+        // Check if user is logged in
+        function checkAuthForPricing() {
+            const token = getAuthToken();
+            if (!token) {
+                showToast('Please log in to purchase credits', 'warning');
+                showLogin();
+                return false;
+            }
+            return true;
+        }
+
+        // Pricing modal specific functions
+        async function purchaseSingleReportModal() {
+            if (!checkAuthForPricing()) return;
+            
+            try {
+                showToast('Redirecting to checkout...', 'info');
+                
+                const response = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ priceType: 'oneTime' })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.url) {
+                    window.location.href = data.url;
+                } else {
+                    showToast(data.error || 'Failed to create checkout session', 'error');
+                }
+            } catch (error) {
+                console.error('Checkout error:', error);
+                showToast('Failed to process checkout. Please try again.', 'error');
+            }
+        }
+
+        async function subscribePlanModal(plan) {
+            if (!checkAuthForPricing()) return;
+            
+            try {
+                showToast('Redirecting to checkout...', 'info');
+                
+                const response = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ priceType: plan })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.url) {
+                    window.location.href = data.url;
+                } else {
+                    showToast(data.error || 'Failed to create checkout session', 'error');
+                }
+            } catch (error) {
+                console.error('Checkout error:', error);
+                showToast('Failed to process checkout. Please try again.', 'error');
+            }
+        }
     </script>
 </body>
 </html>
