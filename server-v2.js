@@ -47,8 +47,8 @@ if (missingKeys.length > 0) {
 
 // Stripe Configuration
 const STRIPE_PRICES = {
-  oneTime: process.env.STRIPE_PRICE_ONE_TIME || 'price_1ReQIIDEq7s1BPEYZfi9Nk6C',
-  starter: process.env.STRIPE_PRICE_STARTER || 'price_1ReQPvDEq7s1BPEYDbR6A3IJ',
+  oneTime: process.env.STRIPE_PRICE_ONE_TIME || 'price_1Ro50jDEq7s1BPEYpT3Hexlh',
+  starter: process.env.STRIPE_PRICE_STARTER || 'price_1Ro501DEq7s1BPEYrXB78dyu',
   pro: process.env.STRIPE_PRICE_PRO || 'price_1ReR1MDEq7s1BPEYHzSW0uTn'
 };
 
