@@ -21,11 +21,29 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // API Keys - Set these in your environment
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-change-this-123456789';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('❌ CRITICAL: JWT_SECRET environment variable is required for security');
+  process.exit(1);
+}
 const OUTSCRAPER_API_KEY = process.env.OUTSCRAPER_API_KEY;
 const SCRAPINGBEE_API_KEY = process.env.SCRAPINGBEE_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SERPAPI_KEY = process.env.SERPAPI_KEY;
+
+// Validate critical API keys on startup
+const missingKeys = [];
+if (!OUTSCRAPER_API_KEY) missingKeys.push('OUTSCRAPER_API_KEY');
+if (!SCRAPINGBEE_API_KEY) missingKeys.push('SCRAPINGBEE_API_KEY');
+if (!OPENAI_API_KEY) missingKeys.push('OPENAI_API_KEY');
+if (!SERPAPI_KEY) missingKeys.push('SERPAPI_KEY');
+
+if (missingKeys.length > 0) {
+  console.error('❌ CRITICAL: Missing required API keys:');
+  missingKeys.forEach(key => console.error(`   - ${key}`));
+  console.error('🚨 Application cannot function without these API keys. Please add them to your environment.');
+  process.exit(1);
+}
 
 // Stripe Configuration
 const STRIPE_PRICES = {
@@ -2289,8 +2307,6 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
     console.log(`📊 Report request from user ${req.user.email}`);
     console.log('🔍 DEBUG: Request body:', req.body);
     
-    const hasCredits = req.user.credits_remaining > 0;
-    
     // Handle both old and new frontend formats
     const { businessName, location, city, industry, category, website } = req.body;
     const finalLocation = location || city;
@@ -2306,35 +2322,47 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Please provide a valid location (e.g., "Denver, CO" or "Dubai, UAE")' });
     }
     
-    console.log(`🏢 Generating COMPLETE report for: ${businessName} in ${finalLocation} (${finalIndustry})`);
+    // CRITICAL FIX: Deduct credit BEFORE generating report to prevent race conditions
+    let hasCredits = false;
+    if (req.user.credits_remaining > 0) {
+      try {
+        // Atomic credit deduction with verification
+        const result = await db.query(
+          'UPDATE users SET credits_remaining = credits_remaining - 1 WHERE id = $1 AND credits_remaining > 0 RETURNING credits_remaining',
+          [req.user.id]
+        );
+        
+        if (result.rows && result.rows.length > 0) {
+          hasCredits = true;
+          const newCredits = result.rows[0].credits_remaining;
+          console.log(`💳 Credit deducted. User now has ${newCredits} credits remaining`);
+        } else {
+          console.log(`❌ Credit deduction failed - user may have run out of credits during processing`);
+          hasCredits = false;
+        }
+      } catch (err) {
+        console.error('Error deducting credits:', err);
+        hasCredits = false;
+      }
+    } else {
+      console.log(`👀 Preview report requested for user without credits: ${req.user.email}`);
+    }
+    
+    console.log(`🏢 Generating ${hasCredits ? 'COMPLETE' : 'PREVIEW'} report for: ${businessName} in ${finalLocation} (${finalIndustry})`);
     
     // Generate complete report with all features
     const report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user);
     
     // Save report
     try {
-      const result = await db.run(
-        'INSERT INTO reports (user_id, business_name, city, industry, website, report_data) VALUES ($1, $2, $3, $4, $5, $6)',
+      const result = await db.query(
+        'INSERT INTO reports (user_id, business_name, city, industry, website, report_data) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
         [req.user.id, businessName, finalLocation, finalIndustry, website || null, JSON.stringify(report)]
       );
-      console.log(`💾 Report saved with ID: ${result.lastID}`);
+      const reportId = result.rows?.[0]?.id || 'unknown';
+      console.log(`💾 Report saved with ID: ${reportId}`);
     } catch (err) {
       console.error('Error saving report:', err);
-    }
-    
-    // Deduct credit only if user has credits
-    if (hasCredits) {
-      try {
-        await db.run(
-          'UPDATE users SET credits_remaining = credits_remaining - 1 WHERE id = $1',
-          [req.user.id]
-        );
-        console.log(`💳 Credit deducted. User has ${req.user.credits_remaining - 1} credits remaining`);
-      } catch (err) {
-        console.error('Error updating credits:', err);
-      }
-    } else {
-      console.log(`👀 Preview report generated for user without credits: ${req.user.email}`);
     }
 
     // Calculate optimization opportunities if the report is locked
@@ -2359,8 +2387,7 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Report generation error:', error);
     res.status(500).json({ 
-      error: 'Failed to generate report. Please try again.',
-      details: error.message
+      error: 'Failed to generate report. Please try again.'
     });
   }
 });
@@ -2574,7 +2601,7 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
     });
 
   } catch (error) {
-    console.error('❌ Detailed citation analysis error:', error.message);
+    console.error('❌ Detailed citation analysis error:', error);
     res.status(500).json({ error: 'Failed to complete detailed citation analysis' });
   }
 });
@@ -2905,7 +2932,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    return res.status(400).send('Webhook signature verification failed');
   }
   
   try {
@@ -2918,18 +2945,29 @@ app.post('/api/stripe-webhook', async (req, res) => {
         const credits = parseInt(session.metadata.credits);
         const priceType = session.metadata.priceType;
         
+        // Check for duplicate payment processing
+        const existingPayment = await db.query(
+          'SELECT id FROM payments WHERE stripe_session_id = $1',
+          [session.id]
+        );
+        
+        if (existingPayment.rows && existingPayment.rows.length > 0) {
+          console.log(`⚠️ Payment already processed for session ${session.id}`);
+          break;
+        }
+        
         // Update user credits
-        await db.run(
-          'UPDATE users SET credits_remaining = credits_remaining + ? WHERE id = ?',
+        await db.query(
+          'UPDATE users SET credits_remaining = credits_remaining + $1 WHERE id = $2',
           [credits, userId]
         );
         
         // Record payment
-        await db.run(`
+        await db.query(`
           INSERT INTO payments (
             user_id, stripe_session_id, stripe_payment_intent_id, 
             amount, status, product_type, credits_purchased
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         `, [
           userId,
           session.id,
@@ -2942,8 +2980,8 @@ app.post('/api/stripe-webhook', async (req, res) => {
         
         // Update subscription tier if applicable
         if (priceType === 'starter' || priceType === 'pro') {
-          await db.run(
-            'UPDATE users SET subscription_tier = ? WHERE id = ?',
+          await db.query(
+            'UPDATE users SET subscription_tier = $1 WHERE id = $2',
             [priceType, userId]
           );
         }
@@ -2957,8 +2995,8 @@ app.post('/api/stripe-webhook', async (req, res) => {
         const customer = await stripe.customers.retrieve(subscription.customer);
         
         if (customer.email) {
-          await db.run(
-            'UPDATE users SET subscription_tier = ? WHERE email = ?',
+          await db.query(
+            'UPDATE users SET subscription_tier = $1 WHERE email = $2',
             ['free', customer.email]
           );
           console.log(`❌ Subscription cancelled for ${customer.email}`);
