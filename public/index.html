@@ -1271,9 +1271,6 @@
                 <div class="section">
                     <h3 class="section-title">Local Citations Status</h3>
                     <div class="citations-row" id="citationsRow"></div>
-                    <button class="order-citations-btn" onclick="orderCitations()">
-                        ORDER CITATIONS
-                    </button>
                     
                     <!-- Detailed Citation Analysis Section -->
                     <div class="detailed-analysis-section">
@@ -1291,6 +1288,9 @@
                                 <div class="detailed-score" id="detailedScore"></div>
                             </div>
                             <div class="detailed-results-grid" id="detailedResultsGrid"></div>
+                            <button class="order-citations-btn" onclick="orderCitations()">
+                                ORDER CITATIONS
+                            </button>
                         </div>
                         
                         <!-- Loading state -->
@@ -1463,6 +1463,18 @@
 
        window.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Locality App starting...');
+    
+    // Check for payment success
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+        showToast('Payment successful! Your credits have been added.', 'success');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // Refresh user data to show new credits
+        if (authToken) {
+            checkAuthToken();
+        }
+    }
     
     // Clear any stale report data on page load
     clearReportState();
@@ -2227,8 +2239,7 @@
 
         // Redirect to pricing page
         function redirectToPricing() {
-            // You can customize this URL to your pricing page
-            window.location.href = '/#pricing';
+            window.location.href = '/pricing.html?from=preview';
             showToast('Please purchase credits to unlock the full report!', 'info');
         }
 
@@ -2702,7 +2713,7 @@
 
         // Buy credits function
         function buyCredits() {
-            window.open('https://trylocality.com/pricing', '_blank');
+            window.location.href = '/pricing.html';
         }
 
         // Download PDF function

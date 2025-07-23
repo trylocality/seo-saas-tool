@@ -36,8 +36,8 @@ const STRIPE_PRICES = {
 
 const CREDIT_AMOUNTS = {
   oneTime: 1,
-  starter: 10,
-  pro: 50
+  starter: 50,
+  pro: 100
 };
 
 // White Label Configuration
@@ -2847,6 +2847,130 @@ app.use((err, req, res, next) => {
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
+});
+
+// ==========================================
+// STRIPE CHECKOUT ENDPOINTS
+// ==========================================
+
+// Create Stripe checkout session
+app.post('/api/create-checkout-session', authenticateToken, async (req, res) => {
+  try {
+    const { priceType } = req.body;
+    
+    if (!['oneTime', 'starter', 'pro'].includes(priceType)) {
+      return res.status(400).json({ error: 'Invalid price type' });
+    }
+    
+    const priceId = STRIPE_PRICES[priceType];
+    const credits = CREDIT_AMOUNTS[priceType];
+    
+    // Create line items based on price type
+    const lineItems = [{
+      price: priceId,
+      quantity: 1
+    }];
+    
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: lineItems,
+      mode: priceType === 'oneTime' ? 'payment' : 'subscription',
+      success_url: `${req.protocol}://${req.get('host')}/dashboard.html?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.protocol}://${req.get('host')}/pricing.html?payment=cancelled`,
+      customer_email: req.user.email,
+      metadata: {
+        userId: req.user.id.toString(),
+        priceType: priceType,
+        credits: credits.toString()
+      },
+      allow_promotion_codes: true
+    });
+    
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('Stripe checkout error:', error);
+    res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// Stripe webhook handler
+app.post('/api/stripe-webhook', async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  
+  let event;
+  
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        const session = event.data.object;
+        
+        // Handle successful payment
+        const userId = parseInt(session.metadata.userId);
+        const credits = parseInt(session.metadata.credits);
+        const priceType = session.metadata.priceType;
+        
+        // Update user credits
+        await db.run(
+          'UPDATE users SET credits_remaining = credits_remaining + ? WHERE id = ?',
+          [credits, userId]
+        );
+        
+        // Record payment
+        await db.run(`
+          INSERT INTO payments (
+            user_id, stripe_session_id, stripe_payment_intent_id, 
+            amount, status, product_type, credits_purchased
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+          userId,
+          session.id,
+          session.payment_intent || session.subscription,
+          session.amount_total,
+          'completed',
+          priceType,
+          credits
+        ]);
+        
+        // Update subscription tier if applicable
+        if (priceType === 'starter' || priceType === 'pro') {
+          await db.run(
+            'UPDATE users SET subscription_tier = ? WHERE id = ?',
+            [priceType, userId]
+          );
+        }
+        
+        console.log(`✅ Payment successful for user ${userId}: ${credits} credits added`);
+        break;
+        
+      case 'customer.subscription.deleted':
+        // Handle subscription cancellation
+        const subscription = event.data.object;
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        
+        if (customer.email) {
+          await db.run(
+            'UPDATE users SET subscription_tier = ? WHERE email = ?',
+            ['free', customer.email]
+          );
+          console.log(`❌ Subscription cancelled for ${customer.email}`);
+        }
+        break;
+    }
+    
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
 });
 
 // 404 handler
