@@ -3003,6 +3003,102 @@ app.post('/api/stripe-webhook', async (req, res) => {
   }
 });
 
+// ==========================================
+// WHITE LABEL API ENDPOINTS
+// ==========================================
+
+// Get white label settings for a user
+app.get('/api/white-label', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT custom_brand_name, custom_brand_logo, custom_prepared_by, custom_primary_color, custom_contact_name, custom_contact_email, custom_contact_phone, white_label_enabled FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    
+    if (result.rows && result.rows.length > 0) {
+      res.json(result.rows[0]);
+    } else {
+      res.json({
+        custom_brand_name: null,
+        custom_brand_logo: null,
+        custom_prepared_by: null,
+        custom_primary_color: null,
+        custom_contact_name: null,
+        custom_contact_email: null,
+        custom_contact_phone: null,
+        white_label_enabled: false
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching white label settings:', error);
+    res.status(500).json({ error: 'Failed to fetch white label settings' });
+  }
+});
+
+// Update white label settings (only for subscription users)
+app.post('/api/white-label', authenticateToken, async (req, res) => {
+  try {
+    // Check if user has subscription
+    const userResult = await db.query('SELECT subscription_tier FROM users WHERE id = $1', [req.user.id]);
+    
+    if (!userResult.rows || userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const user = userResult.rows[0];
+    if (user.subscription_tier === 'free') {
+      return res.status(403).json({ error: 'White label customization is only available for subscription users' });
+    }
+    
+    const {
+      custom_brand_name,
+      custom_brand_logo,
+      custom_prepared_by,
+      custom_primary_color,
+      custom_contact_name,
+      custom_contact_email,
+      custom_contact_phone,
+      white_label_enabled
+    } = req.body;
+    
+    await db.query(
+      `UPDATE users SET 
+        custom_brand_name = $1,
+        custom_brand_logo = $2,
+        custom_prepared_by = $3,
+        custom_primary_color = $4,
+        custom_contact_name = $5,
+        custom_contact_email = $6,
+        custom_contact_phone = $7,
+        white_label_enabled = $8,
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $9`,
+      [
+        custom_brand_name,
+        custom_brand_logo,
+        custom_prepared_by,
+        custom_primary_color,
+        custom_contact_name,
+        custom_contact_email,
+        custom_contact_phone,
+        white_label_enabled,
+        req.user.id
+      ]
+    );
+    
+    res.json({ success: true, message: 'White label settings updated successfully' });
+    
+    console.log(`🎨 User ${req.user.id} updated white label settings:`, {
+      brand_name: custom_brand_name,
+      enabled: white_label_enabled
+    });
+    
+  } catch (error) {
+    console.error('Error updating white label settings:', error);
+    res.status(500).json({ error: 'Failed to update white label settings' });
+  }
+});
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
