@@ -2835,11 +2835,39 @@
             // Calculate actual optimization opportunities from factors
             const actualOpportunities = calculateOptimizationOpportunities(factors);
             
-            // First display the factors normally (but they'll be blurred via CSS)
-            displayFactorsCompact(factors, {});
+            // IMPORTANT: Don't call displayFactorsCompact because it removes the locked class
+            // Instead, render factors directly with locked state
             
-            // Add locked class to enable blur
+            // Add locked class FIRST before rendering
             factorsGrid.classList.add('factors-locked');
+            
+            // Render factors directly (simplified version without interactions)
+            let factorsHTML = '<div class="factors-compact-grid">';
+            
+            for (const factorId in factors) {
+                const factor = factors[factorId];
+                const colorClass = getColorClass(factor.status);
+                const icon = getFactorIcon(factor.status);
+                
+                factorsHTML += `
+                    <div class="factor-card ${colorClass}">
+                        <div class="factor-header">
+                            <div class="factor-title">
+                                <span class="factor-icon">${icon}</span>
+                                ${factor.title}
+                            </div>
+                            <span class="factor-status ${colorClass}">
+                                ${factor.status.replace(/_/g, ' ')}
+                            </span>
+                        </div>
+                        <div class="factor-description">
+                            ${factor.description}
+                        </div>
+                    </div>`;
+            }
+            
+            factorsHTML += '</div>';
+            factorsGrid.innerHTML = factorsHTML;
             
             // Create unlock overlay
             const unlockOverlay = document.createElement('div');
