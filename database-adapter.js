@@ -300,6 +300,7 @@ class DatabaseAdapter {
         industry TEXT NOT NULL,
         website TEXT,
         report_data TEXT NOT NULL,
+        was_paid BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -380,6 +381,22 @@ class DatabaseAdapter {
         console.warn(`⚠️ Column ${column.name} setup skipped:`, e.message);
       }
     }
+
+    // Add was_paid column to reports table if it doesn't exist
+    try {
+      const reportColumnCheck = await this.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'reports' AND column_name = 'was_paid'
+      `);
+      
+      if (reportColumnCheck.length === 0) {
+        await this.query(`ALTER TABLE reports ADD COLUMN was_paid BOOLEAN DEFAULT FALSE`);
+        console.log(`✅ Added was_paid column to reports table`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Reports was_paid column setup skipped: ${e.message}`);
+    }
     
     console.log('✅ PostgreSQL tables created/verified');
   }
@@ -423,6 +440,7 @@ class DatabaseAdapter {
         industry TEXT NOT NULL,
         website TEXT,
         report_data TEXT NOT NULL,
+        was_paid INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
@@ -502,6 +520,19 @@ class DatabaseAdapter {
       } catch (e) {
         console.warn(`⚠️ Column ${column.name} setup skipped:`, e.message);
       }
+    }
+
+    // Add was_paid column to reports table if it doesn't exist
+    try {
+      const reportColumnCheck = await this.query('PRAGMA table_info(reports)');
+      const columnExists = reportColumnCheck.some(col => col.name === 'was_paid');
+      
+      if (!columnExists) {
+        await this.query(`ALTER TABLE reports ADD COLUMN was_paid INTEGER DEFAULT 0`);
+        console.log(`✅ Added was_paid column to reports table`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Reports was_paid column setup skipped: ${e.message}`);
     }
     
     console.log('✅ SQLite tables created/verified');

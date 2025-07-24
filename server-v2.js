@@ -283,51 +283,73 @@ New user registered on SEO Audit Tool:
   const webhookUrl = process.env.NEW_USER_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
   if (webhookUrl) {
     try {
-      await axios.post(webhookUrl, {
+      const webhookData = {
         subject,
         body: notificationBody,
         type: 'new_user',
         data: userData,
-        timestamp: new Date().toISOString()
-      });
-      console.log('✅ New user webhook notification sent');
-    } catch (error) {
-      console.error('❌ Failed to send new user webhook:', error.message);
-    }
-  }
-}
-
-// Generic email sending function
-async function sendEmail(to, subject, htmlContent, textContent) {
-  try {
-    // Method 1: Log to console (always works for debugging)
-    console.log('📧 EMAIL NOTIFICATION:');
-    console.log('To:', to);
-    console.log('Subject:', subject);
-    console.log('Body:', textContent || htmlContent);
-    
-    // Method 2: Try to use a webhook service (like Zapier, n8n, or similar)
-    const webhookUrl = process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
-    if (webhookUrl) {
-      const webhookData = {
-        to: to,
-        subject: subject,
-        html: htmlContent,
-        text: textContent,
+        emailType: 'new_user_notification',
         timestamp: new Date().toISOString()
       };
+      
+      console.log(`🔗 Sending new user notification to webhook: ${webhookUrl}`);
       
       await axios.post(webhookUrl, webhookData, {
         timeout: 5000,
         headers: { 'Content-Type': 'application/json' }
       });
       
-      console.log('✅ Email webhook sent successfully');
+      console.log('✅ New user webhook notification sent');
+    } catch (error) {
+      console.error('❌ Failed to send new user webhook:', error.message);
+    }
+  } else {
+    console.warn('⚠️ No NEW_USER_WEBHOOK_URL configured');
+  }
+}
+
+// Generic email sending function
+async function sendEmail(to, subject, htmlContent, textContent) {
+  const webhookUrl = process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
+  return sendEmailWithWebhook(to, subject, htmlContent, textContent, webhookUrl, 'generic_email');
+}
+
+// Email sending with specific webhook
+async function sendEmailWithWebhook(to, subject, htmlContent, textContent, webhookUrl, emailType) {
+  try {
+    // Method 1: Log to console (always works for debugging)
+    console.log(`📧 EMAIL NOTIFICATION (${emailType}):`);
+    console.log('To:', to);
+    console.log('Subject:', subject);
+    console.log('Body:', textContent || htmlContent);
+    
+    // Method 2: Try to use a webhook service (like Zapier, n8n, or similar)
+    if (webhookUrl) {
+      const webhookData = {
+        to: to,
+        subject: subject,
+        html: htmlContent,
+        text: textContent,
+        type: emailType,  // Add type field for Zapier path filtering
+        emailType: emailType,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log(`🔗 Sending to webhook: ${webhookUrl}`);
+      
+      await axios.post(webhookUrl, webhookData, {
+        timeout: 5000,
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      console.log(`✅ ${emailType} webhook sent successfully`);
+    } else {
+      console.warn(`⚠️ No webhook URL configured for ${emailType}`);
     }
     
     return true;
   } catch (error) {
-    console.error('❌ Email sending failed:', error.message);
+    console.error(`❌ ${emailType} webhook failed:`, error.message);
     throw error;
   }
 }
@@ -365,7 +387,9 @@ This link will expire in 24 hours.
 If you didn't create an account with Locality, please ignore this email.
   `.trim();
   
-  return sendEmail(email, subject, htmlContent, textContent);
+  // Use specific webhook for email verification
+  const webhookUrl = process.env.EMAIL_VERIFICATION_WEBHOOK_URL || process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
+  return sendEmailWithWebhook(email, subject, htmlContent, textContent, webhookUrl, 'email_verification');
 }
 
 // Send password reset email
@@ -404,7 +428,9 @@ This link will expire in 1 hour.
 If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
   `.trim();
   
-  return sendEmail(email, subject, htmlContent, textContent);
+  // Use specific webhook for password reset
+  const webhookUrl = process.env.PASSWORD_RESET_WEBHOOK_URL || process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
+  return sendEmailWithWebhook(email, subject, htmlContent, textContent, webhookUrl, 'password_reset');
 }
 
 // Send feedback email notification
@@ -445,22 +471,29 @@ This feedback was submitted through the Locality SEO Audit Tool.
     console.log('Subject:', subject);
     console.log('Body:', emailBody);
     
-    // Method 2: Try to use a webhook service (like Zapier, n8n, or similar)
-    // This allows you to set up email forwarding without SMTP credentials
-    if (process.env.FEEDBACK_WEBHOOK_URL) {
+    // Send to feedback webhook
+    const webhookUrl = process.env.FEEDBACK_WEBHOOK_URL;
+    if (webhookUrl) {
       const webhookData = {
         to: 'trylocality@gmail.com',
         subject: subject,
         body: emailBody,
-        feedbackData: feedbackData
+        feedbackData: feedbackData,
+        type: 'feedback_submission',  // Add type field for Zapier path filtering
+        emailType: 'feedback_submission',
+        timestamp: new Date().toISOString()
       };
       
-      await axios.post(process.env.FEEDBACK_WEBHOOK_URL, webhookData, {
+      console.log(`🔗 Sending feedback to webhook: ${webhookUrl}`);
+      
+      await axios.post(webhookUrl, webhookData, {
         timeout: 5000,
         headers: { 'Content-Type': 'application/json' }
       });
       
       console.log('✅ Feedback webhook sent successfully');
+    } else {
+      console.warn('⚠️ No FEEDBACK_WEBHOOK_URL configured');
     }
     
     return true;
@@ -2354,13 +2387,14 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
     const report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user);
     
     // Save report
+    let savedReportId = null;
     try {
       const result = await db.query(
-        'INSERT INTO reports (user_id, business_name, city, industry, website, report_data) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-        [req.user.id, businessName, finalLocation, finalIndustry, website || null, JSON.stringify(report)]
+        'INSERT INTO reports (user_id, business_name, city, industry, website, report_data, was_paid) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+        [req.user.id, businessName, finalLocation, finalIndustry, website || null, JSON.stringify(report), hasCredits]
       );
-      const reportId = result.rows?.[0]?.id || 'unknown';
-      console.log(`💾 Report saved with ID: ${reportId}`);
+      savedReportId = result.rows?.[0]?.id || null;
+      console.log(`💾 Report saved with ID: ${savedReportId}`);
     } catch (err) {
       console.error('Error saving report:', err);
     }
@@ -2379,7 +2413,8 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
     const responseReport = {
       ...report,
       isLocked: !hasCredits,
-      optimizationOpportunities: hasCredits ? 0 : optimizationOpportunities
+      optimizationOpportunities: hasCredits ? 0 : optimizationOpportunities,
+      reportId: savedReportId
     };
     
     res.json(responseReport);
@@ -2398,7 +2433,7 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
     console.log(`📋 Loading reports for user ${req.user.id}`);
     
     const reports = await db.all(
-      'SELECT id, business_name, city, industry, website, created_at, report_data FROM reports WHERE user_id = $1 ORDER BY created_at DESC',
+      'SELECT id, business_name, city, industry, website, created_at, report_data, was_paid FROM reports WHERE user_id = $1 ORDER BY created_at DESC',
       [req.user.id]
     );
     
@@ -2421,7 +2456,8 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
         industry: report.industry,
         website: report.website,
         created_at: report.created_at,
-        score: score
+        score: score,
+        was_paid: report.was_paid
       };
     });
     
@@ -2437,13 +2473,104 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
   }
 });
 
+// Unlock report endpoint - allows users to unlock specific locked reports
+app.post('/api/reports/:id/unlock', authenticateToken, async (req, res) => {
+  try {
+    const reportId = req.params.id;
+    console.log(`🔓 Unlock request for report ${reportId} from user ${req.user.id}`);
+    
+    // Check if user has credits
+    if (req.user.credits_remaining <= 0) {
+      return res.status(400).json({ 
+        error: 'Insufficient credits. Please purchase credits to unlock this report.' 
+      });
+    }
+    
+    // Check if report exists and belongs to user
+    const report = await db.get(
+      'SELECT * FROM reports WHERE id = $1 AND user_id = $2',
+      [reportId, req.user.id]
+    );
+    
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+    
+    // Check if report is already unlocked
+    if (report.was_paid) {
+      return res.status(400).json({ 
+        error: 'This report is already unlocked' 
+      });
+    }
+    
+    // Atomic credit deduction and report unlock
+    try {
+      // Deduct credit
+      const creditResult = await db.query(
+        'UPDATE users SET credits_remaining = credits_remaining - 1 WHERE id = $1 AND credits_remaining > 0 RETURNING credits_remaining',
+        [req.user.id]
+      );
+      
+      if (!creditResult.rows || creditResult.rows.length === 0) {
+        return res.status(400).json({ 
+          error: 'Failed to deduct credit. You may have run out of credits.' 
+        });
+      }
+      
+      // Unlock the report
+      await db.query(
+        'UPDATE reports SET was_paid = $1 WHERE id = $2',
+        [true, reportId]
+      );
+      
+      const remainingCredits = creditResult.rows[0].credits_remaining;
+      console.log(`🔓 Report ${reportId} unlocked! User now has ${remainingCredits} credits remaining`);
+      
+      // Return the unlocked report data
+      const reportData = JSON.parse(report.report_data);
+      const unlockedReport = {
+        ...reportData,
+        isLocked: false,
+        optimizationOpportunities: 0
+      };
+      
+      res.json({
+        success: true,
+        message: 'Report unlocked successfully!',
+        report: unlockedReport,
+        creditsRemaining: remainingCredits
+      });
+      
+    } catch (dbError) {
+      console.error('Database error during unlock:', dbError);
+      return res.status(500).json({ 
+        error: 'Failed to unlock report. Please try again.' 
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error in unlock report endpoint:', error);
+    res.status(500).json({ error: 'Failed to unlock report' });
+  }
+});
+
 // Detailed Citation Analysis endpoint
 app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) => {
   try {
     const { businessName, location } = req.body;
     
+    console.log(`🔍 Detailed citation analysis request received`);
+    console.log(`🔍 Request body:`, req.body);
+    
     if (!businessName || !location) {
+      console.error('❌ Missing required fields:', { businessName, location });
       return res.status(400).json({ error: 'Business name and location are required' });
+    }
+    
+    // Check for SERPAPI key
+    if (!SERPAPI_KEY) {
+      console.error('❌ SERPAPI_KEY not configured');
+      return res.status(500).json({ error: 'Citation analysis service not configured. Please contact support.' });
     }
 
     console.log(`🔍 Starting detailed citation analysis for: ${businessName} in ${location}`);
@@ -2527,6 +2654,8 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
     const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
 
     // Process each group of 4 directories
+    console.log(`📊 Processing ${premiumDirectories.length} groups of directories...`);
+    
     for (let groupIndex = 0; groupIndex < premiumDirectories.length; groupIndex++) {
       const group = premiumDirectories[groupIndex];
       try {
@@ -2535,6 +2664,7 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
         const searchQuery = `(${siteQueries}) "${businessName}" ${location}`;
         
         console.log(`🔍 Group ${groupIndex + 1}/10: Searching ${group.map(d => d.name).join(', ')}`);
+        console.log(`🔍 Search query: ${searchQuery}`);
 
         const response = await axios.get('https://serpapi.com/search.json', {
           params: {
@@ -2568,13 +2698,16 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
         
       } catch (groupError) {
         console.error(`❌ Group ${groupIndex + 1} search failed:`, groupError.message);
+        console.error(`❌ Error details:`, groupError.response?.data || groupError);
+        
         // Mark all directories in this group as error
         group.forEach(directory => {
           results.push({
             name: directory.name,
             domain: directory.domain,
             found: false,
-            status: 'ERROR'
+            status: 'ERROR',
+            error: groupError.message
           });
         });
       }
@@ -2625,11 +2758,30 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
     try {
       // Parse the stored JSON report data
       const reportData = JSON.parse(report.report_data);
-      console.log(`✅ Successfully loaded report ${reportId}`);
+      
+      // Check if this report was originally paid for
+      const wasPaid = report.was_paid;
+      
+      // Calculate optimization opportunities if the report is locked
+      let optimizationOpportunities = 0;
+      if (!wasPaid && reportData.factors) {
+        optimizationOpportunities = reportData.factors.filter(factor => 
+          factor.status === 'MISSING' || factor.status === 'NEEDS IMPROVEMENT'
+        ).length;
+      }
+      
+      // Add locked status based on original payment, not current credits
+      const responseReport = {
+        ...reportData,
+        isLocked: !wasPaid,
+        optimizationOpportunities: wasPaid ? 0 : optimizationOpportunities
+      };
+      
+      console.log(`✅ Successfully loaded report ${reportId} (${wasPaid ? 'PAID' : 'LOCKED'})`);
       
       res.json({
         success: true,
-        report: reportData
+        report: responseReport
       });
     } catch (parseError) {
       console.error('Error parsing report data:', parseError);
@@ -2638,6 +2790,149 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error in report retrieval endpoint:', error);
     res.status(500).json({ error: 'Failed to load report' });
+  }
+});
+
+// Test webhook endpoints (for testing only)
+app.post('/api/test/email-verification', authenticateToken, async (req, res) => {
+  try {
+    const { email, firstName } = req.body;
+    
+    if (!email || !firstName) {
+      return res.status(400).json({ error: 'Email and firstName are required' });
+    }
+    
+    // Generate a test token
+    const testToken = 'test-verification-token-' + Date.now();
+    
+    console.log('📧 TEST: Sending email verification webhook');
+    
+    // Send the email verification
+    await sendVerificationEmail(email, firstName, testToken);
+    
+    res.json({
+      success: true,
+      message: 'Test email verification sent',
+      testData: {
+        email,
+        firstName,
+        token: testToken,
+        webhookUrl: process.env.EMAIL_VERIFICATION_WEBHOOK_URL || process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL || 'NO WEBHOOK URL CONFIGURED'
+      }
+    });
+  } catch (error) {
+    console.error('Test email verification error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/test/password-reset', authenticateToken, async (req, res) => {
+  try {
+    const { email, firstName } = req.body;
+    
+    if (!email || !firstName) {
+      return res.status(400).json({ error: 'Email and firstName are required' });
+    }
+    
+    // Generate a test token
+    const testToken = 'test-reset-token-' + Date.now();
+    
+    console.log('📧 TEST: Sending password reset webhook');
+    
+    // Send the password reset email
+    await sendPasswordResetEmail(email, firstName, testToken);
+    
+    res.json({
+      success: true,
+      message: 'Test password reset sent',
+      testData: {
+        email,
+        firstName,
+        token: testToken,
+        webhookUrl: process.env.PASSWORD_RESET_WEBHOOK_URL || process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL || 'NO WEBHOOK URL CONFIGURED'
+      }
+    });
+  } catch (error) {
+    console.error('Test password reset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/test/feedback', authenticateToken, async (req, res) => {
+  try {
+    const { rating, message, type = 'general' } = req.body;
+    
+    if (!rating || !message) {
+      return res.status(400).json({ error: 'Rating and message are required' });
+    }
+    
+    console.log('📧 TEST: Sending feedback webhook');
+    
+    // Send the feedback email
+    await sendFeedbackEmail({
+      rating,
+      type,
+      message,
+      email: req.user.email,
+      reportData: {
+        businessName: 'Test Business',
+        location: 'Test Location',
+        industry: 'Test Industry'
+      },
+      userId: req.user.id,
+      userName: req.user.firstName || 'Test User'
+    });
+    
+    res.json({
+      success: true,
+      message: 'Test feedback sent',
+      testData: {
+        rating,
+        message,
+        type,
+        webhookUrl: process.env.FEEDBACK_WEBHOOK_URL || 'NO WEBHOOK URL CONFIGURED'
+      }
+    });
+  } catch (error) {
+    console.error('Test feedback error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/test/new-user', authenticateToken, async (req, res) => {
+  try {
+    const { email, firstName, lastName } = req.body;
+    
+    if (!email || !firstName || !lastName) {
+      return res.status(400).json({ error: 'Email, firstName, and lastName are required' });
+    }
+    
+    console.log('📧 TEST: Sending new user webhook');
+    
+    // Send the new user notification
+    await sendNewUserNotification({
+      userId: 'test-user-' + Date.now(),
+      email,
+      firstName,
+      lastName,
+      signupDate: new Date().toISOString(),
+      plan: 'test',
+      initialCredits: 0
+    });
+    
+    res.json({
+      success: true,
+      message: 'Test new user alert sent',
+      testData: {
+        email,
+        firstName,
+        lastName,
+        webhookUrl: process.env.NEW_USER_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL || 'NO WEBHOOK URL CONFIGURED'
+      }
+    });
+  } catch (error) {
+    console.error('Test new user error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

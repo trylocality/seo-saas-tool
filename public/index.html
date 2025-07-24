@@ -602,6 +602,22 @@
         }
         .report-action-btn:last-child { margin-right: 0; }
         
+        /* Lock icon styling */
+        .lock-icon {
+            color: #dc3545;
+            font-size: 0.8rem;
+            margin-left: 5px;
+            opacity: 0.8;
+        }
+        
+        /* Unlock button specific styling */
+        .report-action-btn.unlock-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        .report-action-btn.unlock-btn:hover {
+            background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
+        }
+        
         /* Loading Progress */
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #0e192b; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -2582,10 +2598,14 @@
                                  score >= 80 ? 'score-good' : 
                                  score >= 60 ? 'score-fair' : 'score-poor';
                 
+                const lockIcon = !report.was_paid ? '<span class="lock-icon">🔒</span>' : '';
+                const unlockButton = !report.was_paid ? 
+                    `<button class="report-action-btn unlock-btn" onclick="unlockReportFromDashboard(${report.id})" title="Unlock this report">UNLOCK</button>` : '';
+                
                 tableHTML += `
                     <tr>
                         <td>
-                            <div class="business-name">${report.business_name}</div>
+                            <div class="business-name">${report.business_name} ${lockIcon}</div>
                             <div class="business-location">${report.city} • ${report.industry}</div>
                         </td>
                         <td>
@@ -2594,6 +2614,7 @@
                         <td>${date}</td>
                         <td>
                             <button class="report-action-btn view-btn" onclick="viewStoredReport(${report.id})">VIEW</button>
+                            ${unlockButton}
                             <button class="report-action-btn run-again-btn" onclick="runReportAgain('${report.business_name}', '${report.city}', '${report.industry}', '${report.website || ''}')">
                                 RUN AGAIN
                             </button>
@@ -2635,10 +2656,13 @@
                 const data = await response.json();
                 
                 if (data.success && data.report) {
-                    // Set the current report data before displaying
-                    currentReportData = data.report;
+                    // Set the current report data before displaying, including report ID for unlocking
+                    currentReportData = {
+                        ...data.report,
+                        reportId: reportId
+                    };
                     // Display the stored report using the existing display function
-                    displayReport(data.report);
+                    displayReport(currentReportData);
                     showReport(); // This will now have valid currentReportData
                     showToast('Stored report loaded successfully!', 'success');
                 } else {
@@ -2838,9 +2862,13 @@
                 console.log('🔍 Data keys:', Object.keys(data));
                 console.log('🔍 Has auditOverview:', !!data.auditOverview);
 
-                // More flexible validation - just check for key required fields
-                if (data && data.auditOverview && data.auditOverview.overallScore && data.auditOverview.factors) {
-                    console.log('✅ Report data validation passed');
+                // More flexible validation - check for required fields or locked report
+                const hasRequiredData = data && data.auditOverview && data.auditOverview.overallScore && data.auditOverview.factors;
+                const isLockedReport = data && data.isLocked && data.auditOverview && data.auditOverview.factors;
+                const hasBasicData = data && data.auditOverview && data.auditOverview.factors;
+                
+                if (hasRequiredData || isLockedReport || hasBasicData) {
+                    console.log('✅ Report data validation passed', data.isLocked ? '(Preview Mode)' : '(Full Report)');
                     currentReportData = data;
                     displayReport(data);
                     showReport();
@@ -2849,7 +2877,8 @@
                     await checkAuth();
                     await loadUserReports();
                     
-                    showToast('Report generated successfully!', 'success');
+                    const message = data.isLocked ? 'Preview report generated successfully!' : 'Report generated successfully!';
+                    showToast(message, 'success');
                     console.log('✅ Report displayed successfully!');
                 } else {
                     console.error('❌ Report data validation failed');
@@ -3028,8 +3057,8 @@
                 <div class="unlock-banner-subtitle">
                     ${actualOpportunities} Optimization Opportunities Found
                 </div>
-                <button class="unlock-btn" onclick="redirectToPricing()">
-                    UNLOCK FULL REPORT
+                <button class="unlock-btn" onclick="handleUnlockAccess()">
+                    UNLOCK ACCESS
                 </button>
             `;
             
@@ -3062,10 +3091,91 @@
             buttons.forEach(btn => btn.style.display = 'none');
         }
 
+        // Handle unlock access - either use credits or buy more
+        function handleUnlockAccess() {
+            if (currentUser && currentUser.creditsRemaining > 0) {
+                // User has credits, offer to unlock directly
+                if (confirm(`Unlock this report for 1 credit? You have ${currentUser.creditsRemaining} credits remaining.`)) {
+                    unlockCurrentReport();
+                } else {
+                    // User declined, show pricing modal
+                    redirectToPricing();
+                }
+            } else {
+                // User has no credits, redirect to pricing
+                redirectToPricing();
+            }
+        }
+
         // Redirect to pricing page
         function redirectToPricing() {
             showPricingModal(true); // true = highlight single report option
             showToast('Please purchase credits to unlock the full report!', 'info');
+        }
+
+        // Unlock the current report using credits
+        async function unlockCurrentReport() {
+            if (!currentReportData || !currentReportData.reportId) {
+                showToast('Unable to unlock report. Please refresh and try again.', 'error');
+                return;
+            }
+
+            await unlockReport(currentReportData.reportId, () => {
+                // Update current report data and re-display
+                currentReportData = currentReportData;
+                currentReportData.isLocked = false;
+                displayReport(currentReportData);
+            });
+        }
+
+        // Unlock a report from dashboard
+        async function unlockReportFromDashboard(reportId) {
+            if (!currentUser || currentUser.creditsRemaining <= 0) {
+                showToast('You need credits to unlock this report. Please purchase credits first.', 'error');
+                redirectToPricing();
+                return;
+            }
+
+            if (!confirm(`Unlock this report for 1 credit? You have ${currentUser.creditsRemaining} credits remaining.`)) {
+                return;
+            }
+
+            await unlockReport(reportId, () => {
+                // Refresh the reports table
+                loadUserReports();
+                showToast('Report unlocked successfully!', 'success');
+            });
+        }
+
+        // Generic unlock report function
+        async function unlockReport(reportId, onSuccess) {
+            try {
+                const response = await fetch(`/api/reports/${reportId}/unlock`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Update user credits
+                    if (currentUser) {
+                        currentUser.creditsRemaining = data.creditsRemaining;
+                        updateCreditDisplay();
+                    }
+
+                    console.log('🔓 Report unlocked successfully');
+                    if (onSuccess) onSuccess();
+                } else {
+                    throw new Error(data.error || 'Failed to unlock report');
+                }
+            } catch (error) {
+                console.error('Error unlocking report:', error);
+                showToast(error.message || 'Failed to unlock report. Please try again.', 'error');
+            }
         }
 
         // Helper function to generate score message
@@ -3454,19 +3564,47 @@
             const loading = document.getElementById('detailedLoading');
             const resultsContainer = document.getElementById('detailedResultsContainer');
             
+            console.log('🔍 Detailed Citation Analysis - Starting');
+            console.log('🔍 Button element:', button);
+            console.log('🔍 Loading element:', loading);
+            console.log('🔍 Results container:', resultsContainer);
+            
+            if (!button) {
+                console.error('❌ Button element not found');
+                showToast('Error: Button element not found', 'error');
+                return;
+            }
+            
             // Show loading state
             button.disabled = true;
             button.textContent = 'ANALYZING...';
-            loading.style.display = 'block';
-            resultsContainer.style.display = 'none';
+            if (loading) {
+                loading.style.display = 'block';
+            }
+            if (resultsContainer) {
+                resultsContainer.style.display = 'none';
+            }
             
             try {
                 // Get business data from current report
-                const businessName = currentReportData?.businessName || '';
-                const location = currentReportData?.location || '';
+                console.log('🔍 Current report data:', currentReportData);
+                
+                // Try multiple paths to get business data
+                const businessName = currentReportData?.businessName || 
+                                   currentReportData?.business?.name ||
+                                   currentReportData?.businessData?.name ||
+                                   document.getElementById('reportBusinessName')?.textContent?.trim() || '';
+                                   
+                const location = currentReportData?.location || 
+                                currentReportData?.business?.location ||
+                                currentReportData?.businessData?.location ||
+                                currentReportData?.city ||
+                                document.getElementById('reportLocation')?.textContent?.trim() || '';
+                
+                console.log('🔍 Extracted business data:', { businessName, location });
                 
                 if (!businessName || !location) {
-                    throw new Error('Business information not available');
+                    throw new Error('Business information not available. Please ensure a report is loaded.');
                 }
                 
                 // Make API call - get fresh token from localStorage
@@ -3480,6 +3618,13 @@
                     throw new Error('Not authenticated. Please log in again.');
                 }
                 
+                console.log('🌐 Making API request to /api/detailed-citation-analysis');
+                console.log('🌐 Request payload:', { businessName, location });
+                
+                // Create AbortController for timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+                
                 const response = await fetch('/api/detailed-citation-analysis', {
                     method: 'POST',
                     headers: {
@@ -3489,32 +3634,70 @@
                     body: JSON.stringify({
                         businessName,
                         location
-                    })
+                    }),
+                    signal: controller.signal
                 });
                 
+                clearTimeout(timeoutId);
+                
+                console.log('🌐 Response status:', response.status, response.statusText);
+                
                 if (!response.ok) {
-                    throw new Error(`Analysis failed: ${response.statusText}`);
+                    const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                    throw new Error(errorData.error || `Analysis failed: ${response.statusText}`);
                 }
                 
                 const data = await response.json();
+                console.log('✅ Detailed analysis response received:', data);
                 displayDetailedResults(data);
                 
             } catch (error) {
-                console.error('Detailed analysis error:', error);
-                alert('Failed to run detailed citation analysis. Please try again.');
+                console.error('❌ Detailed analysis error:', error);
+                console.error('❌ Error stack:', error.stack);
+                
+                // Handle different error types
+                let errorMessage = 'Unknown error occurred';
+                
+                if (error.name === 'AbortError') {
+                    errorMessage = 'Request timed out. The analysis is taking too long. Please try again later.';
+                } else if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Network error. Please check your connection and try again.';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                showToast(`Failed to run detailed citation analysis: ${errorMessage}`, 'error');
+                
+                // Also alert for visibility
+                alert(`Detailed Citation Analysis Error:\n\n${errorMessage}\n\nPlease check the console for more details.`);
             } finally {
                 // Reset button state
-                button.disabled = false;
-                button.textContent = 'RUN DETAILED CITATION ANALYSIS';
-                loading.style.display = 'none';
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'RUN DETAILED CITATION ANALYSIS';
+                }
+                if (loading) {
+                    loading.style.display = 'none';
+                }
             }
         }
         
         // Display detailed citation results
         function displayDetailedResults(data) {
+            console.log('📊 Displaying detailed results:', data);
+            
             const resultsContainer = document.getElementById('detailedResultsContainer');
             const scoreElement = document.getElementById('detailedScore');
             const gridElement = document.getElementById('detailedResultsGrid');
+            
+            if (!resultsContainer || !scoreElement || !gridElement) {
+                console.error('❌ Missing required DOM elements for display');
+                console.error('resultsContainer:', resultsContainer);
+                console.error('scoreElement:', scoreElement);
+                console.error('gridElement:', gridElement);
+                showToast('Error: Missing display elements', 'error');
+                return;
+            }
             
             // Update score display - combine with essential citations score
             const essentialScore = currentReportData?.citations?.stats?.found || 0;
