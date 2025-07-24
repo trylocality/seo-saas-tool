@@ -8,19 +8,28 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Lato', 'Source Sans Pro', sans-serif; background: linear-gradient(135deg, #1a2332 0%, #0e192b 100%); min-height: 100vh; }
+        
+        /* Add top padding when email banner is present */
+        body.has-email-banner { padding-top: 60px; }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; color: #333; margin-bottom: 30px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .dashboard-header { text-align: center; margin-bottom: 20px; background: transparent; padding: 0; }
-        .dashboard-logo-header { text-align: center; margin-bottom: 20px; background: transparent; padding: 0; display: flex; justify-content: center; }
+        .dashboard-logo-header { text-align: center; margin-bottom: 10px; background: transparent; padding: 0; display: flex; justify-content: center; }
         
         /* Email Verification Banner - Red Alert Style */
         .email-verification-banner {
             background: #dc3545;
             color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            padding: 8px 20px;
+            border-radius: 0;
+            margin: 0 0 20px 0;
             border-left: 4px solid #a71e2a;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         .verification-content {
             display: flex;
@@ -33,21 +42,22 @@
         }
         .verification-text strong {
             display: block;
-            margin-bottom: 4px;
-            font-size: 1.1rem;
+            margin-bottom: 2px;
+            font-size: 0.95rem;
         }
         .verification-description {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             opacity: 0.9;
         }
         .resend-btn {
             background: rgba(255, 255, 255, 0.2);
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 8px 16px;
-            border-radius: 5px;
+            padding: 6px 12px;
+            border-radius: 4px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 0.8rem;
             transition: all 0.3s ease;
             white-space: nowrap;
         }
@@ -1949,8 +1959,10 @@
                 const verificationBanner = document.getElementById('emailVerificationBanner');
                 if (currentUser.emailVerified) {
                     verificationBanner.classList.add('hidden');
+                    document.body.classList.remove('has-email-banner');
                 } else {
                     verificationBanner.classList.remove('hidden');
+                    document.body.classList.add('has-email-banner');
                 }
                 
                 // Update report form button text if form is visible
