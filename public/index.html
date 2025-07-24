@@ -1143,7 +1143,20 @@
     cursor: default !important;
 }
 
+/* Remove hover effects on locked factor cards */
+.report-section.locked .factor-card:hover {
+    transform: none !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+
 /* Stronger blur for locked content */
+.report-section.locked .factors-compact-grid {
+    filter: blur(12px);
+    opacity: 0.3;
+    pointer-events: none !important;
+    user-select: none;
+}
+
 .report-section.locked .citations-row,
 .report-section.locked .action-plan-section {
     filter: blur(12px);
