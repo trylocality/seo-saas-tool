@@ -3616,11 +3616,17 @@
                 submitBtn.disabled = true;
                 
                 try {
+                    // Get fresh auth token from localStorage
+                    const currentAuthToken = localStorage.getItem('authToken');
+                    if (!currentAuthToken) {
+                        throw new Error('Not authenticated. Please log in again.');
+                    }
+                    
                     const response = await fetch('/api/feedback', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${authToken}`
+                            'Authorization': `Bearer ${currentAuthToken}`
                         },
                         body: JSON.stringify({
                             rating: parseInt(rating),

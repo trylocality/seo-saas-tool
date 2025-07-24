@@ -2686,52 +2686,44 @@ app.post('/api/feedback', authenticateToken, async (req, res) => {
     console.log(`💬 Feedback received: ${rating} stars, Type: ${type}, User: ${userId}`);
     
     try {
-      // Insert feedback into database
-      const stmt = db.prepare(`
-        INSERT INTO feedback (user_id, rating, type, message, email, report_data)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      
-      stmt.run(
+      // Insert feedback into database - Fixed column names to match schema
+      const result = await db.query(`
+        INSERT INTO feedback (user_id, rating, feedback_type, message, user_email, report_data)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
+      `, [
         userId,
         rating,
         type,
         message,
         email || null,
-        reportData ? JSON.stringify(reportData) : null,
-        async function(err) {
-          if (err) {
-            console.error('❌ Error saving feedback:', err);
-            stmt.finalize();
-            return res.status(500).json({ error: 'Failed to save feedback. Please try again.' });
-          }
-          
-          console.log(`✅ Feedback saved successfully for user ${userId} with ID: ${this.lastID}`);
-          stmt.finalize();
-          
-          // Send email notification
-          try {
-            await sendFeedbackEmail({
-              rating,
-              type,
-              message,
-              email,
-              reportData,
-              userId,
-              userName: req.user.firstName || 'Unknown User'
-            });
-            console.log(`📧 Feedback email sent successfully`);
-          } catch (emailError) {
-            console.error('⚠️ Failed to send feedback email:', emailError);
-            // Don't fail the request if email fails, just log it
-          }
-          
-          res.json({ 
-            success: true, 
-            message: 'Feedback submitted successfully. Thank you for your input!' 
-          });
-        }
-      );
+        reportData ? JSON.stringify(reportData) : null
+      ]);
+      
+      const feedbackId = result.rows[0].id;
+      console.log(`✅ Feedback saved successfully for user ${userId} with ID: ${feedbackId}`);
+      
+      // Send email notification
+      try {
+        await sendFeedbackEmail({
+          rating,
+          type,
+          message,
+          email,
+          reportData,
+          userId,
+          userName: req.user.firstName || 'Unknown User'
+        });
+        console.log(`📧 Feedback email sent successfully`);
+      } catch (emailError) {
+        console.error('⚠️ Failed to send feedback email:', emailError);
+        // Don't fail the request if email fails, just log it
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Feedback submitted successfully. Thank you for your input!' 
+      });
     } catch (error) {
       console.error('❌ Database error:', error);
       return res.status(500).json({ error: 'Failed to save feedback. Please try again.' });
