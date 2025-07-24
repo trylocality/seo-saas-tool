@@ -297,7 +297,7 @@
         .single-page-report { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
         
         /* Business Info Header */
-        .business-info-header { background: white; padding: 20px 30px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: flex-start; }
+        .business-info-header { background: white; padding: 20px 30px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; }
         .business-details { font-size: 0.9rem; color: #495057; line-height: 1.6; }
         .business-details strong { color: #0e192b; }
         .logo-container { flex-shrink: 0; }
@@ -549,7 +549,7 @@
             .business-info-header {
                 display: flex;
                 justify-content: space-between;
-                align-items: center;
+                align-items: flex-start;
                 padding: 15px 0;
                 margin-bottom: 15px;
                 border-bottom: 2px solid #e9ecef;
@@ -1083,7 +1083,7 @@
 }
 
 .unlock-btn {
-    background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
     color: white;
     border: none;
     padding: 15px 30px;
@@ -1094,12 +1094,13 @@
     text-decoration: none;
     display: inline-block;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+    box-shadow: 0 4px 15px rgba(30, 64, 175, 0.3);
 }
 
 .unlock-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+    box-shadow: 0 8px 25px rgba(30, 64, 175, 0.4);
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
 }
 
 .factors-locked {
@@ -1107,10 +1108,21 @@
 }
 
 .factors-locked .factors-compact-grid {
-    filter: blur(8px);
-    pointer-events: none;
+    filter: blur(12px);
+    pointer-events: none !important;
     user-select: none;
-    opacity: 0.5;
+    opacity: 0.3;
+}
+
+/* Disable all clicks and interactions on locked factors */
+.factors-locked .factor-card {
+    pointer-events: none !important;
+    cursor: default !important;
+}
+
+.factors-locked .factor-card:hover {
+    transform: none !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
 }
 
 /* Hide all interactive elements in locked reports */
@@ -1123,12 +1135,20 @@
     cursor: not-allowed !important;
 }
 
+/* Disable ALL clicking on locked reports */
+.report-section.locked .factor-card,
+.report-section.locked .factor-title,
+.report-section.locked .factor-status {
+    pointer-events: none !important;
+    cursor: default !important;
+}
+
 /* Stronger blur for locked content */
 .report-section.locked .citations-row,
 .report-section.locked .action-plan-section {
-    filter: blur(8px);
-    opacity: 0.3;
-    pointer-events: none;
+    filter: blur(12px);
+    opacity: 0.2;
+    pointer-events: none !important;
     user-select: none;
 }
     </style>
@@ -1319,7 +1339,7 @@
         <div id="loadingSection" class="card hidden">
             <div style="text-align: center; padding: 40px;">
                 <div class="spinner"></div>
-                <h3>Generating Your Professional SEO Audit Report...</h3>
+                <h3>Generating Your Report...</h3>
                 <p>This may take 2-3 minutes...</p>
                 
                 <div style="margin-top: 20px;">
@@ -1375,6 +1395,9 @@
                 <!-- Citations Section -->
                 <div class="section">
                     <h3 class="section-title">Local Citations Status</h3>
+                    <p style="text-align: center; color: #666; margin-bottom: 25px; font-size: 1.1rem; line-height: 1.5;">
+                        Citations are mentions of your business across the web. They help search engines verify your business exists and boost your local search rankings.
+                    </p>
                     <div class="citations-row" id="citationsRow"></div>
                     
                     <!-- Detailed Citation Analysis Section -->
@@ -1409,6 +1432,12 @@
 
             <!-- Page 2: Action Plan and Upsell -->
             <div class="print-page-2">
+
+                <!-- All Citations (shown only when detailed analysis is run) -->
+                <div class="section" id="allCitationsSection" style="display: none;">
+                    <h3 class="section-title">Complete Citation Analysis (50 Directories)</h3>
+                    <div id="allCitationsContainer"></div>
+                </div>
 
                 <!-- Action Plan -->
                 <div class="section">
@@ -1517,7 +1546,7 @@
                 
                 <div class="pricing-grid">
                     <!-- Single Report -->
-                    <div class="pricing-card">
+                    <div class="pricing-card" style="border: 2px solid #e9ecef;">
                         <div class="pricing-header">
                             <h3>Single Report</h3>
                             <div class="price">
@@ -1568,12 +1597,6 @@
 
                 </div>
 
-                <div class="pricing-footer">
-                    <p class="guarantee-text">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2328a745' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z'%3E%3C/path%3E%3C/svg%3E" alt="Secure" class="icon">
-                        30-day money-back guarantee • Cancel anytime
-                    </p>
-                </div>
             </div>
         </div>
     </div>
@@ -2414,9 +2437,28 @@
             }
         }
 
+        // Calculate actual optimization opportunities from factors
+        function calculateOptimizationOpportunities(factors) {
+            let opportunities = 0;
+            
+            for (const factorId in factors) {
+                const factor = factors[factorId];
+                
+                // Count factors that need improvement (not "GOOD")
+                if (factor.status === 'MISSING' || factor.status === 'NEEDS_IMPROVEMENT' || factor.status === 'UNCERTAIN') {
+                    opportunities++;
+                }
+            }
+            
+            return opportunities;
+        }
+
         // Display locked report with blur effect and unlock overlay
         function displayLockedReport(factors, optimizationOpportunities) {
             const factorsGrid = document.getElementById('factorsGrid');
+            
+            // Calculate actual optimization opportunities from factors
+            const actualOpportunities = calculateOptimizationOpportunities(factors);
             
             // First display the factors normally (but they'll be blurred via CSS)
             displayFactorsCompact(factors, {});
@@ -2430,7 +2472,7 @@
             unlockOverlay.innerHTML = `
                 <div class="unlock-banner-title">ANALYSIS COMPLETE</div>
                 <div class="unlock-banner-subtitle">
-                    ${optimizationOpportunities} Optimization Opportunities Found
+                    ${actualOpportunities} Optimization Opportunities Found
                 </div>
                 <button class="unlock-btn" onclick="redirectToPricing()">
                     UNLOCK FULL REPORT
@@ -2720,6 +2762,12 @@
             });
             
             citationsRow.innerHTML = citationsHTML;
+            
+            // Ensure page 1 citations are visible (in case detailed analysis wasn't run)
+            const page1CitationsSection = citationsRow.closest('.section');
+            if (page1CitationsSection) {
+                page1CitationsSection.style.display = 'block';
+            }
         }
 
         // Get suggestion key helper function
@@ -2867,7 +2915,12 @@
                 
                 // Make API call - get fresh token from localStorage
                 const currentAuthToken = localStorage.getItem('authToken');
+                console.log('🔍 Debug: Auth token exists:', !!currentAuthToken);
+                console.log('🔍 Debug: Current user:', currentUser);
+                console.log('🔍 Debug: Business data:', businessName, location);
+                
                 if (!currentAuthToken) {
+                    console.error('❌ No auth token found in localStorage');
                     throw new Error('Not authenticated. Please log in again.');
                 }
                 
@@ -2944,6 +2997,80 @@
             
             // Show results
             resultsContainer.style.display = 'block';
+            
+            // Move ALL citations to page 2 when detailed analysis is complete
+            moveAllCitationsToPageTwo(data);
+        }
+        
+        // Move all citations to page 2 when detailed analysis is run
+        function moveAllCitationsToPageTwo(detailedData) {
+            const allCitationsSection = document.getElementById('allCitationsSection');
+            const allCitationsContainer = document.getElementById('allCitationsContainer');
+            const page1CitationsSection = document.querySelector('#citationsRow').closest('.section');
+            
+            // Hide citations from page 1
+            if (page1CitationsSection) {
+                page1CitationsSection.style.display = 'none';
+            }
+            
+            // Show and populate page 2 citations section
+            allCitationsSection.style.display = 'block';
+            
+            // Combine essential citations (10) + detailed citations (40)
+            const essentialCitations = currentReportData?.citations?.data?.checked || [];
+            const detailedCitations = detailedData.results || [];
+            
+            let allCitationsHTML = '';
+            
+            // Essential citations first (10)
+            if (essentialCitations.length > 0) {
+                allCitationsHTML += `
+                    <h4 style="margin-bottom: 15px; color: #0e192b;">Essential Citations (10)</h4>
+                    <div class="citations-row" style="margin-bottom: 30px;">`;
+                
+                essentialCitations.forEach(citation => {
+                    const status = citation.found ? 'found' : 'missing';
+                    const icon = citation.found ? '✓' : '✗';
+                    const logoUrl = directoryLogos[citation.directory] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmOGY5ZmEiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiPgo8cGF0aCBkPSJNNCA0TDggOE00IDhMOCA0IiBzdHJva2U9IiM2Yzc1N2QiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+';
+                    const displayName = directoryDisplayNames[citation.directory] || citation.directory;
+                    
+                    allCitationsHTML += `
+                        <div class="citation-item-simple ${status}">
+                            <div class="citation-logo" style="background-image: url('${logoUrl}');"></div>
+                            <div class="citation-icon">${icon}</div>
+                            <div class="citation-name-simple">${displayName}</div>
+                        </div>`;
+                });
+                
+                allCitationsHTML += '</div>';
+            }
+            
+            // Detailed citations (40)
+            if (detailedCitations.length > 0) {
+                allCitationsHTML += `
+                    <h4 style="margin-bottom: 15px; color: #0e192b;">Additional Premium Directories (40)</h4>`;
+                
+                // Create rows of 10 items each
+                for (let i = 0; i < detailedCitations.length; i += 10) {
+                    allCitationsHTML += '<div class="citations-row" style="margin-bottom: 15px;">';
+                    
+                    for (let j = i; j < Math.min(i + 10, detailedCitations.length); j++) {
+                        const result = detailedCitations[j];
+                        const status = result.found ? 'found' : 'missing';
+                        const icon = result.found ? '✓' : result.status === 'ERROR' ? '⚠' : '✗';
+                        
+                        allCitationsHTML += `
+                            <div class="citation-item-simple ${status}">
+                                <div class="citation-icon">${icon}</div>
+                                <div class="citation-name-simple">${result.name}</div>
+                            </div>`;
+                    }
+                    
+                    allCitationsHTML += '</div>';
+                }
+            }
+            
+            allCitationsContainer.innerHTML = allCitationsHTML;
         }
 
         // Buy credits function
