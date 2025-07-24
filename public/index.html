@@ -10,6 +10,89 @@
         body { font-family: 'Lato', 'Source Sans Pro', sans-serif; background: linear-gradient(135deg, #1a2332 0%, #0e192b 100%); min-height: 100vh; }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; color: #333; margin-bottom: 30px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .dashboard-header { text-align: center; margin-bottom: 20px; background: transparent; padding: 0; }
+        .dashboard-logo-header { text-align: center; margin-bottom: 20px; background: transparent; padding: 0; display: flex; justify-content: center; }
+        
+        /* Email Verification Banner - Red Alert Style */
+        .email-verification-banner {
+            background: #dc3545;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #a71e2a;
+        }
+        .verification-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        .verification-text {
+            flex: 1;
+        }
+        .verification-text strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 1.1rem;
+        }
+        .verification-description {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .resend-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .resend-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Pricing Modal Specific Styling */
+        .pricing-modal-body {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 12px;
+        }
+        
+        .pricing-modal-body .pricing-grid {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .pricing-modal-body .pricing-card {
+            margin: 0;
+            border: 2px solid #e9ecef;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .pricing-modal-body .pricing-card:hover {
+            border-color: #0e192b;
+            box-shadow: 0 8px 25px rgba(14, 25, 43, 0.15);
+        }
+        
+        .pricing-modal-body .pricing-card.featured {
+            border: 3px solid #0e192b;
+            box-shadow: 0 8px 30px rgba(14, 25, 43, 0.2);
+        }
+        
+        .pricing-modal-body .pricing-card.featured:hover {
+            box-shadow: 0 12px 40px rgba(14, 25, 43, 0.25);
+        }
+        
+        .pricing-subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
         .header h1 { font-family: 'Montserrat', sans-serif; font-size: 2.5rem; margin-bottom: 10px; font-weight: 700; }
         .card { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 30px; margin-bottom: 20px; max-width: 500px; margin-left: auto; margin-right: auto; }
         .wide-card { max-width: 1000px; }
@@ -141,7 +224,9 @@
         /* Reports Table Styles */
         .reports-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .reports-table th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6; }
-        .reports-table td { padding: 15px; border-bottom: 1px solid #f8f9fa; vertical-align: middle; }
+        .reports-table td { padding: 15px; border-bottom: 1px solid #f8f9fa; vertical-align: middle; white-space: nowrap; }
+        .reports-table td:first-child { white-space: normal; }
+        .reports-table td:last-child { white-space: nowrap; min-width: 180px; }
         .reports-table tr:hover { background: #f8f9fa; }
         .business-name { font-weight: 600; color: #0e192b; font-size: 1.1rem; }
         .business-location { color: #666; font-size: 0.9rem; margin-top: 2px; }
@@ -184,6 +269,8 @@
             font-size: 0.85rem; 
             margin-right: 8px; 
             min-width: 80px;
+            display: inline-block;
+            white-space: nowrap;
         }
         .report-action-btn:hover { 
             background: linear-gradient(135deg, #0e192b 0%, #1a2332 100%); 
@@ -214,6 +301,8 @@
         .business-details { font-size: 0.9rem; color: #495057; line-height: 1.6; }
         .business-details strong { color: #0e192b; }
         .logo-container { flex-shrink: 0; }
+        .logo-container a { display: inline-block; transition: opacity 0.3s ease; }
+        .logo-container a:hover { opacity: 0.8; }
         
         /* Consistent logo sizing across all locations - doubled size */
         .logo,
@@ -300,7 +389,7 @@
         .score-message { color: #666; max-width: 600px; margin: 20px auto 0; font-size: 1.1rem; text-align: center; }
         
         /* Content Sections */
-        .section { margin: 40px 30px; }
+        .section { margin: 20px 30px; }
         .section-title { margin-bottom: 25px; color: #0e192b; font-size: 1.5rem; font-weight: 600; font-family: 'Montserrat', sans-serif; }
         
         /* Factors Grid */
@@ -347,7 +436,7 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         
         /* Citations Row */
-        .citations-row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 15px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .citations-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
         .citation-item-simple { text-align: center; padding: 15px 10px; background: white; border-radius: 8px; border: 2px solid #e9ecef; }
         .citation-item-simple.found { border-color: #28a745; background: #f8fff8; }
         .citation-item-simple.missing { border-color: #dc3545; background: #fff8f8; }
@@ -406,7 +495,7 @@
         /* Footer Logo - centered */
         .footer-logo { 
             text-align: center; 
-            padding: 30px; 
+            padding: 15px; 
             border-top: 1px solid #e9ecef; 
             background: #f8f9fa;
             display: flex;
@@ -415,7 +504,7 @@
         }
         
         /* Report Actions */
-        .report-actions { text-align: center; margin: 40px 0; padding: 30px; border-top: 1px solid #eee; }
+        .report-actions { text-align: center; margin: 20px 0; padding: 20px; border-top: 1px solid #eee; }
         
         /* Print-specific styles for 2-page PDF */
         @media print {
@@ -717,7 +806,7 @@
     padding: 30px;
     border-radius: 12px;
     text-align: center;
-    margin: 40px 0;
+    margin: 20px 0;
     box-shadow: 0 8px 25px rgba(44, 82, 130, 0.3);
 }
 
@@ -1018,7 +1107,27 @@
 }
 
 .factors-locked .factors-compact-grid {
-    filter: blur(2px);
+    filter: blur(8px);
+    pointer-events: none;
+    user-select: none;
+    opacity: 0.5;
+}
+
+/* Hide all interactive elements in locked reports */
+.report-section.locked .copy-suggestion-btn,
+.report-section.locked .detailed-analysis-btn,
+.report-section.locked .order-citations-btn,
+.report-section.locked .action-item,
+.report-section.locked .citation-item-simple {
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+}
+
+/* Stronger blur for locked content */
+.report-section.locked .citations-row,
+.report-section.locked .action-plan-section {
+    filter: blur(8px);
+    opacity: 0.3;
     pointer-events: none;
     user-select: none;
 }
@@ -1028,6 +1137,9 @@
     <div class="container">
         <!-- Login Form -->
         <div id="loginSection" class="card hidden">
+            <div style="text-align: center; margin-bottom: 30px; display: flex; justify-content: center;">
+                <img src="locality-logo.png" alt="Locality" style="height: 118px; width: auto;">
+            </div>
             <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Login to Your Account</h2>
             <form id="loginForm">
                 <div class="form-group">
@@ -1068,6 +1180,9 @@
 
         <!-- Signup Form -->
         <div id="signupSection" class="card hidden">
+            <div style="text-align: center; margin-bottom: 30px; display: flex; justify-content: center;">
+                <img src="locality-logo.png" alt="Locality" style="height: 118px; width: auto;">
+            </div>
             <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Create Your Account</h2>
             <form id="signupForm">
                 <div class="form-group">
@@ -1106,15 +1221,14 @@
         </div>
 
         <!-- Enhanced Dashboard -->
-        <div id="dashboardSection" class="card hidden" style="max-width: 900px;">
-            <div class="header">
+        <div id="dashboardSection" class="card hidden" style="max-width: 1100px;">
+            <div class="dashboard-logo-header">
                 <img src="locality-logo.png" alt="Locality" class="logo">
             </div>
             
             <!-- Email Verification Banner -->
             <div id="emailVerificationBanner" class="email-verification-banner hidden">
                 <div class="verification-content">
-                    <span class="verification-icon">📧</span>
                     <div class="verification-text">
                         <strong>Please verify your email address</strong>
                         <span class="verification-description">Check your inbox and click the verification link</span>
@@ -1177,7 +1291,7 @@
 
         <!-- Report Form -->
         <div id="reportFormSection" class="card hidden">
-            <button class="btn btn-secondary" onclick="showDashboard()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← Back to Dashboard</button>
+            <button class="btn btn-secondary" onclick="showDashboard()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← BACK</button>
             <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Generate SEO Audit Report</h2>
             <form id="reportForm">
                 <div class="form-group">
@@ -1206,7 +1320,7 @@
             <div style="text-align: center; padding: 40px;">
                 <div class="spinner"></div>
                 <h3>Generating Your Professional SEO Audit Report...</h3>
-                <p>This may take 60-90 seconds...</p>
+                <p>This may take 2-3 minutes...</p>
                 
                 <div style="margin-top: 20px;">
                     <div class="progress-bar">
@@ -1230,12 +1344,15 @@
                         <div><strong>Prepared By:</strong> <span id="reportPreparedBy">Locality Marketing</span></div>
                     </div>
                     <div class="logo-container">
-                        <img src="locality-logo.png" alt="Locality Marketing" class="logo">
+                        <a href="#" onclick="showDashboard(); return false;" style="cursor: pointer;">
+                            <img src="locality-logo.png" alt="Locality Marketing" class="logo" title="Back to Dashboard">
+                        </a>
                     </div>
                 </div>
 
                 <!-- Score Donut Chart -->
                 <div style="text-align: center;">
+                    <h3 style="font-size: 1.5rem; font-weight: 700; color: #0e192b; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px;">Search Optimization Score</h3>
                     <div class="score-donut-container">
                         <svg viewBox="0 0 180 180">
                             <circle class="donut-bg" cx="90" cy="90" r="70"></circle>
@@ -1308,7 +1425,7 @@
             a complete profile and a better chance of more leads, starting as low as $149!
         </p>
         <p class="upsell-cta">
-            Interested? <a href="https://calendly.com/trylocality/seo-optimization" target="_blank" class="upsell-link">
+            Interested? <a href="https://trylocality.com/get-found-online/" target="_blank" class="upsell-link">
                 Click here to schedule a call with our team to learn more!
             </a>
         </p>
@@ -1398,22 +1515,21 @@
             <div class="pricing-modal-body">
                 <p class="pricing-subtitle">Get comprehensive citation analysis for your business</p>
                 
-                <div class="pricing-grid-modal">
+                <div class="pricing-grid">
                     <!-- Single Report -->
-                    <div class="pricing-card-modal">
-                        <div class="pricing-header-modal">
+                    <div class="pricing-card">
+                        <div class="pricing-header">
                             <h3>Single Report</h3>
-                            <div class="price-modal">
+                            <div class="price">
                                 <span class="currency">$</span>
                                 <span class="amount">45</span>
                             </div>
                             <p class="price-description">One-time purchase</p>
                         </div>
-                        <div class="pricing-features-modal">
+                        <div class="pricing-features">
                             <ul>
-                                <li><span class="checkmark">✓</span> Complete citation analysis</li>
-                                <li><span class="checkmark">✓</span> 50 directory scan</li>
-                                <li><span class="checkmark">✓</span> Competitor comparison</li>
+                                <li><span class="checkmark">✓</span> Complete SEO audit analysis</li>
+                                <li><span class="checkmark">✓</span> 10 essential directory scan</li>
                                 <li><span class="checkmark">✓</span> Actionable recommendations</li>
                                 <li><span class="checkmark">✓</span> PDF export</li>
                             </ul>
@@ -1424,25 +1540,25 @@
                     </div>
 
                     <!-- Starter Plan -->
-                    <div class="pricing-card-modal featured-modal">
-                        <div class="popular-badge-modal">Most Popular</div>
-                        <div class="pricing-header-modal">
-                            <h3>Starter</h3>
-                            <div class="price-modal">
+                    <div class="pricing-card featured">
+                        <div class="popular-badge">Most Popular</div>
+                        <div class="pricing-header">
+                            <h3>Monthly Plan</h3>
+                            <div class="price">
                                 <span class="currency">$</span>
                                 <span class="amount">99</span>
                                 <span class="period">/month</span>
                             </div>
-                            <p class="price-description">50 reports per month</p>
+                            <p class="price-description">Unlimited reports</p>
                         </div>
-                        <div class="pricing-features-modal">
+                        <div class="pricing-features">
                             <ul>
                                 <li><span class="checkmark">✓</span> Everything in Single Report</li>
-                                <li><span class="checkmark">✓</span> 50 reports/month</li>
-                                <li><span class="checkmark">✓</span> White-label capabilities</li>
+                                <li><span class="checkmark">✓</span> Unlimited reports per month</li>
+                                <li><span class="checkmark">✓</span> 40 premium directory scan</li>
                                 <li><span class="checkmark">✓</span> Priority support</li>
-                                <li><span class="checkmark">✓</span> Bulk export options</li>
-                                <li><span class="checkmark">✓</span> Custom branding</li>
+                                <li><span class="checkmark">✓</span> Advanced analytics</li>
+                                <li><span class="checkmark">✓</span> Cancel anytime</li>
                             </ul>
                         </div>
                         <button class="btn btn-primary" onclick="subscribePlanModal('starter')">
@@ -1450,35 +1566,10 @@
                         </button>
                     </div>
 
-                    <!-- Pro Plan -->
-                    <div class="pricing-card-modal">
-                        <div class="pricing-header-modal">
-                            <h3>Pro</h3>
-                            <div class="price-modal">
-                                <span class="currency">$</span>
-                                <span class="amount">199</span>
-                                <span class="period">/month</span>
-                            </div>
-                            <p class="price-description">100 reports per month</p>
-                        </div>
-                        <div class="pricing-features-modal">
-                            <ul>
-                                <li><span class="checkmark">✓</span> Everything in Starter</li>
-                                <li><span class="checkmark">✓</span> 100 reports/month</li>
-                                <li><span class="checkmark">✓</span> Advanced analytics</li>
-                                <li><span class="checkmark">✓</span> API access</li>
-                                <li><span class="checkmark">✓</span> Team collaboration</li>
-                                <li><span class="checkmark">✓</span> Dedicated account manager</li>
-                            </ul>
-                        </div>
-                        <button class="btn btn-secondary" onclick="subscribePlanModal('pro')">
-                            Subscribe Now
-                        </button>
-                    </div>
                 </div>
 
-                <div class="pricing-footer-modal">
-                    <p class="guarantee-modal">
+                <div class="pricing-footer">
+                    <p class="guarantee-text">
                         <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2328a745' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z'%3E%3C/path%3E%3C/svg%3E" alt="Secure" class="icon">
                         30-day money-back guarantee • Cancel anytime
                     </p>
@@ -1532,9 +1623,24 @@
             'Better Business Bureau': 'Directory Logos/BBB.png',
             'Yellow Pages': 'Directory Logos/YellowPages.png',
             'Apple Maps': 'Directory Logos/Apple-Maps.png',
+            'Apple Maps Business Connect': 'Directory Logos/Apple-Maps.png',
+            'Facebook': 'Directory Logos/Facebook.png',
             'Facebook Business': 'Directory Logos/Facebook.png',
             'Foursquare': 'Directory Logos/Foursquare.png',
-            'Bing Maps': 'Directory Logos/Bing-Maps.png'
+            'Bing Maps': 'Directory Logos/Bing-Maps.png',
+            'Bing Places': 'Directory Logos/Bing-Maps.png',
+            'Angi': 'Directory Logos/Angi.png',
+            'Chamber of Commerce': 'Directory Logos/ChamberOfCommerce.png',
+            'DNB (Dun & Bradstreet)': 'Directory Logos/DNB.png',
+            'DNB': 'Directory Logos/DNB.png',
+            'Nextdoor': 'Directory Logos/Nextdoor.png'
+        };
+        
+        // Directory name display mapping
+        const directoryDisplayNames = {
+            'Apple Maps Business Connect': 'Apple Maps',
+            'DNB (Dun & Bradstreet)': 'DNB',
+            'Bing Places': 'Bing Maps'
         };
 
         // Progress simulation steps
@@ -2290,8 +2396,12 @@
             
             // Handle locked report display
             if (reportData.isLocked) {
+                // Add locked class to report section
+                document.getElementById('reportSection').classList.add('locked');
                 displayLockedReport(factors, reportData.optimizationOpportunities || 0);
             } else {
+                // Remove locked class if present
+                document.getElementById('reportSection').classList.remove('locked');
                 displayFactorsCompact(factors, reportData.smartSuggestions || {});
                 
                 // Display citations with fallback
@@ -2335,6 +2445,8 @@
             // Hide citations and action plan sections for locked reports
             const citationsSection = document.getElementById('citationsSection');
             const actionPlanSection = document.getElementById('actionPlanSection');
+            const detailedSection = document.querySelector('.detailed-analysis-section');
+            const upsellBox = document.querySelector('.upsell-box');
             
             if (citationsSection) {
                 citationsSection.style.display = 'none';
@@ -2342,6 +2454,16 @@
             if (actionPlanSection) {
                 actionPlanSection.style.display = 'none';
             }
+            if (detailedSection) {
+                detailedSection.style.display = 'none';
+            }
+            if (upsellBox) {
+                upsellBox.style.display = 'none';
+            }
+            
+            // Also hide any interactive buttons within the factors
+            const buttons = document.querySelectorAll('.copy-suggestion-btn, .order-citations-btn, .detailed-analysis-btn');
+            buttons.forEach(btn => btn.style.display = 'none');
         }
 
         // Redirect to pricing page
@@ -2587,11 +2709,12 @@
                 const icon = citation.found ? '✓' : '✗';
                 const logoUrl = directoryLogos[citation.directory] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmOGY5ZmEiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiPgo8cGF0aCBkPSJNNCA0TDggOE00IDhMOCA0IiBzdHJva2U9IiM2Yzc1N2QiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+';
                 
+                const displayName = directoryDisplayNames[citation.directory] || citation.directory;
                 citationsHTML += `
                     <div class="citation-item-simple ${status}">
                         <div class="citation-logo" style="background-image: url('${logoUrl}');"></div>
                         <div class="citation-icon">${icon}</div>
-                        <div class="citation-name-simple">${citation.directory}</div>
+                        <div class="citation-name-simple">${displayName}</div>
                     </div>
                 `;
             });
@@ -2742,12 +2865,17 @@
                     throw new Error('Business information not available');
                 }
                 
-                // Make API call
+                // Make API call - get fresh token from localStorage
+                const currentAuthToken = localStorage.getItem('authToken');
+                if (!currentAuthToken) {
+                    throw new Error('Not authenticated. Please log in again.');
+                }
+                
                 const response = await fetch('/api/detailed-citation-analysis', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
+                        'Authorization': `Bearer ${currentAuthToken}`
                     },
                     body: JSON.stringify({
                         businessName,
@@ -3048,6 +3176,62 @@
             return true;
         }
 
+        // Poll for payment completion
+        let paymentPollingInterval = null;
+        let lastCreditsCount = null;
+        
+        function startPaymentPolling() {
+            // Store current credits count
+            lastCreditsCount = currentUser?.creditsRemaining || 0;
+            
+            // Clear any existing polling
+            if (paymentPollingInterval) {
+                clearInterval(paymentPollingInterval);
+            }
+            
+            // Poll every 3 seconds for up to 5 minutes
+            let pollCount = 0;
+            const maxPolls = 100; // 5 minutes at 3 second intervals
+            
+            paymentPollingInterval = setInterval(async () => {
+                pollCount++;
+                
+                try {
+                    const response = await fetch('/api/profile', {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const newCreditsCount = data.user.creditsRemaining;
+                        
+                        // Check if credits increased
+                        if (newCreditsCount > lastCreditsCount) {
+                            // Payment successful!
+                            currentUser = data.user;
+                            updateDashboard();
+                            showToast('Payment successful! Your credits have been added.', 'success');
+                            clearInterval(paymentPollingInterval);
+                            paymentPollingInterval = null;
+                            
+                            // Close pricing modal if open
+                            closePricingModal();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Payment polling error:', error);
+                }
+                
+                // Stop polling after max attempts
+                if (pollCount >= maxPolls) {
+                    clearInterval(paymentPollingInterval);
+                    paymentPollingInterval = null;
+                }
+            }, 3000);
+        }
+
         // Pricing modal specific functions
         async function purchaseSingleReportModal() {
             if (!checkAuthForPricing()) return;
@@ -3067,7 +3251,11 @@
                 const data = await response.json();
                 
                 if (response.ok && data.url) {
-                    window.location.href = data.url;
+                    window.open(data.url, '_blank');
+                    showToast('Opening checkout in a new tab...', 'info');
+                    
+                    // Start polling for payment completion
+                    startPaymentPolling();
                 } else {
                     showToast(data.error || 'Failed to create checkout session', 'error');
                 }
@@ -3095,7 +3283,11 @@
                 const data = await response.json();
                 
                 if (response.ok && data.url) {
-                    window.location.href = data.url;
+                    window.open(data.url, '_blank');
+                    showToast('Opening checkout in a new tab...', 'info');
+                    
+                    // Start polling for payment completion
+                    startPaymentPolling();
                 } else {
                     showToast(data.error || 'Failed to create checkout session', 'error');
                 }

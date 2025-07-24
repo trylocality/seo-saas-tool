@@ -1184,10 +1184,10 @@ function calculateScore(data) {
   // 1. CLAIMED PROFILE (8 pts) - Binary
   if (data.outscraper.verified || data.outscraper.rating > 0) {
     scores.claimed = 8;
-    details.claimed = { status: 'GOOD', message: 'Google Business Profile is claimed and verified' };
+    details.claimed = { status: 'GOOD', message: 'Profile verified - you have full control' };
   } else {
     scores.claimed = 0;
-    details.claimed = { status: 'MISSING', message: 'Claim your Google Business Profile' };
+    details.claimed = { status: 'MISSING', message: 'Profile unclaimed - can\'t manage your listing' };
   }
   
   // 2. BUSINESS DESCRIPTION (10 pts) - 0/5/10 based on criteria
@@ -1196,76 +1196,76 @@ function calculateScore(data) {
   
   if (!desc) {
     scores.description = 0;
-    details.description = { status: 'MISSING', message: 'Add a business description' };
+    details.description = { status: 'MISSING', message: 'No description found - missing opportunity to tell your story' };
   } else if (descAnalysis.criteriaCount === 3) {
     scores.description = 10;
-    details.description = { status: 'GOOD', message: 'Description has all 3 criteria: localized keywords, services overview, and call-to-action' };
+    details.description = { status: 'GOOD', message: 'Great description that helps customers find you' };
   } else {
     scores.description = 5;
-    details.description = { status: 'NEEDS IMPROVEMENT', message: `Description missing ${3 - descAnalysis.criteriaCount} criteria` };
+    details.description = { status: 'NEEDS IMPROVEMENT', message: 'Basic description detected - could be more compelling' };
   }
   
   // 3. CATEGORIES (8 pts) - 0 if only primary, 5 if 2-3 total, 8 if 4+ total
   const totalCategories = data.outscraper.categories.length;
   if (totalCategories >= 4) {
     scores.categories = 8;
-    details.categories = { status: 'GOOD', message: `${totalCategories} categories found` };
+    details.categories = { status: 'GOOD', message: 'Well categorized - easier for customers to find you' };
   } else if (totalCategories >= 2) {
     scores.categories = 5;
-    details.categories = { status: 'NEEDS IMPROVEMENT', message: `${totalCategories} categories found, add more` };
+    details.categories = { status: 'NEEDS IMPROVEMENT', message: 'Limited categories - missing search opportunities' };
   } else {
     scores.categories = 0;
-    details.categories = { status: 'MISSING', message: 'Add secondary business categories' };
+    details.categories = { status: 'MISSING', message: 'Only one category - limiting your visibility' };
   }
   
   // 4. PRODUCT TILES (10 pts) - Binary
   if (data.aiAnalysis.productTiles && data.aiAnalysis.productTiles.hasAny) {
     scores.productTiles = 10;
-    details.productTiles = { status: 'GOOD', message: `${data.aiAnalysis.productTiles.count} product tiles found` };
+    details.productTiles = { status: 'GOOD', message: 'Services/products showcased effectively' };
   } else {
     scores.productTiles = 0;
-    details.productTiles = { status: 'MISSING', message: 'Add product/service tiles' };
+    details.productTiles = { status: 'MISSING', message: 'No services shown - customers can\'t see what you offer' };
   }
   
   // 5. PHOTOS (8 pts) - 0 if none, 4 if <10, 8 if 10+
   const photoCount = data.outscraper.photos_count;
   if (photoCount >= 10) {
     scores.photos = 8;
-    details.photos = { status: 'GOOD', message: `${photoCount} photos found` };
+    details.photos = { status: 'GOOD', message: 'Strong visual presence helps attract customers' };
   } else if (photoCount > 0) {
     scores.photos = 4;
-    details.photos = { status: 'NEEDS IMPROVEMENT', message: `${photoCount} photos found, add more` };
+    details.photos = { status: 'NEEDS IMPROVEMENT', message: 'Limited photos - customers want to see more' };
   } else {
     scores.photos = 0;
-    details.photos = { status: 'MISSING', message: 'Upload business photos' };
+    details.photos = { status: 'MISSING', message: 'No photos - businesses with photos get 42% more requests' };
   }
   
   // 6. POSTS (8 pts) - Binary: recent activity
   if (data.aiAnalysis.posts && data.aiAnalysis.posts.hasRecent) {
     scores.posts = 8;
-    details.posts = { status: 'GOOD', message: 'Recent posts found' };
+    details.posts = { status: 'GOOD', message: 'Active posting keeps customers engaged' };
   } else {
     scores.posts = 0;
-    details.posts = { status: 'MISSING', message: 'Start posting regular updates' };
+    details.posts = { status: 'MISSING', message: 'No recent posts - missing chance to engage customers' };
   }
   
   // 7. Q&A (4 pts) - Give half credit if we can't detect properly
   if (data.aiAnalysis.qa && data.aiAnalysis.qa.hasAny) {
     scores.qa = 4;
-    details.qa = { status: 'GOOD', message: `${data.aiAnalysis.qa.count} Q&As found` };
+    details.qa = { status: 'GOOD', message: 'Q&A section helps answer customer questions' };
   } else {
     // Give half credit since detection isn't always reliable
     scores.qa = 2;
-    details.qa = { status: 'UNCERTAIN', message: 'Q&A section not clearly detected - may exist but not visible in screenshot' };
+    details.qa = { status: 'UNCERTAIN', message: 'Q&A status unclear - check your profile directly' };
   }
   
   // 8. SOCIAL PROFILES (2 pts) - Binary
   if (data.aiAnalysis.social && data.aiAnalysis.social.hasAny) {
     scores.social = 2;
-    details.social = { status: 'GOOD', message: `${data.aiAnalysis.social.count} social links found` };
+    details.social = { status: 'GOOD', message: 'Social media links help customers connect' };
   } else {
     scores.social = 0;
-    details.social = { status: 'MISSING', message: 'Add social media links' };
+    details.social = { status: 'MISSING', message: 'No social links - missing connection opportunities' };
   }
   
   // 9. REVIEWS (12 pts) - 3 pts each for 4 criteria - ADD DEBUG LOGGING
@@ -1297,35 +1297,35 @@ function calculateScore(data) {
   scores.reviews = reviewScore;
   details.reviews = { 
     status: reviewScore >= 9 ? 'GOOD' : (reviewScore >= 6 ? 'NEEDS IMPROVEMENT' : 'MISSING'),
-    message: `${data.outscraper.reviews} reviews, ${data.outscraper.rating} rating. Has: ${reviewCriteria.join(', ') || 'none'}` 
+    message: reviewScore >= 9 ? 'Strong review presence builds trust' : (reviewScore >= 6 ? 'Good start - keep encouraging reviews' : 'Limited reviews - affecting customer trust')
   };
   
   // 10. CITATIONS (16 pts) - 1.5 pts per directory found, rounded up
   scores.citations = data.citations.stats.score;
   if (scores.citations >= 12) {
-    details.citations = { status: 'GOOD', message: `Found in ${data.citations.stats.found}/10 directories` };
+    details.citations = { status: 'GOOD', message: 'Excellent online presence across directories' };
   } else if (scores.citations >= 8) {
-    details.citations = { status: 'NEEDS IMPROVEMENT', message: `Found in ${data.citations.stats.found}/10 directories` };
+    details.citations = { status: 'NEEDS IMPROVEMENT', message: 'Found in some directories - expand your reach' };
   } else {
-    details.citations = { status: 'MISSING', message: `Found in ${data.citations.stats.found}/10 directories - need more` };
+    details.citations = { status: 'MISSING', message: 'Limited directory presence hurts local rankings' };
   }
   
   // 11. GBP EMBED (8 pts) - Binary
   if (data.websiteAnalysis.hasGBPEmbed) {
     scores.gbpEmbed = 8;
-    details.gbpEmbed = { status: 'GOOD', message: 'Google Business Profile embedded on website' };
+    details.gbpEmbed = { status: 'GOOD', message: 'Map on website helps customers find you' };
   } else {
     scores.gbpEmbed = 0;
-    details.gbpEmbed = { status: 'MISSING', message: 'Embed Google Business Profile on website' };
+    details.gbpEmbed = { status: 'MISSING', message: 'No map on website - harder for customers to visit' };
   }
   
   // 12. LOCAL LANDING PAGE (8 pts) - Binary
   if (data.websiteAnalysis.hasLocalizedPage) {
     scores.landingPage = 8;
-    details.landingPage = { status: 'GOOD', message: 'City-specific landing page found' };
+    details.landingPage = { status: 'GOOD', message: 'Local page targets your community effectively' };
   } else {
     scores.landingPage = 0;
-    details.landingPage = { status: 'MISSING', message: 'Create localized landing page' };
+    details.landingPage = { status: 'MISSING', message: 'No local page - missing local search traffic' };
   }
   
   const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
@@ -3030,7 +3030,7 @@ process.on('SIGINT', () => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Local SEO Audit v3 (COMPLETE) running on http://localhost:${PORT}`);
   console.log('');
   console.log('🎯 COMPLETE VERSION - ALL FEATURES:');
