@@ -2221,7 +2221,7 @@
         window.history.replaceState({}, document.title, window.location.pathname);
         // Refresh user data to show new credits
         if (authToken) {
-            checkAuthToken();
+            checkAuth();
         }
     }
     
@@ -3737,22 +3737,23 @@
             // Show results
             resultsContainer.style.display = 'block';
             
-            // Move ALL citations to page 2 when detailed analysis is complete
-            moveAllCitationsToPageTwo(data);
+            // Update main citations display to show all 50 citations
+            updateMainCitationsDisplay(data);
         }
         
-        // Move all citations to page 2 when detailed analysis is run
-        function moveAllCitationsToPageTwo(detailedData) {
+        // Update main citations display with all 50 citations
+        function updateMainCitationsDisplay(detailedData) {
+            const citationsRow = document.getElementById('citationsRow');
             const allCitationsSection = document.getElementById('allCitationsSection');
             const allCitationsContainer = document.getElementById('allCitationsContainer');
             const page1CitationsSection = document.querySelector('#citationsRow').closest('.section');
             
-            // Hide citations from page 1
+            // Keep the main citations section visible
             if (page1CitationsSection) {
-                page1CitationsSection.style.display = 'none';
+                page1CitationsSection.style.display = 'block';
             }
             
-            // Show and populate page 2 citations section
+            // Also populate page 2 citations section for printing
             allCitationsSection.style.display = 'block';
             
             // Combine essential citations (10) + detailed citations (40)
@@ -3814,6 +3815,47 @@
             }
             
             allCitationsContainer.innerHTML = allCitationsHTML;
+            
+            // Also update the main citations row to show all 50 citations
+            if (citationsRow) {
+                // Create a more compact display for all 50 citations
+                let mainCitationsHTML = '';
+                
+                // Essential citations (10)
+                essentialCitations.forEach(citation => {
+                    const status = citation.found ? 'found' : 'missing';
+                    const icon = citation.found ? '✓' : '✗';
+                    const logoUrl = directoryLogos[citation.directory] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmOGY5ZmEiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiPgo8cGF0aCBkPSJNNCA0TDggOE00IDhMOCA0IiBzdHJva2U9IiM2Yzc1N2QiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+';
+                    const displayName = directoryDisplayNames[citation.directory] || citation.directory;
+                    
+                    mainCitationsHTML += `
+                        <div class="citation-item-simple ${status}">
+                            <img src="${logoUrl}" alt="${displayName}" onerror="this.style.display='none'">
+                            <span>${displayName}</span>
+                            <span class="citation-icon">${icon}</span>
+                        </div>`;
+                });
+                
+                // Detailed citations (40) - show them in a more compact way
+                detailedCitations.forEach(result => {
+                    const status = result.status === 'found' ? 'found' : 'missing';
+                    const icon = result.status === 'found' ? '✓' : '✗';
+                    
+                    mainCitationsHTML += `
+                        <div class="citation-item-simple ${status}">
+                            <span>${result.name}</span>
+                            <span class="citation-icon">${icon}</span>
+                        </div>`;
+                });
+                
+                citationsRow.innerHTML = mainCitationsHTML;
+                
+                // Update the section title to reflect all 50 citations
+                const sectionTitle = page1CitationsSection.querySelector('.section-title');
+                if (sectionTitle) {
+                    sectionTitle.textContent = 'Citations (All 50 Directories Analyzed)';
+                }
+            }
         }
 
         // Buy credits function
