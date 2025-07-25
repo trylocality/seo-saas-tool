@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Citation API</title>
+</head>
+<body>
+    <h1>Test Detailed Citation Analysis API</h1>
+    
+    <div>
+        <label>Business Name: <input type="text" id="businessName" value="Test Business"></label><br>
+        <label>Location: <input type="text" id="location" value="Denver, CO"></label><br>
+        <label>Auth Token: <input type="text" id="authToken" placeholder="Get from localStorage"></label><br>
+        <button onclick="testAPI()">Test API</button>
+    </div>
+    
+    <pre id="output"></pre>
+    
+    <script>
+        // Get auth token from localStorage
+        document.getElementById('authToken').value = localStorage.getItem('authToken') || '';
+        
+        async function testAPI() {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing...\n';
+            
+            const businessName = document.getElementById('businessName').value;
+            const location = document.getElementById('location').value;
+            const authToken = document.getElementById('authToken').value;
+            
+            if (!authToken) {
+                output.textContent += 'ERROR: No auth token provided\n';
+                return;
+            }
+            
+            try {
+                output.textContent += `Making request to /api/detailed-citation-analysis\n`;
+                output.textContent += `Business: ${businessName}\n`;
+                output.textContent += `Location: ${location}\n\n`;
+                
+                const response = await fetch('/api/detailed-citation-analysis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        businessName,
+                        location
+                    })
+                });
+                
+                output.textContent += `Response Status: ${response.status} ${response.statusText}\n`;
+                
+                const data = await response.json();
+                output.textContent += `Response Data:\n${JSON.stringify(data, null, 2)}\n`;
+                
+            } catch (error) {
+                output.textContent += `ERROR: ${error.message}\n`;
+                output.textContent += `Stack: ${error.stack}\n`;
+            }
+        }
+    </script>
+</body>
+</html>

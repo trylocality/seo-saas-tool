@@ -1505,6 +1505,87 @@
     pointer-events: none !important;
     user-select: none;
 }
+
+/* Profile Verification Styles */
+.profile-option-card { 
+    border: 2px solid #e9ecef; 
+    border-radius: 10px; 
+    padding: 20px; 
+    margin: 15px 0; 
+    cursor: pointer; 
+    transition: all 0.3s ease; 
+    background: white;
+}
+.profile-option-card:hover { 
+    border-color: #17a2b8; 
+    box-shadow: 0 4px 12px rgba(23, 162, 184, 0.1); 
+    transform: translateY(-2px);
+}
+.profile-option-card.selected { 
+    border-color: #0e192b; 
+    background: #f8f9fa; 
+    box-shadow: 0 4px 12px rgba(14, 25, 43, 0.15);
+}
+.profile-name { 
+    font-size: 1.3rem; 
+    font-weight: 600; 
+    color: #0e192b; 
+    margin-bottom: 8px; 
+}
+.profile-address { 
+    color: #666; 
+    font-size: 0.95rem; 
+    margin-bottom: 8px; 
+}
+.profile-details { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 15px; 
+    font-size: 0.9rem; 
+    color: #666; 
+}
+.profile-detail-item { 
+    display: flex; 
+    align-items: center; 
+    gap: 5px; 
+}
+.profile-status { 
+    display: inline-block; 
+    padding: 4px 8px; 
+    border-radius: 15px; 
+    font-size: 0.8rem; 
+    font-weight: 600; 
+}
+.profile-status.verified { 
+    background: #d4edda; 
+    color: #155724; 
+}
+.profile-status.unverified { 
+    background: #f8d7da; 
+    color: #721c24; 
+}
+.verify-profile-btn { 
+    background: #0e192b; 
+    color: white; 
+    border: none; 
+    padding: 15px 30px; 
+    border-radius: 8px; 
+    font-weight: 600; 
+    font-size: 1rem; 
+    cursor: pointer; 
+    margin: 20px auto; 
+    display: block; 
+    transition: all 0.3s ease; 
+}
+.verify-profile-btn:hover { 
+    background: #1e2a3b; 
+    transform: translateY(-2px); 
+}
+.verify-profile-btn:disabled { 
+    background: #6c757d; 
+    cursor: not-allowed; 
+    transform: none; 
+}
     </style>
 </head>
 <body>
@@ -1677,7 +1758,10 @@
                 </div>
                 <div class="form-group">
                     <label for="location">Location <span class="required">*</span></label>
-                    <input type="text" id="location" required placeholder="e.g., Miami, FL or 123 Main St, Miami, FL 33101">
+                    <input type="text" id="location" required placeholder="e.g., Miami, FL or Utah County, UT or 123 Main St, Miami, FL">
+                    <small style="color: #666; font-size: 0.85rem; margin-top: 5px; display: block;">
+                        💡 You can use city/state (Miami, FL), county/state (Utah County, UT), or full address
+                    </small>
                 </div>
                 <div class="form-group">
                     <label for="industry">Industry <span class="required">*</span></label>
@@ -1690,6 +1774,25 @@
                 <button type="submit" class="btn">Generate Report (1 Credit)</button>
                 <div id="reportError" class="error hidden"></div>
             </form>
+        </div>
+
+        <!-- Profile Verification Section -->
+        <div id="profileVerificationSection" class="card hidden">
+            <button class="btn btn-secondary" onclick="showReportForm()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← BACK TO FORM</button>
+            <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Verify Your Business Profile</h2>
+            
+            <div style="text-align: center; margin-bottom: 30px; color: #666;">
+                <p>We found multiple business profiles. Please select the correct one to audit:</p>
+                <div id="searchInfoDisplay" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                    <strong>Search:</strong> <span id="searchedBusinessName"></span> in <span id="searchedLocation"></span>
+                </div>
+            </div>
+            
+            <div id="profileOptionsContainer">
+                <!-- Profile options will be populated here -->
+            </div>
+            
+            <div id="profileVerificationError" class="error hidden"></div>
         </div>
 
         <!-- Enhanced Loading Section -->
@@ -1719,6 +1822,17 @@
                         <div><strong>Location:</strong> <span id="reportLocation"></span></div>
                         <div><strong>Date:</strong> <span id="reportDate"></span></div>
                         <div><strong>Prepared By:</strong> <span id="reportPreparedBy">Locality Marketing</span></div>
+                        
+                        <!-- Audited Profile Info -->
+                        <div id="auditedProfileInfo" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; border-left: 3px solid #17a2b8;">
+                            <strong style="color: #17a2b8;">Profile Audited:</strong>
+                            <div style="font-size: 0.85rem; margin-top: 5px;">
+                                <div><strong>Name:</strong> <span id="auditedProfileName"></span></div>
+                                <div><strong>Address:</strong> <span id="auditedProfileAddress"></span></div>
+                                <div><strong>Phone:</strong> <span id="auditedProfilePhone"></span></div>
+                                <div><strong>Status:</strong> <span id="auditedProfileStatus"></span></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="logo-container">
                         <a href="#" onclick="showDashboard(); return false;" style="cursor: pointer;">
@@ -2553,12 +2667,16 @@
                     displayReportsTable();
                     console.log(`📋 Loaded ${userReports.length} reports`);
                 } else {
-                    console.error('Failed to load reports');
+                    console.error('Failed to load reports, status:', response.status);
                     userReports = [];
+                    displayReportsTable(); // Still display empty table
+                    showToast('Unable to load reports. Please refresh the page.', 'error');
                 }
             } catch (error) {
                 console.error('Error loading reports:', error);
                 userReports = [];
+                displayReportsTable(); // Still display empty table
+                showToast('Network error loading reports. Please refresh the page.', 'error');
             }
         }
 
@@ -2823,6 +2941,9 @@
             const errorDiv = document.getElementById('reportError');
             const submitBtn = e.target.querySelector('button[type="submit"]');
             
+            // Store form data for later use
+            window.pendingReportData = { businessName, location, industry, website };
+            
             // Validate location format - must have at least one comma
             if (!location.includes(',')) {
                 errorDiv.textContent = 'Please enter a valid location (e.g., "Miami, FL" or "123 Main St, Miami, FL 33101")';
@@ -2830,67 +2951,19 @@
                 return;
             }
             
-            submitBtn.textContent = 'Generating Report...';
+            submitBtn.textContent = 'Finding Profiles...';
             submitBtn.disabled = true;
             errorDiv.classList.add('hidden');
-            showLoading();
             
             try {
-                const response = await fetch('/api/generate-report', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify({ 
-                        businessName, 
-                        location, 
-                        industry, 
-                        website 
-                    })
-                });
+                // First, verify the business profile
+                await verifyBusinessProfile(businessName, location);
 
-                console.log('📊 Response status:', response.status, response.ok);
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Server error: ${response.status} - ${errorText}`);
-                }
-
-                const data = await response.json();
-                console.log('📊 Report data received successfully');
-                console.log('🔍 Data keys:', Object.keys(data));
-                console.log('🔍 Has auditOverview:', !!data.auditOverview);
-
-                // More flexible validation - check for required fields or locked report
-                const hasRequiredData = data && data.auditOverview && data.auditOverview.overallScore && data.auditOverview.factors;
-                const isLockedReport = data && data.isLocked && data.auditOverview && data.auditOverview.factors;
-                const hasBasicData = data && data.auditOverview && data.auditOverview.factors;
                 
-                if (hasRequiredData || isLockedReport || hasBasicData) {
-                    console.log('✅ Report data validation passed', data.isLocked ? '(Preview Mode)' : '(Full Report)');
-                    currentReportData = data;
-                    displayReport(data);
-                    showReport();
-                    
-                    // Refresh user data and reports after generating new report
-                    await checkAuth();
-                    await loadUserReports();
-                    
-                    const message = data.isLocked ? 'Preview report generated successfully!' : 'Report generated successfully!';
-                    showToast(message, 'success');
-                    console.log('✅ Report displayed successfully!');
-                } else {
-                    console.error('❌ Report data validation failed');
-                    console.log('🔍 Data structure:', JSON.stringify(data, null, 2).substring(0, 500));
-                    throw new Error('Invalid report data structure received');
-                }
             } catch (error) {
-                console.error('Report generation error:', error);
-                errorDiv.textContent = error.message || 'Failed to generate report. Please try again.';
+                console.error('❌ Profile verification error:', error);
+                errorDiv.textContent = 'Failed to find business profiles. Please try again.';
                 errorDiv.classList.remove('hidden');
-                showReportForm();
-                showToast('Failed to generate report. Please try again.', 'error');
             } finally {
                 // Reset button text based on credits
                 if (currentUser && currentUser.creditsRemaining <= 0) {
@@ -2945,6 +3018,18 @@
                 month: 'long',
                 day: 'numeric'
             });
+            
+            // Update audited profile info
+            const auditedProfile = reportData.auditedProfile;
+            if (auditedProfile) {
+                document.getElementById('auditedProfileName').textContent = auditedProfile.name || 'Not available';
+                document.getElementById('auditedProfileAddress').textContent = auditedProfile.address || 'Not available';
+                document.getElementById('auditedProfilePhone').textContent = auditedProfile.phone || 'Not available';
+                document.getElementById('auditedProfileStatus').textContent = auditedProfile.verified ? 'Verified/Claimed' : 'Not claimed';
+                document.getElementById('auditedProfileInfo').style.display = 'block';
+            } else {
+                document.getElementById('auditedProfileInfo').style.display = 'none';
+            }
             
             // Update prepared by field with dynamic brand info
             const brandInfo = reportData.brandInfo || {};
@@ -3743,51 +3828,24 @@
         
         // Update main citations display with all 50 citations
         function updateMainCitationsDisplay(detailedData) {
-            const citationsRow = document.getElementById('citationsRow');
             const allCitationsSection = document.getElementById('allCitationsSection');
             const allCitationsContainer = document.getElementById('allCitationsContainer');
             const page1CitationsSection = document.querySelector('#citationsRow').closest('.section');
             
-            // Keep the main citations section visible
+            // Keep the main citations section visible (original 10 citations remain there)
             if (page1CitationsSection) {
                 page1CitationsSection.style.display = 'block';
             }
             
-            // Also populate page 2 citations section for printing
+            // Show the additional citations section
             allCitationsSection.style.display = 'block';
             
-            // Combine essential citations (10) + detailed citations (40)
-            const essentialCitations = currentReportData?.citations?.data?.checked || [];
+            // Only show the additional 40 citations in the allCitationsSection
             const detailedCitations = detailedData.results || [];
             
             let allCitationsHTML = '';
             
-            // Essential citations first (10)
-            if (essentialCitations.length > 0) {
-                allCitationsHTML += `
-                    <h4 style="margin-bottom: 15px; color: #0e192b;">Essential Citations (10)</h4>
-                    <div class="citations-row" style="margin-bottom: 30px;">`;
-                
-                essentialCitations.forEach(citation => {
-                    const status = citation.found ? 'found' : 'missing';
-                    const icon = citation.found ? '✓' : '✗';
-                    const logoUrl = directoryLogos[citation.directory] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmOGY5ZmEiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiPgo8cGF0aCBkPSJNNCA0TDggOE00IDhMOCA0IiBzdHJva2U9IiM2Yzc1N2QiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+';
-                    const displayName = directoryDisplayNames[citation.directory] || citation.directory;
-                    
-                    allCitationsHTML += `
-                        <div class="citation-item-simple ${status}">
-                            <div class="citation-logo" style="background-image: url('${logoUrl}');"></div>
-                            <div class="citation-content">
-                                <div class="citation-name-simple">${displayName}</div>
-                                <div class="citation-icon">${icon}</div>
-                            </div>
-                        </div>`;
-                });
-                
-                allCitationsHTML += '</div>';
-            }
-            
-            // Detailed citations (40)
+            // Only show detailed citations (40) - the original 10 stay in the main section
             if (detailedCitations.length > 0) {
                 allCitationsHTML += `
                     <h4 style="margin-bottom: 15px; color: #0e192b;">Additional Premium Directories (40)</h4>`;
@@ -4404,6 +4462,213 @@
                 showToast('Failed to process checkout. Please try again.', 'error');
             }
         }
+
+        // ==========================================
+        // PROFILE VERIFICATION FUNCTIONS
+        // ==========================================
+        
+        let selectedProfileId = null;
+        let profileOptions = [];
+        
+        // Function to verify business profile and show options
+        async function verifyBusinessProfile(businessName, location) {
+            console.log(`🔍 Verifying profile for: ${businessName} in ${location}`);
+            
+            try {
+                const response = await fetch('/api/verify-profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ businessName, location })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: response.statusText }));
+                    throw new Error(errorData.error || `Profile verification failed: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log(`✅ Found ${data.profiles.length} profile options`);
+                
+                if (data.profiles.length === 1) {
+                    // Only one profile found - use it directly
+                    console.log('✅ Single profile found, proceeding directly to report generation');
+                    await generateReportWithProfile(data.profiles[0]);
+                } else if (data.profiles.length > 1) {
+                    // Multiple profiles - show verification UI
+                    console.log('🔍 Multiple profiles found, showing verification UI');
+                    showProfileVerification(data.profiles, data.searchQuery);
+                } else {
+                    throw new Error('No business profiles found for the provided information');
+                }
+                
+            } catch (error) {
+                console.error('❌ Profile verification error:', error);
+                throw error;
+            }
+        }
+        
+        // Function to show profile verification UI
+        function showProfileVerification(profiles, searchQuery) {
+            profileOptions = profiles;
+            selectedProfileId = null;
+            
+            // Update search info display
+            document.getElementById('searchedBusinessName').textContent = searchQuery.businessName;
+            document.getElementById('searchedLocation').textContent = searchQuery.location;
+            
+            // Populate profile options
+            const container = document.getElementById('profileOptionsContainer');
+            container.innerHTML = '';
+            
+            profiles.forEach(profile => {
+                const profileCard = document.createElement('div');
+                profileCard.className = 'profile-option-card';
+                profileCard.onclick = () => selectProfile(profile.id);
+                
+                const statusClass = profile.verified ? 'verified' : 'unverified';
+                const statusText = profile.verified ? 'Verified/Claimed' : 'Not Claimed';
+                
+                profileCard.innerHTML = `
+                    <div class="profile-name">${profile.name}</div>
+                    <div class="profile-address">${profile.address}</div>
+                    <div class="profile-details">
+                        <div class="profile-detail-item">
+                            <span>📞</span>
+                            <span>${profile.phone}</span>
+                        </div>
+                        <div class="profile-detail-item">
+                            <span>⭐</span>
+                            <span>${profile.rating}/5 (${profile.reviews} reviews)</span>
+                        </div>
+                        <div class="profile-detail-item">
+                            <span class="profile-status ${statusClass}">${statusText}</span>
+                        </div>
+                        ${profile.website ? `<div class="profile-detail-item"><span>🌐</span><span>${profile.website}</span></div>` : ''}
+                    </div>
+                `;
+                
+                container.appendChild(profileCard);
+            });
+            
+            // Add continue button
+            const continueBtn = document.createElement('button');
+            continueBtn.className = 'verify-profile-btn';
+            continueBtn.textContent = 'Continue with Selected Profile';
+            continueBtn.disabled = true;
+            continueBtn.onclick = proceedWithSelectedProfile;
+            container.appendChild(continueBtn);
+            
+            // Show the verification section
+            hideAllSections();
+            document.getElementById('profileVerificationSection').classList.remove('hidden');
+        }
+        
+        // Function to select a profile
+        function selectProfile(profileId) {
+            selectedProfileId = profileId;
+            
+            // Update UI - remove selection from all cards
+            document.querySelectorAll('.profile-option-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Add selection to clicked card
+            const cards = document.querySelectorAll('.profile-option-card');
+            if (cards[profileId]) {
+                cards[profileId].classList.add('selected');
+            }
+            
+            // Enable continue button
+            document.querySelector('.verify-profile-btn').disabled = false;
+            
+            console.log(`✅ Profile ${profileId} selected: ${profileOptions[profileId].name}`);
+        }
+        
+        // Function to proceed with selected profile
+        async function proceedWithSelectedProfile() {
+            if (selectedProfileId === null) {
+                showToast('Please select a business profile to continue', 'error');
+                return;
+            }
+            
+            const selectedProfile = profileOptions[selectedProfileId];
+            console.log(`🚀 Proceeding with selected profile: ${selectedProfile.name}`);
+            
+            showLoading();
+            
+            try {
+                await generateReportWithProfile(selectedProfile);
+            } catch (error) {
+                console.error('❌ Report generation error:', error);
+                showProfileVerification(profileOptions, { 
+                    businessName: window.pendingReportData.businessName, 
+                    location: window.pendingReportData.location 
+                });
+                showToast('Failed to generate report. Please try again.', 'error');
+            }
+        }
+        
+        // Function to generate report with selected profile
+        async function generateReportWithProfile(selectedProfile) {
+            console.log(`📊 Generating report with profile: ${selectedProfile.name}`);
+            
+            const { businessName, location, industry, website } = window.pendingReportData;
+            
+            try {
+                const response = await fetch('/api/generate-report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ 
+                        businessName, 
+                        location, 
+                        industry, 
+                        website,
+                        selectedProfile
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('📊 Report data received successfully');
+
+                // Validate report data
+                const hasRequiredData = data && data.auditOverview && data.auditOverview.overallScore && data.auditOverview.factors;
+                const isLockedReport = data && data.isLocked && data.auditOverview && data.auditOverview.factors;
+                const hasBasicData = data && data.auditOverview && data.auditOverview.factors;
+                
+                if (hasRequiredData || isLockedReport || hasBasicData) {
+                    console.log('✅ Report data validation passed', data.isLocked ? '(Preview Mode)' : '(Full Report)');
+                    currentReportData = data;
+                    displayReport(data);
+                    showReport();
+                    
+                    // Refresh user data and reports after generating new report
+                    await checkAuth();
+                    await loadUserReports();
+                    
+                    const message = data.isLocked ? 'Preview report generated successfully!' : 'Report generated successfully!';
+                    showToast(message, 'success');
+                    console.log('✅ Report displayed successfully!');
+                } else {
+                    throw new Error('Invalid report data received');
+                }
+                
+            } catch (error) {
+                console.error('❌ Report generation error:', error);
+                throw error;
+            }
+        }
+        
     </script>
 </body>
 </html>

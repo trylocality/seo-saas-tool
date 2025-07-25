@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Email Webhooks</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        button {
+            background: #0e192b;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #1a2332;
+        }
+        .response {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            display: none;
+        }
+        .response.success {
+            border-left: 4px solid #28a745;
+        }
+        .response.error {
+            border-left: 4px solid #dc3545;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Email Webhooks</h1>
+    
+    <!-- Email Verification Test -->
+    <div class="test-section">
+        <h2>1. Test Email Verification</h2>
+        <p>This will trigger the email verification webhook without creating a user.</p>
+        <input type="email" id="verifyEmail" placeholder="Email address" value="test@example.com">
+        <input type="text" id="verifyName" placeholder="First name" value="Test">
+        <br><br>
+        <button onclick="testEmailVerification()">Send Test Email Verification</button>
+        <div id="verifyResponse" class="response"></div>
+    </div>
+
+    <!-- Password Reset Test -->
+    <div class="test-section">
+        <h2>2. Test Password Reset</h2>
+        <p>This will trigger the password reset webhook.</p>
+        <input type="email" id="resetEmail" placeholder="Email address" value="test@example.com">
+        <input type="text" id="resetName" placeholder="First name" value="Test">
+        <br><br>
+        <button onclick="testPasswordReset()">Send Test Password Reset</button>
+        <div id="resetResponse" class="response"></div>
+    </div>
+
+    <!-- Feedback Test -->
+    <div class="test-section">
+        <h2>3. Test Feedback Submission</h2>
+        <p>This will trigger the feedback submission webhook.</p>
+        <input type="number" id="feedbackRating" placeholder="Rating (1-5)" value="5" min="1" max="5">
+        <input type="text" id="feedbackMessage" placeholder="Feedback message" value="Great tool!">
+        <br><br>
+        <button onclick="testFeedback()">Send Test Feedback</button>
+        <div id="feedbackResponse" class="response"></div>
+    </div>
+
+    <!-- New User Test -->
+    <div class="test-section">
+        <h2>4. Test New User Alert</h2>
+        <p>This will trigger the new user alert webhook.</p>
+        <input type="email" id="newUserEmail" placeholder="Email address" value="newuser@example.com">
+        <input type="text" id="newUserFirstName" placeholder="First name" value="John">
+        <input type="text" id="newUserLastName" placeholder="Last name" value="Doe">
+        <br><br>
+        <button onclick="testNewUser()">Send Test New User Alert</button>
+        <div id="newUserResponse" class="response"></div>
+    </div>
+
+    <script>
+        // Get auth token
+        const authToken = localStorage.getItem('authToken');
+        
+        async function testEmailVerification() {
+            const email = document.getElementById('verifyEmail').value;
+            const firstName = document.getElementById('verifyName').value;
+            const responseDiv = document.getElementById('verifyResponse');
+            
+            responseDiv.textContent = 'Sending test email verification...';
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            
+            try {
+                const response = await fetch('/api/test/email-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ email, firstName })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.textContent = 'SUCCESS! Check your Zapier webhook history.\n\n' + 
+                        JSON.stringify(data, null, 2);
+                    responseDiv.className = 'response success';
+                } else {
+                    responseDiv.textContent = 'ERROR: ' + (data.error || 'Failed to send test');
+                    responseDiv.className = 'response error';
+                }
+            } catch (error) {
+                responseDiv.textContent = 'ERROR: ' + error.message;
+                responseDiv.className = 'response error';
+            }
+        }
+
+        async function testPasswordReset() {
+            const email = document.getElementById('resetEmail').value;
+            const firstName = document.getElementById('resetName').value;
+            const responseDiv = document.getElementById('resetResponse');
+            
+            responseDiv.textContent = 'Sending test password reset...';
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            
+            try {
+                const response = await fetch('/api/test/password-reset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ email, firstName })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.textContent = 'SUCCESS! Check your Zapier webhook history.\n\n' + 
+                        JSON.stringify(data, null, 2);
+                    responseDiv.className = 'response success';
+                } else {
+                    responseDiv.textContent = 'ERROR: ' + (data.error || 'Failed to send test');
+                    responseDiv.className = 'response error';
+                }
+            } catch (error) {
+                responseDiv.textContent = 'ERROR: ' + error.message;
+                responseDiv.className = 'response error';
+            }
+        }
+
+        async function testFeedback() {
+            const rating = document.getElementById('feedbackRating').value;
+            const message = document.getElementById('feedbackMessage').value;
+            const responseDiv = document.getElementById('feedbackResponse');
+            
+            responseDiv.textContent = 'Sending test feedback...';
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            
+            try {
+                const response = await fetch('/api/test/feedback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ 
+                        rating: parseInt(rating), 
+                        message,
+                        type: 'general'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.textContent = 'SUCCESS! Check your Zapier webhook history.\n\n' + 
+                        JSON.stringify(data, null, 2);
+                    responseDiv.className = 'response success';
+                } else {
+                    responseDiv.textContent = 'ERROR: ' + (data.error || 'Failed to send test');
+                    responseDiv.className = 'response error';
+                }
+            } catch (error) {
+                responseDiv.textContent = 'ERROR: ' + error.message;
+                responseDiv.className = 'response error';
+            }
+        }
+
+        async function testNewUser() {
+            const email = document.getElementById('newUserEmail').value;
+            const firstName = document.getElementById('newUserFirstName').value;
+            const lastName = document.getElementById('newUserLastName').value;
+            const responseDiv = document.getElementById('newUserResponse');
+            
+            responseDiv.textContent = 'Sending test new user alert...';
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            
+            try {
+                const response = await fetch('/api/test/new-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ email, firstName, lastName })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.textContent = 'SUCCESS! Check your Zapier webhook history.\n\n' + 
+                        JSON.stringify(data, null, 2);
+                    responseDiv.className = 'response success';
+                } else {
+                    responseDiv.textContent = 'ERROR: ' + (data.error || 'Failed to send test');
+                    responseDiv.className = 'response error';
+                }
+            } catch (error) {
+                responseDiv.textContent = 'ERROR: ' + error.message;
+                responseDiv.className = 'response error';
+            }
+        }
+    </script>
+</body>
+</html>

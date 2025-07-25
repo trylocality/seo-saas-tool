@@ -507,11 +507,78 @@ This feedback was submitted through the Locality SEO Audit Tool.
 // BUSINESS ANALYSIS FUNCTIONS
 // ==========================================
 
-// 1. OUTSCRAPER - Get primary business data
-async function getOutscraperData(businessName, location) {
+// Helper function to find best matching business from search results
+function findBestMatch(businesses, searchName, searchLocation) {
+  if (!businesses || businesses.length === 0) return null;
+  
+  // If only one result, return it
+  if (businesses.length === 1) {
+    return businesses[0];
+  }
+  
+  console.log(`🔍 Finding best match for "${searchName}" in "${searchLocation}" from ${businesses.length} results`);
+  
+  let bestMatch = businesses[0];
+  let bestScore = 0;
+  
+  for (const business of businesses) {
+    let score = 0;
+    const businessName = (business.name || '').toLowerCase();
+    const businessAddress = (business.full_address || business.address || '').toLowerCase();
+    const searchNameLower = searchName.toLowerCase();
+    const searchLocationLower = searchLocation.toLowerCase();
+    
+    // Name matching (most important)
+    if (businessName.includes(searchNameLower) || searchNameLower.includes(businessName)) {
+      score += 10;
+    }
+    
+    // Exact name match bonus
+    if (businessName === searchNameLower) {
+      score += 5;
+    }
+    
+    // Location matching
+    if (businessAddress.includes(searchLocationLower)) {
+      score += 5;
+    }
+    
+    // Prefer verified/claimed businesses
+    if (business.verified || business.claimed) {
+      score += 3;
+    }
+    
+    // Prefer businesses with reviews
+    if (business.reviews > 0) {
+      score += 2;
+    }
+    
+    console.log(`🔍 Business: ${business.name} | Address: ${businessAddress} | Score: ${score}`);
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = business;
+    }
+  }
+  
+  console.log(`✅ Best match selected: ${bestMatch.name} (Score: ${bestScore})`);
+  return bestMatch;
+}
+
+// Function to get multiple business profiles for verification
+async function getBusinessProfileOptions(businessName, location) {
   try {
-    const query = `${businessName} ${location}`;
-    console.log(`🔍 Outscraper search: ${query}`);
+    // Enhanced query for county-level searches
+    const { city, state, isCounty } = extractCityState(location);
+    let query;
+    
+    if (isCounty) {
+      query = `${businessName} ${city} County ${state}`;
+      console.log(`🔍 County-level profile search: ${query}`);
+    } else {
+      query = `${businessName} ${location}`;
+      console.log(`🔍 Profile search: ${query}`);
+    }
     
     if (!OUTSCRAPER_API_KEY) {
       throw new Error('Outscraper API key not configured');
@@ -525,7 +592,109 @@ async function getOutscraperData(businessName, location) {
         query: query,
         language: language,
         region: region,
-        limit: 1
+        limit: 5  // Get up to 5 results for user selection
+      },
+      headers: {
+        'X-API-KEY': OUTSCRAPER_API_KEY
+      },
+      timeout: 15000
+    });
+    
+    console.log('🔍 Profile options response status:', response.status);
+    
+    // Handle async response
+    if (response.status === 202 && response.data.status === 'Pending') {
+      console.log('⏳ Profile search is async, polling for results...');
+      
+      const resultsUrl = response.data.results_location;
+      
+      // Poll for results (max 30 seconds)
+      for (let i = 0; i < 6; i++) {
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        try {
+          const resultResponse = await axios.get(resultsUrl, {
+            headers: {
+              'X-API-KEY': OUTSCRAPER_API_KEY
+            },
+            timeout: 10000
+          });
+          
+          if (resultResponse.data && resultResponse.data.data && resultResponse.data.data.length > 0) {
+            const businessData = resultResponse.data.data[0];
+            const businesses = Array.isArray(businessData) ? businessData : [businessData];
+            return formatBusinessOptions(businesses);
+          }
+        } catch (pollError) {
+          console.log(`⏳ Poll ${i + 1}: Still processing...`);
+        }
+      }
+      
+      throw new Error('Profile search timeout - no results after 30 seconds');
+    }
+    
+    // Handle immediate response
+    if (response.data && response.data.data && response.data.data.length > 0) {
+      const businessData = response.data.data[0];
+      const businesses = Array.isArray(businessData) ? businessData : [businessData];
+      return formatBusinessOptions(businesses);
+    }
+    
+    throw new Error('No business profiles found in search results');
+    
+  } catch (error) {
+    console.error('❌ Profile options error:', error.message);
+    throw new Error(`Failed to fetch profile options: ${error.message}`);
+  }
+}
+
+// Helper function to format business options for frontend
+function formatBusinessOptions(businesses) {
+  return businesses.map((business, index) => ({
+    id: index,
+    name: business.name || business.title || 'Unknown Business',
+    address: business.full_address || business.address || 'Address not available',
+    phone: business.phone || 'Phone not available',
+    rating: parseFloat(business.rating) || 0,
+    reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
+    verified: business.verified || business.claimed || false,
+    website: business.site || business.website || '',
+    place_id: business.place_id || business.google_id,
+    categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
+    rawData: business  // Keep original data for report generation
+  }));
+}
+
+// 1. OUTSCRAPER - Get primary business data
+async function getOutscraperData(businessName, location) {
+  try {
+    // Enhanced query for county-level searches
+    const { city, state, isCounty } = extractCityState(location);
+    let query;
+    
+    if (isCounty) {
+      // For county searches, create a broader query that includes the county name
+      query = `${businessName} ${city} County ${state}`;
+      console.log(`🔍 County-level Outscraper search: ${query}`);
+    } else {
+      // Standard city, state query
+      query = `${businessName} ${location}`;
+      console.log(`🔍 Outscraper search: ${query}`);
+    }
+    
+    if (!OUTSCRAPER_API_KEY) {
+      throw new Error('Outscraper API key not configured');
+    }
+    
+    // Detect country/region from location
+    const { region, language } = detectCountryRegion(location);
+    
+    const response = await axios.get('https://api.outscraper.com/maps/search-v2', {
+      params: {
+        query: query,
+        language: language,
+        region: region,
+        limit: 3  // Get top 3 results for better matching
       },
       headers: {
         'X-API-KEY': OUTSCRAPER_API_KEY
@@ -559,13 +728,17 @@ async function getOutscraperData(businessName, location) {
             console.log('🔍 BUSINESS DATA TYPE:', typeof businessData, 'IS_ARRAY:', Array.isArray(businessData));
             
             // Handle if business data is an array (extract first element) or direct object
-            const business = Array.isArray(businessData) ? businessData[0] : businessData;
+            const businesses = Array.isArray(businessData) ? businessData : [businessData];
+            const business = findBestMatch(businesses, businessName, location);
             console.log(`✅ Outscraper found: ${business.name || business.title || businessName}`);
+            console.log(`🔍 PROFILE DETAILS: Name: "${business.name}", Address: "${business.full_address || business.address}", Phone: "${business.phone}"`);
+            console.log(`🔍 VERIFICATION STATUS: Verified: ${business.verified}, Claimed: ${business.claimed}, Rating: ${business.rating}, Reviews: ${business.reviews}`);
             console.log('🔍 FINAL BUSINESS OBJECT:', JSON.stringify(business, null, 2));
             
             return {
               name: business.name || business.title || businessName,
               phone: business.phone || '',
+              address: business.full_address || business.address || '',
               website: business.site || business.website || '',
               rating: parseFloat(business.rating) || 0,
               reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
@@ -593,12 +766,16 @@ async function getOutscraperData(businessName, location) {
       console.log('🔍 IMMEDIATE BUSINESS DATA TYPE:', typeof businessData, 'IS_ARRAY:', Array.isArray(businessData));
       
       // Handle if business data is an array (extract first element) or direct object
-      const business = Array.isArray(businessData) ? businessData[0] : businessData;
+      const businesses = Array.isArray(businessData) ? businessData : [businessData];
+      const business = findBestMatch(businesses, businessName, location);
       console.log(`✅ Outscraper found: ${business.name || business.title || businessName}`);
+      console.log(`🔍 PROFILE DETAILS: Name: "${business.name}", Address: "${business.full_address || business.address}", Phone: "${business.phone}"`);
+      console.log(`🔍 VERIFICATION STATUS: Verified: ${business.verified}, Claimed: ${business.claimed}, Rating: ${business.rating}, Reviews: ${business.reviews}`);
       
       return {
         name: business.name || business.title || businessName,
         phone: business.phone || '',
+        address: business.full_address || business.address || '',
         website: business.site || business.website || '',
         rating: parseFloat(business.rating) || 0,
         reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
@@ -631,7 +808,9 @@ async function takeBusinessProfileScreenshot(businessName, location) {
       throw new Error('ScrapingBee API key not configured');
     }
     
-    const searchQuery = `${businessName} ${location}`;
+    // Enhanced query for county-level searches
+    const { city, state, isCounty } = extractCityState(location);
+    const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
     
     // Detect location for better screenshot results
     const { region } = detectCountryRegion(location);
@@ -782,6 +961,10 @@ async function checkCitations(businessName, location) {
       throw new Error('SerpAPI key not configured');
     }
     
+    // Parse location for better citation searches
+    const { city, state, isCounty } = extractCityState(location);
+    const searchLocation = isCounty ? `${city} County ${state}` : location;
+    
     const directories = [
       { name: 'Angi', domain: 'angi.com' },
       { name: 'Apple Maps Business Connect', domain: 'mapsconnect.apple.com' },
@@ -800,7 +983,7 @@ async function checkCitations(businessName, location) {
     
     for (const directory of directories) {
       try {
-        const searchQuery = `site:${directory.domain} "${businessName}" ${location}`;
+        const searchQuery = `site:${directory.domain} "${businessName}" ${searchLocation}`;
         
         // Detect location for better search results
         const { region } = detectCountryRegion(location);
@@ -969,10 +1152,128 @@ async function analyzeWebsite(websiteUrl, location) {
   }
 }
 
+// 7. Q&A ANALYSIS - Get Q&A data directly from SerpAPI
+async function analyzeQuestionsAndAnswers(businessName, location, placeId) {
+  try {
+    console.log(`❓ Analyzing Q&A for: ${businessName}`);
+    
+    if (!SERPAPI_KEY) {
+      throw new Error('SerpAPI key not configured');
+    }
+    
+    // First get place_id if we don't have a reliable one
+    let businessPlaceId = placeId;
+    
+    if (!businessPlaceId) {
+      console.log('🔍 Getting place_id for Q&A analysis...');
+      
+      // Detect location for better search results
+      const { region } = detectCountryRegion(location);
+      const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+      
+      const searchResponse = await axios.get('https://serpapi.com/search.json', {
+        params: {
+          engine: 'google_local',
+          q: `${businessName} ${location}`,
+          api_key: SERPAPI_KEY,
+          google_domain: googleDomain,
+          gl: region.toLowerCase(),
+          hl: 'en'
+        },
+        timeout: 15000
+      });
+      
+      if (searchResponse.data.local_results && searchResponse.data.local_results.length > 0) {
+        const business = searchResponse.data.local_results[0];
+        businessPlaceId = business.place_id;
+        console.log(`✅ Found place_id for Q&A: ${businessPlaceId}`);
+      }
+    }
+    
+    if (!businessPlaceId) {
+      return { 
+        hasQA: false,
+        questionCount: 0,
+        questions: [],
+        note: 'Could not find place_id for Q&A analysis'
+      };
+    }
+    
+    // Get Q&A data using Google Maps Place Results API
+    console.log('❓ Getting Q&A data from Google Maps...');
+    
+    const qaResponse = await axios.get('https://serpapi.com/search.json', {
+      params: {
+        engine: 'google_maps',
+        type: 'place',
+        place_id: businessPlaceId,
+        api_key: SERPAPI_KEY
+      },
+      timeout: 15000
+    });
+    
+    console.log('📊 Q&A Response received');
+    
+    // Extract Q&A data from response
+    const placeResults = qaResponse.data.place_result;
+    const questionsAndAnswers = placeResults?.questions_and_answers || [];
+    
+    if (questionsAndAnswers.length > 0) {
+      console.log(`✅ Found ${questionsAndAnswers.length} Q&A items`);
+      
+      return {
+        hasQA: true,
+        questionCount: questionsAndAnswers.length,
+        questions: questionsAndAnswers.slice(0, 5), // Store first 5 for reference
+        note: `Found ${questionsAndAnswers.length} questions and answers`
+      };
+    } else {
+      console.log('❌ No Q&A found');
+      return {
+        hasQA: false,
+        questionCount: 0,
+        questions: [],
+        note: 'No questions and answers found'
+      };
+    }
+    
+  } catch (error) {
+    console.error('❌ Q&A analysis error:', error.message);
+    return { 
+      hasQA: false,
+      questionCount: 0,
+      questions: [],
+      note: `Q&A analysis failed: ${error.message}`
+    };
+  }
+}
+
 // Helper function to extract city and state/country from location string
 function extractCityState(location) {
   // Handle full address format (e.g., "123 Main St, Miami, FL 33101")
   const parts = location.split(/[,\-]/).map(p => p.trim()).filter(p => p.length > 0);
+  
+  // County/state detection patterns
+  const countyPatterns = [
+    /(.+)\s+county\s*,\s*([A-Z]{2})$/i,     // "Salt Lake County, UT"
+    /(.+)\s+county\s*,\s*([A-Za-z\s]+)$/i,  // "Salt Lake County, Utah"
+    /(.+)\s+co\.\s*,\s*([A-Z]{2})$/i,       // "Utah Co., UT"
+    /(.+)\s+co\s*,\s*([A-Z]{2})$/i          // "Utah Co, UT"
+  ];
+  
+  // Check for county, state patterns first
+  const locationString = location.trim();
+  for (const pattern of countyPatterns) {
+    const match = locationString.match(pattern);
+    if (match) {
+      console.log(`🗺️ Detected county format: ${match[1]} County, ${match[2]}`);
+      return {
+        city: match[1], // Use county name as the primary location identifier
+        state: match[2],
+        isCounty: true  // Flag to indicate this is a county-level location
+      };
+    }
+  }
   
   // For international addresses, the format might be different
   // e.g., "Al Sufouh - Dubai - United Arab Emirates"
@@ -1282,14 +1583,19 @@ function calculateScore(data) {
     details.posts = { status: 'MISSING', message: 'No recent posts - missing chance to engage customers' };
   }
   
-  // 7. Q&A (4 pts) - Give half credit if we can't detect properly
-  if (data.aiAnalysis.qa && data.aiAnalysis.qa.hasAny) {
+  // 7. Q&A (4 pts) - Using SerpAPI data for accurate detection
+  if (data.qaAnalysis && data.qaAnalysis.hasQA && data.qaAnalysis.questionCount > 0) {
     scores.qa = 4;
-    details.qa = { status: 'GOOD', message: 'Q&A section helps answer customer questions' };
+    details.qa = { 
+      status: 'GOOD', 
+      message: `Q&A section active with ${data.qaAnalysis.questionCount} questions - helps answer customer queries` 
+    };
   } else {
-    // Give half credit since detection isn't always reliable
-    scores.qa = 2;
-    details.qa = { status: 'UNCERTAIN', message: 'Q&A status unclear - check your profile directly' };
+    scores.qa = 0;
+    details.qa = { 
+      status: 'MISSING', 
+      message: 'No Q&A found - add common customer questions to help prospects' 
+    };
   }
   
   // 8. SOCIAL PROFILES (2 pts) - Binary
@@ -1678,17 +1984,40 @@ function getInstructionsFor(type) {
 // MAIN REPORT GENERATION (COMPLETE VERSION)
 // ==========================================
 
-async function generateCompleteReport(businessName, location, industry, website, user = null) {
+async function generateCompleteReport(businessName, location, industry, website, user = null, selectedProfile = null) {
   console.log(`🚀 Generating COMPLETE report for: ${businessName} in ${location}`);
   
   const errors = [];
   let partialData = {};
   
   try {
-    // Step 1: Get primary business data from Outscraper
+    // Step 1: Get primary business data - use selected profile if provided
     console.log('📍 Step 1: Getting business data...');
     try {
-      partialData.outscraper = await getOutscraperData(businessName, location);
+      if (selectedProfile && selectedProfile.rawData) {
+        console.log(`✅ Using pre-selected profile: ${selectedProfile.name}`);
+        // Convert selected profile to the expected format
+        const business = selectedProfile.rawData;
+        partialData.outscraper = {
+          name: business.name || business.title || businessName,
+          phone: business.phone || '',
+          address: business.full_address || business.address || '',
+          website: business.site || business.website || '',
+          rating: parseFloat(business.rating) || 0,
+          reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
+          verified: business.verified || business.claimed || false,
+          description: business.description || '',
+          photos_count: parseInt(business.photos_count) || parseInt(business.photos) || 0,
+          categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
+          hours: business.working_hours || business.hours || null,
+          place_id: business.place_id || business.google_id,
+          google_id: business.google_id || business.place_id,
+          reviews_link: business.reviews_link
+        };
+      } else {
+        // Fallback to original search method
+        partialData.outscraper = await getOutscraperData(businessName, location);
+      }
     } catch (error) {
       errors.push(`Outscraper: ${error.message}`);
       throw new Error('Failed to get basic business data - cannot continue');
@@ -1756,7 +2085,21 @@ async function generateCompleteReport(businessName, location, industry, website,
       };
     }
     
-    // Step 7: Compile data for scoring
+    // Step 7: Analyze Q&A using SerpAPI
+    console.log('❓ Step 7: Analyzing Q&A...');
+    try {
+      partialData.qaAnalysis = await analyzeQuestionsAndAnswers(businessName, location, partialData.outscraper.place_id);
+    } catch (error) {
+      errors.push(`Q&A: ${error.message}`);
+      partialData.qaAnalysis = {
+        hasQA: false,
+        questionCount: 0,
+        questions: [],
+        note: 'Q&A analysis failed'
+      };
+    }
+    
+    // Step 8: Compile data for scoring
     const compiledData = {
       businessInfo: { businessName, location, industry, website },
       outscraper: partialData.outscraper,
@@ -1764,15 +2107,16 @@ async function generateCompleteReport(businessName, location, industry, website,
       citations: partialData.citations,
       websiteAnalysis: partialData.websiteAnalysis,
       reviewsAnalysis: partialData.reviewsAnalysis,
+      qaAnalysis: partialData.qaAnalysis,
       screenshot: partialData.screenshot
     };
     
-    // Step 8: Calculate score
-    console.log('📊 Step 8: Calculating score...');
+    // Step 9: Calculate score
+    console.log('📊 Step 9: Calculating score...');
     const scoreData = calculateScore(compiledData);
     
-    // Step 9: Generate smart suggestions
-    console.log('🧠 Step 9: Generating smart suggestions...');
+    // Step 10: Generate smart suggestions
+    console.log('🧠 Step 10: Generating smart suggestions...');
     let smartSuggestions = {};
     try {
       smartSuggestions = await generateSmartSuggestions(
@@ -1785,11 +2129,11 @@ async function generateCompleteReport(businessName, location, industry, website,
       smartSuggestions = { error: error.message };
     }
     
-    // Step 10: Generate action plan
-    console.log('📋 Step 10: Creating action plan...');
+    // Step 11: Generate action plan
+    console.log('📋 Step 11: Creating action plan...');
     const actionPlan = generateActionPlan(scoreData);
     
-    // Step 11: Build final report
+    // Step 12: Build final report
     // Get user-specific branding or use default
     const brandName = (user && user.custom_brand_name) || BRAND_CONFIG.name;
     const brandLogo = (user && user.custom_brand_logo) || BRAND_CONFIG.logo;
@@ -1798,6 +2142,14 @@ async function generateCompleteReport(businessName, location, industry, website,
     const report = {
       success: true,
       business: { name: businessName, location, industry, website },
+      auditedProfile: {
+        name: partialData.outscraper.name,
+        address: partialData.outscraper.address,
+        phone: partialData.outscraper.phone,
+        website: partialData.outscraper.website,
+        verified: partialData.outscraper.verified,
+        place_id: partialData.outscraper.place_id
+      },
       generatedDate: new Date().toLocaleDateString(),
       brandInfo: {
         name: brandName,
@@ -1854,7 +2206,8 @@ async function generateCompleteReport(businessName, location, industry, website,
           aiAnalysis: partialData.aiAnalysis ? 'SUCCESS' : 'FAILED',
           citations: partialData.citations ? 'SUCCESS' : 'FAILED',
           website: partialData.websiteAnalysis ? 'SUCCESS' : 'FAILED',
-          reviews: partialData.reviewsAnalysis ? 'SUCCESS' : 'FAILED'
+          reviews: partialData.reviewsAnalysis ? 'SUCCESS' : 'FAILED',
+          qaAnalysis: partialData.qaAnalysis ? 'SUCCESS' : 'FAILED'
         },
         errors: errors,
         costs: {
@@ -1864,7 +2217,8 @@ async function generateCompleteReport(businessName, location, industry, website,
           openai_suggestions: Object.keys(smartSuggestions).length * 0.01,
           serpapi_citations: 0.02,
           serpapi_reviews: 0.02,
-          total: 0.085
+          serpapi_qa: partialData.qaAnalysis ? 0.02 : 0,
+          total: 0.105
         }
       }
     };
@@ -2335,13 +2689,44 @@ app.get('/api/profile', authenticateToken, (req, res) => {
 });
 
 // COMPLETE REPORT GENERATION FOR PRODUCTION
+// Profile verification endpoint - returns multiple profile options for user selection
+app.post('/api/verify-profile', authenticateToken, async (req, res) => {
+  try {
+    console.log(`🔍 Profile verification request from user ${req.user.email}`);
+    const { businessName, location } = req.body;
+    
+    if (!businessName || !location) {
+      return res.status(400).json({ error: 'Business name and location are required' });
+    }
+    
+    console.log(`🔍 Searching for profiles: ${businessName} in ${location}`);
+    
+    const profileOptions = await getBusinessProfileOptions(businessName, location);
+    
+    console.log(`✅ Found ${profileOptions.length} profile options`);
+    
+    res.json({
+      success: true,
+      profiles: profileOptions,
+      searchQuery: { businessName, location }
+    });
+    
+  } catch (error) {
+    console.error('❌ Profile verification error:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch business profiles', 
+      details: error.message 
+    });
+  }
+});
+
 app.post('/api/generate-report', authenticateToken, async (req, res) => {
   try {
     console.log(`📊 Report request from user ${req.user.email}`);
     console.log('🔍 DEBUG: Request body:', req.body);
     
-    // Handle both old and new frontend formats
-    const { businessName, location, city, industry, category, website } = req.body;
+    // Handle both old and new frontend formats, plus selected profile data
+    const { businessName, location, city, industry, category, website, selectedProfile } = req.body;
     const finalLocation = location || city;
     const finalIndustry = industry || category;
     
@@ -2384,15 +2769,29 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
     console.log(`🏢 Generating ${hasCredits ? 'COMPLETE' : 'PREVIEW'} report for: ${businessName} in ${finalLocation} (${finalIndustry})`);
     
     // Generate complete report with all features
-    const report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user);
+    const report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user, selectedProfile);
     
     // Save report
     let savedReportId = null;
     try {
-      const result = await db.query(
-        'INSERT INTO reports (user_id, business_name, city, industry, website, report_data, was_paid) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-        [req.user.id, businessName, finalLocation, finalIndustry, website || null, JSON.stringify(report), hasCredits]
-      );
+      // Try with was_paid column first, fallback if column doesn't exist
+      let result;
+      try {
+        result = await db.query(
+          'INSERT INTO reports (user_id, business_name, city, industry, website, report_data, was_paid) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+          [req.user.id, businessName, finalLocation, finalIndustry, website || null, JSON.stringify(report), hasCredits]
+        );
+      } catch (error) {
+        if (error.message.includes('was_paid') && error.message.includes('does not exist')) {
+          console.log('⚠️ was_paid column missing, using fallback insert');
+          result = await db.query(
+            'INSERT INTO reports (user_id, business_name, city, industry, website, report_data) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+            [req.user.id, businessName, finalLocation, finalIndustry, website || null, JSON.stringify(report)]
+          );
+        } else {
+          throw error;
+        }
+      }
       savedReportId = result.rows?.[0]?.id || null;
       console.log(`💾 Report saved with ID: ${savedReportId}`);
     } catch (err) {
@@ -2432,10 +2831,24 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
   try {
     console.log(`📋 Loading reports for user ${req.user.id}`);
     
-    const reports = await db.all(
-      'SELECT id, business_name, city, industry, website, created_at, report_data, was_paid FROM reports WHERE user_id = $1 ORDER BY created_at DESC',
-      [req.user.id]
-    );
+    // Try with was_paid column first, fallback if column doesn't exist
+    let reports;
+    try {
+      reports = await db.all(
+        'SELECT id, business_name, city, industry, website, created_at, report_data, was_paid FROM reports WHERE user_id = $1 ORDER BY created_at DESC',
+        [req.user.id]
+      );
+    } catch (error) {
+      if (error.message.includes('was_paid') && error.message.includes('does not exist')) {
+        console.log('⚠️ was_paid column missing, using fallback query');
+        reports = await db.all(
+          'SELECT id, business_name, city, industry, website, created_at, report_data, FALSE as was_paid FROM reports WHERE user_id = $1 ORDER BY created_at DESC',
+          [req.user.id]
+        );
+      } else {
+        throw error;
+      }
+    }
     
     // Extract score from each report's JSON data
     const reportsWithScores = reports.map(report => {
@@ -2496,8 +2909,9 @@ app.post('/api/reports/:id/unlock', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Report not found' });
     }
     
-    // Check if report is already unlocked
-    if (report.was_paid) {
+    // Check if report is already unlocked (handle missing was_paid column)
+    const wasPaid = report.was_paid !== undefined ? report.was_paid : false;
+    if (wasPaid) {
       return res.status(400).json({ 
         error: 'This report is already unlocked' 
       });
@@ -2517,11 +2931,20 @@ app.post('/api/reports/:id/unlock', authenticateToken, async (req, res) => {
         });
       }
       
-      // Unlock the report
-      await db.query(
-        'UPDATE reports SET was_paid = $1 WHERE id = $2',
-        [true, reportId]
-      );
+      // Unlock the report (handle missing was_paid column)
+      try {
+        await db.query(
+          'UPDATE reports SET was_paid = $1 WHERE id = $2',
+          [true, reportId]
+        );
+      } catch (error) {
+        if (error.message.includes('was_paid') && error.message.includes('does not exist')) {
+          console.log('⚠️ was_paid column missing, skipping report unlock flag');
+          // Continue without updating was_paid - report will still be accessible via credits
+        } else {
+          throw error;
+        }
+      }
       
       const remainingCredits = creditResult.rows[0].credits_remaining;
       console.log(`🔓 Report ${reportId} unlocked! User now has ${remainingCredits} credits remaining`);
@@ -2574,6 +2997,11 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
     }
 
     console.log(`🔍 Starting detailed citation analysis for: ${businessName} in ${location}`);
+    
+    // Parse location for better search results
+    const { city, state, isCounty } = extractCityState(location);
+    const searchLocation = isCounty ? `${city} County ${state}` : location;
+    console.log(`🔍 Using search location: ${searchLocation}`);
 
     // Define 40 premium directories grouped into sets of 4
     const premiumDirectories = [
@@ -2661,7 +3089,7 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
       try {
         // Create OR query for the group of 4 directories
         const siteQueries = group.map(dir => `site:${dir.domain}`).join(' OR ');
-        const searchQuery = `(${siteQueries}) "${businessName}" ${location}`;
+        const searchQuery = `(${siteQueries}) "${businessName}" ${searchLocation}`;
         
         console.log(`🔍 Group ${groupIndex + 1}/10: Searching ${group.map(d => d.name).join(', ')}`);
         console.log(`🔍 Search query: ${searchQuery}`);
@@ -2759,8 +3187,8 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
       // Parse the stored JSON report data
       const reportData = JSON.parse(report.report_data);
       
-      // Check if this report was originally paid for
-      const wasPaid = report.was_paid;
+      // Check if this report was originally paid for (handle missing was_paid column)
+      const wasPaid = report.was_paid !== undefined ? report.was_paid : false;
       
       // Calculate optimization opportunities if the report is locked
       let optimizationOpportunities = 0;

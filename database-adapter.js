@@ -256,6 +256,7 @@ class DatabaseAdapter {
   async setupTables() {
     if (this.dbType === 'postgresql') {
       await this.setupPostgreSQLTables();
+      await this.runPostgreSQLMigrations();
     } else {
       await this.setupSQLiteTables();
     }
@@ -399,6 +400,28 @@ class DatabaseAdapter {
     }
     
     console.log('✅ PostgreSQL tables created/verified');
+  }
+
+  async runPostgreSQLMigrations() {
+    console.log('🔄 Running PostgreSQL migrations...');
+    
+    // Migration 1: Add was_paid column to reports table if it doesn't exist
+    try {
+      await this.query(`
+        ALTER TABLE reports 
+        ADD COLUMN IF NOT EXISTS was_paid BOOLEAN DEFAULT FALSE
+      `);
+      console.log('✅ Migration: was_paid column added to reports table');
+    } catch (error) {
+      if (error.message.includes('already exists')) {
+        console.log('✅ Migration: was_paid column already exists');
+      } else {
+        console.log(`⚠️ Migration warning (was_paid): ${error.message}`);
+      }
+    }
+    
+    // Future migrations can be added here
+    console.log('✅ All PostgreSQL migrations completed');
   }
 
   async setupSQLiteTables() {
