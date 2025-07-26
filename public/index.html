@@ -1854,8 +1854,8 @@
                 </div>
 
                 <!-- Citations Section -->
-                <div class="section">
-                    <h3 class="section-title">Local Citations Status</h3>
+                <div class="section" id="citationsSection">
+                    <h3 class="section-title" id="citationsSectionTitle">Local Citations Status</h3>
                     <p style="text-align: center; color: #666; margin-bottom: 25px; font-size: 1.1rem; line-height: 1.5;">
                         Citations are mentions of your business across the web. They help search engines verify your business exists and boost your local search rankings.
                     </p>
@@ -1883,11 +1883,6 @@
             <!-- Page 2: Action Plan and Upsell -->
             <div class="print-page-2">
 
-                <!-- All Citations (shown only when detailed analysis is run) -->
-                <div class="section" id="allCitationsSection" style="display: none;">
-                    <h3 class="section-title">Complete Citation Analysis (50 Directories)</h3>
-                    <div id="allCitationsContainer"></div>
-                </div>
 
                 <!-- Action Plan -->
                 <div class="section">
@@ -2311,13 +2306,27 @@
             { percent: 100, text: 'Finalizing report...' }
         ];
 
-       window.addEventListener('DOMContentLoaded', () => {
+       window.addEventListener('DOMContentLoaded', async () => {
     try {
         console.log('🚀 Locality App starting...');
         
         // Check for payment success
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('payment') === 'success') {
+            // If this tab was opened by Stripe checkout, notify the original tab and close
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.postMessage('payment_success', '*');
+                    console.log('✅ Payment success message sent to original tab');
+                    window.close();
+                    return; // Exit early since we're closing this tab
+                } catch (error) {
+                    console.error('❌ Failed to communicate with original tab:', error);
+                    // Fall back to normal success handling if communication fails
+                }
+            }
+            
+            // Normal success handling for cases where we can't close the tab
             showToast('Payment successful! Your credits have been added.', 'success');
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
@@ -2344,11 +2353,49 @@
         console.log('🔍 Page load - Auth token exists:', !!authToken);
         if (authToken) {
             console.log('🔍 Checking authentication...');
-            checkAuth();
+            try {
+                await checkAuth();
+            } catch (authError) {
+                console.error('❌ Auth check failed, showing login:', authError);
+                showLogin();
+            }
         } else {
             console.log('🔍 No auth token, showing login...');
             showLogin();
         }
+        
+        // Safety check: ensure at least one section is visible after 2 seconds
+        setTimeout(() => {
+            const visibleSections = ['loginSection', 'signupSection', 'forgotPasswordSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection', 'profileVerificationSection']
+                .filter(id => {
+                    const element = document.getElementById(id);
+                    return element && !element.classList.contains('hidden');
+                });
+            
+            if (visibleSections.length === 0) {
+                console.warn('⚠️ No sections visible after initialization, forcing login display');
+                showLogin();
+            }
+        }, 2000);
+        
+        // Listen for payment success messages from Stripe checkout tab
+        window.addEventListener('message', (event) => {
+            console.log('📨 Received message:', event.data, 'from:', event.origin);
+            
+            if (event.data === 'payment_success') {
+                console.log('✅ Payment success message received from Stripe tab');
+                showToast('Payment successful! Your credits have been added.', 'success');
+                
+                // Refresh user data to show new credits
+                if (authToken) {
+                    console.log('🔄 Refreshing user data after payment success');
+                    checkAuth();
+                } else {
+                    console.warn('⚠️ No auth token available for refresh');
+                }
+            }
+        });
+        
     } catch (error) {
         console.error('❌ Critical initialization error:', error);
         // Try to at least show login screen
@@ -2439,7 +2486,13 @@
         // Navigation functions
         function showLogin() {
             hideAllSections();
-            document.getElementById('loginSection').classList.remove('hidden');
+            const loginSection = document.getElementById('loginSection');
+            if (loginSection) {
+                loginSection.classList.remove('hidden');
+                console.log('✅ Login section displayed');
+            } else {
+                console.error('❌ Login section not found!');
+            }
         }
 
         function showSignup() {
@@ -2454,11 +2507,22 @@
 
         function showDashboard() {
             hideAllSections();
-            clearReportState(); // Clear any stale report data
-            document.getElementById('dashboardSection').classList.remove('hidden');
-            if (authToken) {
-                checkAuth();
-                loadUserReports();
+            try {
+                clearReportState(); // Clear any stale report data
+            } catch (clearError) {
+                console.error('Error clearing report state in showDashboard:', clearError);
+            }
+            
+            const dashboardSection = document.getElementById('dashboardSection');
+            if (dashboardSection) {
+                dashboardSection.classList.remove('hidden');
+                console.log('✅ Dashboard section displayed');
+                if (authToken) {
+                    loadUserReports();
+                }
+            } else {
+                console.error('❌ Dashboard section not found!');
+                showLogin(); // Fallback to login if dashboard not found
             }
         }
 
@@ -2500,7 +2564,14 @@
 
         function hideAllSections() {
             const sections = ['loginSection', 'signupSection', 'forgotPasswordSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection', 'profileVerificationSection'];
-            sections.forEach(id => document.getElementById(id).classList.add('hidden'));
+            sections.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.classList.add('hidden');
+                } else {
+                    console.warn(`⚠️ Section element not found: ${id}`);
+                }
+            });
         }
 
         // Enhanced progress simulation
@@ -2561,6 +2632,7 @@
                     const data = await response.json();
                     currentUser = data.user;
                     updateDashboard();
+                    showDashboard();
                     console.log('✅ User authenticated:', currentUser.firstName);
                 } else {
                     console.log('❌ Token invalid (status:', response.status, '), clearing auth state...');
@@ -3763,93 +3835,67 @@
             updateMainCitationsDisplay(data);
         }
         
-        // Update main citations display with all 50 citations
+        // Update main citations display with detailed analysis (replaces original)
         function updateMainCitationsDisplay(detailedData) {
-            const allCitationsSection = document.getElementById('allCitationsSection');
-            const allCitationsContainer = document.getElementById('allCitationsContainer');
-            const page1CitationsSection = document.querySelector('#citationsRow').closest('.section');
+            console.log('🔍 DEBUG: updateMainCitationsDisplay called with:', detailedData);
             
-            // Keep the main citations section visible (original 10 citations remain there)
-            if (page1CitationsSection) {
-                page1CitationsSection.style.display = 'block';
-            }
+            try {
+                const citationsSectionTitle = document.getElementById('citationsSectionTitle');
+                const citationsRow = document.getElementById('citationsRow');
+                
+                console.log('🔍 DEBUG: Found elements - title:', !!citationsSectionTitle, 'row:', !!citationsRow);
+                
+                // Update the section title to "Detailed Citation Analysis"
+                if (citationsSectionTitle) {
+                    citationsSectionTitle.textContent = 'Detailed Citation Analysis';
+                    console.log('✅ DEBUG: Title updated successfully');
+                }
             
-            // Show the additional citations section
-            allCitationsSection.style.display = 'block';
-            
-            // Only show the additional 40 citations in the allCitationsSection
+            // Combine original 10 + detailed 40 = all 50 citations
+            const originalCitations = currentReportData.citationsAnalysis?.data?.checked?.slice(0, 10) || [];
             const detailedCitations = detailedData.results || [];
+            const allCitations = [...originalCitations, ...detailedCitations];
+            
+            if (!citationsRow) {
+                console.error('❌ Citations row element not found');
+                return;
+            }
             
             let allCitationsHTML = '';
             
-            // Only show detailed citations (40) - the original 10 stay in the main section
-            if (detailedCitations.length > 0) {
-                allCitationsHTML += `
-                    <h4 style="margin-bottom: 15px; color: #0e192b;">Additional Premium Directories (40)</h4>`;
-                
-                // Create rows of 10 items each
-                for (let i = 0; i < detailedCitations.length; i += 10) {
-                    allCitationsHTML += '<div class="citations-row" style="margin-bottom: 15px;">';
-                    
-                    for (let j = i; j < Math.min(i + 10, detailedCitations.length); j++) {
-                        const result = detailedCitations[j];
-                        const status = result.found ? 'found' : 'missing';
-                        const icon = result.found ? '✓' : result.status === 'ERROR' ? '⚠' : '✗';
-                        
-                        allCitationsHTML += `
-                            <div class="citation-item-simple ${status}">
-                                <div class="citation-content">
-                                    <div class="citation-name-simple">${result.name}</div>
-                                    <div class="citation-icon">${icon}</div>
-                                </div>
-                            </div>`;
-                    }
-                    
-                    allCitationsHTML += '</div>';
+            // Display all 50 citations in groups of 10
+            for (let i = 0; i < allCitations.length; i += 10) {
+                if (i > 0) {
+                    allCitationsHTML += '<div style="margin: 15px 0;"></div>'; // Add spacing between rows
                 }
+                
+                allCitationsHTML += '<div class="citations-row">';
+                
+                for (let j = i; j < Math.min(i + 10, allCitations.length); j++) {
+                    const citation = allCitations[j];
+                    const status = citation.found ? 'found' : 'missing';
+                    const icon = citation.found ? '✓' : citation.status === 'ERROR' ? '⚠' : '✗';
+                    
+                    allCitationsHTML += `
+                        <div class="citation-item-simple ${status}">
+                            <div class="citation-content">
+                                <div class="citation-name-simple">${citation.name || citation.directory}</div>
+                                <div class="citation-icon">${icon}</div>
+                            </div>
+                        </div>`;
+                }
+                
+                allCitationsHTML += '</div>';
             }
             
-            allCitationsContainer.innerHTML = allCitationsHTML;
+            citationsRow.innerHTML = allCitationsHTML;
             
-            // Also update the main citations row to show all 50 citations
-            if (citationsRow) {
-                // Create a more compact display for all 50 citations
-                let mainCitationsHTML = '';
+                console.log('✅ Citations display updated - showing detailed analysis with all 50 citations');
                 
-                // Essential citations (10)
-                essentialCitations.forEach(citation => {
-                    const status = citation.found ? 'found' : 'missing';
-                    const icon = citation.found ? '✓' : '✗';
-                    const logoUrl = directoryLogos[citation.directory] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmOGY5ZmEiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiPgo8cGF0aCBkPSJNNCA0TDggOE00IDhMOCA0IiBzdHJva2U9IiM2Yzc1N2QiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+';
-                    const displayName = directoryDisplayNames[citation.directory] || citation.directory;
-                    
-                    mainCitationsHTML += `
-                        <div class="citation-item-simple ${status}">
-                            <img src="${logoUrl}" alt="${displayName}" onerror="this.style.display='none'">
-                            <span>${displayName}</span>
-                            <span class="citation-icon">${icon}</span>
-                        </div>`;
-                });
-                
-                // Detailed citations (40) - show them in a more compact way
-                detailedCitations.forEach(result => {
-                    const status = result.status === 'found' ? 'found' : 'missing';
-                    const icon = result.status === 'found' ? '✓' : '✗';
-                    
-                    mainCitationsHTML += `
-                        <div class="citation-item-simple ${status}">
-                            <span>${result.name}</span>
-                            <span class="citation-icon">${icon}</span>
-                        </div>`;
-                });
-                
-                citationsRow.innerHTML = mainCitationsHTML;
-                
-                // Update the section title to reflect all 50 citations
-                const sectionTitle = page1CitationsSection.querySelector('.section-title');
-                if (sectionTitle) {
-                    sectionTitle.textContent = 'Citations (All 50 Directories Analyzed)';
-                }
+            } catch (error) {
+                console.error('❌ ERROR in updateMainCitationsDisplay:', error);
+                console.error('❌ ERROR stack:', error.stack);
+                throw error; // Re-throw to let the calling function handle it
             }
         }
 

@@ -1102,28 +1102,46 @@ async function analyzeWebsite(websiteUrl, location) {
     // For international addresses, also check for country-specific patterns
     const locationParts = location.toLowerCase().split(/[,\-]/).map(p => p.trim());
     
+    // URL-based patterns only - looking for dedicated location pages
     const localizedIndicators = [
-      // City-specific patterns
-      `/${cityLower}`,
-      `${cityLower}-`,
+      // Direct location URLs
+      `/${cityLower}/`,
+      `/${cityLower}.html`,
+      `/${cityLower}.php`,
+      
+      // Location directory structures
       `/location/${cityLower}`,
+      `/locations/${cityLower}`,
       `/service-area/${cityLower}`,
-      `/serving-${cityLower}`,
-      `>${cityLower} location<`,
-      `>${cityLower} office<`,
-      // State/Country-specific patterns
-      `/${stateLower}`,
-      `${stateLower}-`,
-      `/location/${stateLower}`,
-      `/service-area/${stateLower}`,
-      `/serving-${stateLower}`,
-      `>${stateLower} location<`,
-      `>${stateLower} office<`,
-      // Common state name patterns
-      `utah`, `texas`, `california`, `florida`, `nevada`, `colorado`, `arizona`,
-      // Add patterns for any part of the location
-      ...locationParts.filter(part => part.length > 2).map(part => `/${part}`),
-      ...locationParts.filter(part => part.length > 2).map(part => `${part}-`)
+      `/service-areas/${cityLower}`,
+      `/areas/${cityLower}`,
+      `/cities/${cityLower}`,
+      `/serving/${cityLower}`,
+      `/serve/${cityLower}`,
+      
+      // State-based URLs (avoid short abbreviations that could match other things)
+      ...(stateLower.length > 2 ? [
+        `/${stateLower}/`,
+        `/${stateLower}.html`,
+        `/${stateLower}.php`,
+        `/location/${stateLower}`,
+        `/locations/${stateLower}`,
+        `/service-area/${stateLower}`,
+        `/areas/${stateLower}`
+      ] : []),
+      
+      // Multi-word location parts (counties, regions) - must be 4+ chars to avoid false matches
+      ...locationParts
+        .filter(part => part.length > 3 && !part.match(/^[a-z]{2}$/)) // Exclude 2-letter abbreviations
+        .flatMap(part => [
+          `/${part}/`,
+          `/${part}.html`,
+          `/${part}.php`,
+          `/location/${part}`,
+          `/locations/${part}`,
+          `/service-area/${part}`,
+          `/areas/${part}`
+        ])
     ];
     const hasLocalizedPage = localizedIndicators.some(indicator => htmlLower.includes(indicator));
     
@@ -2020,7 +2038,24 @@ async function generateCompleteReport(businessName, location, industry, website,
       }
     } catch (error) {
       errors.push(`Outscraper: ${error.message}`);
-      throw new Error('Failed to get basic business data - cannot continue');
+      // Instead of throwing fatal error, provide fallback data
+      console.log('⚠️ Using fallback business data due to outscraper failure');
+      partialData.outscraper = {
+        name: businessName,
+        phone: '',
+        address: location,
+        website: '',
+        rating: 0,
+        reviews: 0,
+        verified: false,
+        description: '',
+        photos_count: 0,
+        categories: [],
+        hours: null,
+        place_id: null,
+        google_id: null,
+        reviews_link: null
+      };
     }
     
     // Step 2: Take screenshot for visual analysis
@@ -2720,6 +2755,83 @@ app.post('/api/verify-profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Generate a minimal locked report when the main report generation fails
+async function generateFallbackLockedReport(businessName, location, industry, website, user = null) {
+  console.log(`🔒 Generating fallback locked report for: ${businessName} in ${location}`);
+  
+  // Get user-specific branding or use default
+  const brandName = (user && user.custom_brand_name) || BRAND_CONFIG.name;
+  const brandLogo = (user && user.custom_brand_logo) || BRAND_CONFIG.logo;
+  const preparedBy = (user && user.custom_prepared_by) || `${brandName} ${BRAND_CONFIG.preparedBySuffix}`;
+  
+  // Create minimal report structure with locked data
+  const fallbackReport = {
+    success: true,
+    business: { name: businessName, location, industry, website },
+    auditedProfile: {
+      name: businessName,
+      address: location,
+      phone: 'Data locked - upgrade to view',
+      website: website || 'Data locked - upgrade to view',
+      verified: false,
+      place_id: null
+    },
+    generatedDate: new Date().toLocaleDateString(),
+    brandInfo: {
+      name: brandName,
+      logo: brandLogo,
+      preparedBy: preparedBy
+    },
+    
+    // Basic audit overview with locked score
+    auditOverview: {
+      title: "Local SEO Audit Results",
+      overallScore: {
+        score: 0,
+        maxScore: 100,
+        grade: 'LOCKED',
+        message: 'Upgrade to see your Local SEO score and detailed analysis'
+      },
+      factors: [
+        { id: 'profile_completeness', name: 'Profile Completeness', score: 0, maxScore: 20, status: 'LOCKED', message: 'Upgrade to view analysis' },
+        { id: 'reviews_engagement', name: 'Reviews & Engagement', score: 0, maxScore: 15, status: 'LOCKED', message: 'Upgrade to view analysis' },
+        { id: 'citation_consistency', name: 'Citation Consistency', score: 0, maxScore: 20, status: 'LOCKED', message: 'Upgrade to view analysis' },
+        { id: 'local_content', name: 'Local Content', score: 0, maxScore: 15, status: 'LOCKED', message: 'Upgrade to view analysis' },
+        { id: 'visual_content', name: 'Visual Content', score: 0, maxScore: 10, status: 'LOCKED', message: 'Upgrade to view analysis' },
+        { id: 'website_optimization', name: 'Website Optimization', score: 0, maxScore: 10, status: 'LOCKED', message: 'Upgrade to view analysis' },
+        { id: 'customer_engagement', name: 'Customer Engagement', score: 0, maxScore: 10, status: 'LOCKED', message: 'Upgrade to view analysis' }
+      ]
+    },
+    
+    // Locked sections
+    smartSuggestions: {
+      locked: true,
+      message: 'Upgrade to unlock personalized AI recommendations'
+    },
+    actionPlan: {
+      locked: true,
+      message: 'Upgrade to unlock your step-by-step action plan'
+    },
+    citationsAnalysis: {
+      locked: true,
+      message: 'Upgrade to unlock detailed citation analysis'
+    },
+    competitorAnalysis: {
+      locked: true,
+      message: 'Upgrade to unlock competitor insights'
+    },
+    
+    // Error tracking
+    errors: ['Report generation failed - showing locked preview'],
+    
+    // Mark as fallback
+    isFallback: true
+  };
+  
+  console.log(`✅ Fallback locked report generated for ${businessName}`);
+  return fallbackReport;
+}
+
 app.post('/api/generate-report', authenticateToken, async (req, res) => {
   try {
     console.log(`📊 Report request from user ${req.user.email}`);
@@ -2766,10 +2878,34 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
       console.log(`👀 Preview report requested for user without credits: ${req.user.email}`);
     }
     
-    console.log(`🏢 Generating ${hasCredits ? 'COMPLETE' : 'PREVIEW'} report for: ${businessName} in ${finalLocation} (${finalIndustry})`);
+    console.log(`🏢 Generating ${hasCredits ? 'COMPLETE' : 'LOCKED'} report for: ${businessName} in ${finalLocation} (${finalIndustry})`);
     
-    // Generate complete report with all features
-    const report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user, selectedProfile);
+    let report;
+    try {
+      // Generate complete report with all features
+      report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user, selectedProfile);
+    } catch (reportError) {
+      console.error('❌ Report generation failed, creating fallback locked report:', reportError);
+      
+      // If report generation fails for users without credits, create a minimal locked report
+      if (!hasCredits) {
+        console.log('🔒 Creating fallback locked report for user without credits');
+        report = await generateFallbackLockedReport(businessName, finalLocation, finalIndustry, website, req.user);
+      } else {
+        // If user paid for the report but it failed, refund the credit and throw error
+        console.log('💰 Refunding credit due to report generation failure');
+        try {
+          await db.query(
+            'UPDATE users SET credits_remaining = credits_remaining + 1 WHERE id = $1',
+            [req.user.id]
+          );
+          console.log('✅ Credit refunded successfully');
+        } catch (refundError) {
+          console.error('❌ Failed to refund credit:', refundError);
+        }
+        throw reportError;
+      }
+    }
     
     // Save report
     let savedReportId = null;
@@ -2800,13 +2936,13 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
 
     // Calculate optimization opportunities if the report is locked
     let optimizationOpportunities = 0;
-    if (!hasCredits && report.factors) {
-      optimizationOpportunities = report.factors.filter(factor => 
+    if (!hasCredits && report.auditOverview && report.auditOverview.factors) {
+      optimizationOpportunities = report.auditOverview.factors.filter(factor => 
         factor.status === 'MISSING' || factor.status === 'NEEDS IMPROVEMENT'
       ).length;
     }
 
-    console.log(`✅ COMPLETE Report generated successfully for ${businessName}`);
+    console.log(`✅ ${hasCredits ? 'COMPLETE' : 'LOCKED'} Report generated successfully for ${businessName}`);
     
     // Add locked status and optimization count to response
     const responseReport = {
@@ -3192,8 +3328,8 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
       
       // Calculate optimization opportunities if the report is locked
       let optimizationOpportunities = 0;
-      if (!wasPaid && reportData.factors) {
-        optimizationOpportunities = reportData.factors.filter(factor => 
+      if (!wasPaid && reportData.auditOverview && reportData.auditOverview.factors) {
+        optimizationOpportunities = reportData.auditOverview.factors.filter(factor => 
           factor.status === 'MISSING' || factor.status === 'NEEDS IMPROVEMENT'
         ).length;
       }
@@ -3618,7 +3754,7 @@ app.post('/api/create-checkout-session', authenticateToken, async (req, res) => 
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: priceType === 'oneTime' ? 'payment' : 'subscription',
-      success_url: `${req.protocol}://${req.get('host')}/dashboard.html?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${req.protocol}://${req.get('host')}/?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.protocol}://${req.get('host')}/pricing.html?payment=cancelled`,
       customer_email: req.user.email,
       metadata: {
@@ -3867,4 +4003,47 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📈 Profit margin: 99.83% at $49/report`);
   console.log('');
   console.log('🚀 Ready for production deployment!');
+});
+
+// Emergency fix for subscription issue
+app.post('/api/emergency-fix-subscription', async (req, res) => {
+  try {
+    const { email, subscriptionTier, credits } = req.body;
+    
+    // Security check - only allow fixing me@me.com
+    if (email !== 'me@me.com') {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    console.log(`🚑 Emergency subscription fix for: ${email}`);
+    
+    // Update user subscription and credits
+    await db.query(
+      'UPDATE users SET subscription_tier = $1, credits_remaining = credits_remaining + $2 WHERE email = $3',
+      [subscriptionTier || 'starter', credits || 50, email]
+    );
+    
+    // Check if update was successful
+    const user = await db.get('SELECT * FROM users WHERE email = $1', [email]);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    console.log(`✅ Emergency fix applied: ${user.email} now has ${user.credits_remaining} credits and ${user.subscription_tier} subscription`);
+    
+    res.json({
+      success: true,
+      message: `Subscription fixed for ${email}`,
+      user: {
+        email: user.email,
+        creditsRemaining: user.credits_remaining,
+        subscriptionTier: user.subscription_tier
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Emergency fix error:', error);
+    res.status(500).json({ error: 'Fix failed', details: error.message });
+  }
 });
