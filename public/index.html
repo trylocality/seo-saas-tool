@@ -4648,14 +4648,13 @@
                 console.log('  - factors length:', data?.auditOverview?.factors?.length);
                 console.log('  - data.factors exists (legacy):', !!data?.factors);
 
-                // Validate report data - very flexible validation for locked reports
-                const hasAuditData = data && data.auditOverview;
-                const hasFactors = hasAuditData && (data.auditOverview.factors || data.factors);
-                const isLockedReport = data && data.isLocked === true;
-                const isValidReport = data && (hasFactors || isLockedReport || (data.success && data.business));
-                
-                if (isValidReport) {
-                    console.log('✅ Report data validation passed', data.isLocked ? '(Preview Mode)' : '(Full Report)');
+                // SIMPLIFIED VALIDATION - Just check if we have data
+                if (data && (data.success || data.auditOverview || data.business)) {
+                    console.log('✅ Report data received and validated');
+                    console.log('  - Report type:', data.isLocked ? 'LOCKED/PREVIEW' : 'FULL');
+                    console.log('  - Has audit data:', !!data.auditOverview);
+                    console.log('  - Has business data:', !!data.business);
+                    
                     currentReportData = data;
                     displayReport(data);
                     showReport();
@@ -4668,12 +4667,15 @@
                     showToast(message, 'success');
                     console.log('✅ Report displayed successfully!');
                 } else {
-                    console.error('❌ Report validation failed. Data received:', data);
-                    console.error('Has audit data:', hasAuditData);
-                    console.error('Has factors:', hasFactors);
-                    console.error('Is valid report:', isValidReport);
-                    console.error('Is locked:', data?.isLocked);
-                    throw new Error('Invalid report data received');
+                    console.error('❌ Report validation failed. Data structure:', data);
+                    console.error('  - Has success flag:', data?.success);
+                    console.error('  - Has audit overview:', !!data?.auditOverview);
+                    console.error('  - Has business data:', !!data?.business);
+                    
+                    // More helpful error message
+                    const errorMsg = !data ? 'No data received from server' :
+                                   'Report data structure is incomplete';
+                    throw new Error(errorMsg);
                 }
                 
             } catch (error) {
