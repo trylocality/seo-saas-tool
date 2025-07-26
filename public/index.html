@@ -1823,16 +1823,6 @@
                         <div><strong>Date:</strong> <span id="reportDate"></span></div>
                         <div><strong>Prepared By:</strong> <span id="reportPreparedBy">Locality Marketing</span></div>
                         
-                        <!-- Audited Profile Info -->
-                        <div id="auditedProfileInfo" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; border-left: 3px solid #17a2b8;">
-                            <strong style="color: #17a2b8;">Profile Audited:</strong>
-                            <div style="font-size: 0.85rem; margin-top: 5px;">
-                                <div><strong>Name:</strong> <span id="auditedProfileName"></span></div>
-                                <div><strong>Address:</strong> <span id="auditedProfileAddress"></span></div>
-                                <div><strong>Phone:</strong> <span id="auditedProfilePhone"></span></div>
-                                <div><strong>Status:</strong> <span id="auditedProfileStatus"></span></div>
-                            </div>
-                        </div>
                     </div>
                     <div class="logo-container">
                         <a href="#" onclick="showDashboard(); return false;" style="cursor: pointer;">
@@ -1880,17 +1870,6 @@
                             We have a curated list of directories that can add SEO value. Run a report to see if you are listed.
                         </p>
                         
-                        <!-- Results container (initially hidden) -->
-                        <div class="detailed-results-container" id="detailedResultsContainer" style="display: none;">
-                            <div class="detailed-results-header">
-                                <h4>Detailed Citation Analysis Results</h4>
-                                <div class="detailed-score" id="detailedScore"></div>
-                            </div>
-                            <div class="detailed-results-grid" id="detailedResultsGrid"></div>
-                            <button class="order-citations-btn" onclick="orderCitations()">
-                                ORDER CITATIONS
-                            </button>
-                        </div>
                         
                         <!-- Loading state -->
                         <div class="detailed-loading" id="detailedLoading" style="display: none;">
@@ -1978,8 +1957,7 @@
                 <div class="form-group">
                     <label for="feedbackType">Type of Feedback <span class="required">*</span></label>
                     <select id="feedbackType" name="type" required>
-                        <option value="">Select feedback type</option>
-                        <option value="general">General</option>
+                        <option value="general" selected>General</option>
                         <option value="bug">Bug Report</option>
                         <option value="feature">Feature Request</option>
                         <option value="performance">Performance Issue</option>
@@ -2259,12 +2237,21 @@
             console.log('🧹 Clearing report state...');
             currentReportData = null;
             
-            // Clear report elements
-            document.getElementById('reportBusinessName').textContent = '';
-            document.getElementById('reportLocation').textContent = '';
-            document.getElementById('reportDate').textContent = '';
-            document.getElementById('scoreNumber').textContent = '0';
-            document.getElementById('scoreMessage').textContent = '';
+            // Clear report elements with null checks
+            const reportBusinessName = document.getElementById('reportBusinessName');
+            if (reportBusinessName) reportBusinessName.textContent = '';
+            
+            const reportLocation = document.getElementById('reportLocation');
+            if (reportLocation) reportLocation.textContent = '';
+            
+            const reportDate = document.getElementById('reportDate');
+            if (reportDate) reportDate.textContent = '';
+            
+            const scoreNumber = document.getElementById('scoreNumber');
+            if (scoreNumber) scoreNumber.textContent = '0';
+            
+            const scoreMessage = document.getElementById('scoreMessage');
+            if (scoreMessage) scoreMessage.textContent = '';
             
             // Clear factors grid
             const factorsGrid = document.getElementById('factorsGrid');
@@ -2325,34 +2312,52 @@
         ];
 
        window.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Locality App starting...');
-    
-    // Check for payment success
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('payment') === 'success') {
-        showToast('Payment successful! Your credits have been added.', 'success');
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        // Refresh user data to show new credits
-        if (authToken) {
-            checkAuth();
+    try {
+        console.log('🚀 Locality App starting...');
+        
+        // Check for payment success
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('payment') === 'success') {
+            showToast('Payment successful! Your credits have been added.', 'success');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            // Refresh user data to show new credits
+            if (authToken) {
+                checkAuth();
+            }
         }
-    }
-    
-    // Clear any stale report data on page load
-    clearReportState();
-    
-    // Ensure report section is hidden on page load
-    document.getElementById('reportSection').classList.add('hidden');
-    
-    // Check if user is already logged in
-    console.log('🔍 Page load - Auth token exists:', !!authToken);
-    if (authToken) {
-        console.log('🔍 Checking authentication...');
-        checkAuth();
-    } else {
-        console.log('🔍 No auth token, showing login...');
-        showLogin();
+        
+        // Clear any stale report data on page load
+        try {
+            clearReportState();
+        } catch (clearError) {
+            console.error('Error clearing report state:', clearError);
+        }
+        
+        // Ensure report section is hidden on page load
+        const reportSection = document.getElementById('reportSection');
+        if (reportSection) {
+            reportSection.classList.add('hidden');
+        }
+        
+        // Check if user is already logged in
+        console.log('🔍 Page load - Auth token exists:', !!authToken);
+        if (authToken) {
+            console.log('🔍 Checking authentication...');
+            checkAuth();
+        } else {
+            console.log('🔍 No auth token, showing login...');
+            showLogin();
+        }
+    } catch (error) {
+        console.error('❌ Critical initialization error:', error);
+        // Try to at least show login screen
+        try {
+            showLogin();
+        } catch (loginError) {
+            console.error('❌ Failed to show login:', loginError);
+            document.body.innerHTML = '<div style="padding: 20px; text-align: center;"><h1>Something went wrong</h1><p>Please refresh the page or contact support.</p></div>';
+        }
     }
 });
         // Get dynamic summary based on status
@@ -2494,7 +2499,7 @@
         }
 
         function hideAllSections() {
-            const sections = ['loginSection', 'signupSection', 'forgotPasswordSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection'];
+            const sections = ['loginSection', 'signupSection', 'forgotPasswordSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection', 'profileVerificationSection'];
             sections.forEach(id => document.getElementById(id).classList.add('hidden'));
         }
 
@@ -2575,25 +2580,32 @@
         // Update dashboard with user data
         function updateDashboard() {
             if (currentUser) {
-                document.getElementById('userName').textContent = currentUser.firstName;
-                document.getElementById('creditsDisplay').textContent = currentUser.creditsRemaining;
+                const userName = document.getElementById('userName');
+                if (userName) userName.textContent = currentUser.firstName;
+                
+                const creditsDisplay = document.getElementById('creditsDisplay');
+                if (creditsDisplay) creditsDisplay.textContent = currentUser.creditsRemaining;
                 
                 // Show/hide email verification banner
                 const verificationBanner = document.getElementById('emailVerificationBanner');
-                if (currentUser.emailVerified) {
-                    verificationBanner.classList.add('hidden');
-                    document.body.classList.remove('has-email-banner');
-                } else {
-                    verificationBanner.classList.remove('hidden');
-                    document.body.classList.add('has-email-banner');
+                if (verificationBanner) {
+                    if (currentUser.emailVerified) {
+                        verificationBanner.classList.add('hidden');
+                        document.body.classList.remove('has-email-banner');
+                    } else {
+                        verificationBanner.classList.remove('hidden');
+                        document.body.classList.add('has-email-banner');
+                    }
                 }
                 
                 // Show/hide white label button for subscription users
                 const whiteLabelBtn = document.getElementById('whiteLabelBtn');
-                if (currentUser.subscriptionTier && currentUser.subscriptionTier !== 'free') {
-                    whiteLabelBtn.style.display = 'block';
-                } else {
-                    whiteLabelBtn.style.display = 'none';
+                if (whiteLabelBtn) {
+                    if (currentUser.subscriptionTier && currentUser.subscriptionTier !== 'free') {
+                        whiteLabelBtn.style.display = 'block';
+                    } else {
+                        whiteLabelBtn.style.display = 'none';
+                    }
                 }
                 
                 // Update report form button text if form is visible
@@ -3016,17 +3028,6 @@
                 day: 'numeric'
             });
             
-            // Update audited profile info
-            const auditedProfile = reportData.auditedProfile;
-            if (auditedProfile) {
-                document.getElementById('auditedProfileName').textContent = auditedProfile.name || 'Not available';
-                document.getElementById('auditedProfileAddress').textContent = auditedProfile.address || 'Not available';
-                document.getElementById('auditedProfilePhone').textContent = auditedProfile.phone || 'Not available';
-                document.getElementById('auditedProfileStatus').textContent = auditedProfile.verified ? 'Verified/Claimed' : 'Not claimed';
-                document.getElementById('auditedProfileInfo').style.display = 'block';
-            } else {
-                document.getElementById('auditedProfileInfo').style.display = 'none';
-            }
             
             // Update prepared by field with dynamic brand info
             const brandInfo = reportData.brandInfo || {};
@@ -3627,12 +3628,10 @@
         async function runDetailedCitationAnalysis() {
             const button = document.getElementById('detailedAnalysisBtn');
             const loading = document.getElementById('detailedLoading');
-            const resultsContainer = document.getElementById('detailedResultsContainer');
             
             console.log('🔍 Detailed Citation Analysis - Starting');
             console.log('🔍 Button element:', button);
             console.log('🔍 Loading element:', loading);
-            console.log('🔍 Results container:', resultsContainer);
             
             if (!button) {
                 console.error('❌ Button element not found');
@@ -3645,9 +3644,6 @@
             button.textContent = 'ANALYZING...';
             if (loading) {
                 loading.style.display = 'block';
-            }
-            if (resultsContainer) {
-                resultsContainer.style.display = 'none';
             }
             
             try {
@@ -3751,56 +3747,17 @@
         function displayDetailedResults(data) {
             console.log('📊 Displaying detailed results:', data);
             
-            const resultsContainer = document.getElementById('detailedResultsContainer');
-            const scoreElement = document.getElementById('detailedScore');
-            const gridElement = document.getElementById('detailedResultsGrid');
-            
-            if (!resultsContainer || !scoreElement || !gridElement) {
-                console.error('❌ Missing required DOM elements for display');
-                console.error('resultsContainer:', resultsContainer);
-                console.error('scoreElement:', scoreElement);
-                console.error('gridElement:', gridElement);
-                showToast('Error: Missing display elements', 'error');
-                return;
+            // Hide the button after execution
+            const button = document.getElementById('detailedAnalysisBtn');
+            if (button) {
+                button.style.display = 'none';
             }
             
-            // Update score display - combine with essential citations score
-            const essentialScore = currentReportData?.citations?.stats?.found || 0;
-            const totalFound = essentialScore + data.summary.found;
-            scoreElement.textContent = `${totalFound} out of 50`;
-            
-            // Clear and populate grid
-            gridElement.innerHTML = '';
-            
-            // Create rows of 10 items each
-            for (let i = 0; i < data.results.length; i += 10) {
-                const row = document.createElement('div');
-                row.className = 'detailed-results-row';
-                row.style.display = 'grid';
-                row.style.gridTemplateColumns = 'repeat(10, 1fr)';
-                row.style.gap = '8px';
-                row.style.marginBottom = '8px';
-                
-                for (let j = i; j < Math.min(i + 10, data.results.length); j++) {
-                    const result = data.results[j];
-                    const item = document.createElement('div');
-                    item.className = `detailed-result-item ${result.status.toLowerCase()}`;
-                    
-                    const statusIcon = result.found ? '✅' : result.status === 'ERROR' ? '⚠️' : '❌';
-                    
-                    item.innerHTML = `
-                        <span class="detailed-result-name">${result.name}</span>
-                        <span class="detailed-result-status">${statusIcon}</span>
-                    `;
-                    
-                    row.appendChild(item);
-                }
-                
-                gridElement.appendChild(row);
+            // Hide the subtext as well
+            const subtext = document.querySelector('.detailed-analysis-subtext');
+            if (subtext) {
+                subtext.style.display = 'none';
             }
-            
-            // Show results
-            resultsContainer.style.display = 'block';
             
             // Update main citations display to show all 50 citations
             updateMainCitationsDisplay(data);
@@ -4476,7 +4433,15 @@
                     // Only one profile found - use it directly
                     console.log('✅ Single profile found, proceeding directly to report generation');
                     showLoading();
-                    await generateReportWithProfile(data.profiles[0]);
+                    try {
+                        await generateReportWithProfile(data.profiles[0]);
+                    } catch (reportError) {
+                        console.error('❌ Report generation failed:', reportError);
+                        hideAllSections();
+                        showReportForm();
+                        showToast('Failed to generate report. Please try again.', 'error');
+                        throw reportError;
+                    }
                 } else if (data.profiles.length > 1) {
                     // Multiple profiles - show verification UI
                     console.log('🔍 Multiple profiles found, showing verification UI');
@@ -4584,10 +4549,8 @@
                 await generateReportWithProfile(selectedProfile);
             } catch (error) {
                 console.error('❌ Report generation error:', error);
-                showProfileVerification(profileOptions, { 
-                    businessName: window.pendingReportData.businessName, 
-                    location: window.pendingReportData.location 
-                });
+                hideAllSections();
+                showReportForm();
                 showToast('Failed to generate report. Please try again.', 'error');
             }
         }
@@ -4622,10 +4585,11 @@
                 const data = await response.json();
                 console.log('📊 Report data received successfully');
 
-                // Validate report data - more flexible validation
+                // Validate report data - very flexible validation for locked reports
                 const hasAuditData = data && data.auditOverview;
                 const hasFactors = hasAuditData && (data.auditOverview.factors || data.factors);
-                const isValidReport = data && (hasFactors || data.isLocked);
+                const isLockedReport = data && data.isLocked === true;
+                const isValidReport = data && (hasFactors || isLockedReport || (data.success && data.business));
                 
                 if (isValidReport) {
                     console.log('✅ Report data validation passed', data.isLocked ? '(Preview Mode)' : '(Full Report)');
