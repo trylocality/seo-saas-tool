@@ -540,9 +540,233 @@
         
         /* Enhanced Dashboard */
         .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
-        .credits-section { text-align: right; }
-        .credits-section > div { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 15px 20px; margin-bottom: 10px; }
-        .big-number { font-size: 2rem; font-weight: bold; color: #0e192b; }
+        
+        /* Account Menu */
+        .account-menu {
+            position: relative;
+            display: inline-block;
+        }
+
+        .menu-trigger {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #f8fafc;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .menu-trigger:hover {
+            background: #f1f5f9;
+            border-color: #d1d5db;
+        }
+
+        .menu-trigger.active {
+            background: #061124;
+            color: white;
+            border-color: #061124;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: inherit;
+            margin-bottom: 2px;
+        }
+
+        .credits-info {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .menu-trigger.active .credits-info {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .menu-arrow {
+            font-size: 12px;
+            transition: transform 0.3s ease;
+            color: #9ca3af;
+        }
+
+        .menu-trigger.active .menu-arrow {
+            transform: rotate(180deg);
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Dropdown Menu */
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            min-width: 280px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            margin-top: 8px;
+        }
+
+        .dropdown-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .menu-header {
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            background: #f8fafc;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .menu-header h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #061124;
+            margin-bottom: 4px;
+        }
+
+        .menu-header p {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        /* Credits Display */
+        .credits-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            margin: 16px 20px;
+            border-radius: 10px;
+            border: 1px solid #0ea5e9;
+        }
+
+        .credits-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .credits-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: white;
+        }
+
+        .credits-text h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0c4a6e;
+            margin-bottom: 2px;
+        }
+
+        .credits-count {
+            font-size: 24px;
+            font-weight: 800;
+            color: #0c4a6e;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        /* Menu Items */
+        .menu-items {
+            padding: 8px 0;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: #374151;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .menu-item:hover {
+            background: #f8fafc;
+            color: #061124;
+        }
+
+        .menu-item-icon {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .menu-item-text {
+            flex: 1;
+        }
+
+        .menu-item-badge {
+            background: #10b981;
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .menu-item.pro-feature .menu-item-badge {
+            background: #f59e0b;
+        }
+
+        /* Divider */
+        .menu-divider {
+            height: 1px;
+            background: #f3f4f6;
+            margin: 8px 0;
+        }
+
+        /* Purchase Button Special */
+        .purchase-item {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            margin: 8px 12px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .purchase-item:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            transform: translateY(-1px);
+        }
         
         /* Reports Table Styles */
         .reports-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -847,13 +1071,15 @@
         /* Report Actions */
         .report-actions { text-align: center; margin: 20px 0; padding: 20px; border-top: 1px solid #eee; }
         
-        /* Print-specific styles for 2-page PDF */
+        /* Print-specific styles for optimized PDF layout */
         @media print {
             body { 
-                font-size: 12px; 
-                line-height: 1.3;
+                font-size: 11px; 
+                line-height: 1.2;
                 color: #000 !important;
                 background: white !important;
+                margin: 0;
+                padding: 0;
             }
             
             .container { 
@@ -865,8 +1091,106 @@
             /* Hide non-essential elements for print */
             .btn, .report-actions, .how-to-fix-btn, .view-details-btn,
             .copy-suggestion-btn, .order-citations-btn,
-            .factor-expand-arrow, .action-arrow {
+            .factor-expand-arrow, .action-arrow, .detailed-analysis-btn,
+            .detailed-analysis-subtext, #detailedCitationSummary {
                 display: none !important;
+            }
+            
+            /* Keep business header layout consistent with webapp */
+            .business-info-header {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: flex-start !important;
+                padding: 15px 0 !important;
+                margin-bottom: 15px !important;
+                border-bottom: 2px solid #e9ecef !important;
+                flex-direction: row !important;
+                text-align: left !important;
+            }
+            
+            .business-details {
+                font-size: 12px !important;
+                color: #495057 !important;
+                line-height: 1.4 !important;
+            }
+            
+            .logo-container {
+                margin-top: 0 !important;
+                flex-shrink: 0 !important;
+            }
+            
+            .logo {
+                height: 60px !important;
+                width: auto !important;
+                max-width: 200px !important;
+            }
+            
+            /* Page 1: Fit 12 audit points + score */
+            .print-page-1 {
+                page-break-after: auto;
+                margin-bottom: 0;
+            }
+            
+            /* Compact factors grid for page 1 */
+            .factors-compact-grid {
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 8px !important;
+                margin: 15px 0 !important;
+            }
+            
+            .factor-card {
+                padding: 8px !important;
+                margin: 0 !important;
+                font-size: 10px !important;
+            }
+            
+            .factor-title {
+                font-size: 11px !important;
+                margin-bottom: 4px !important;
+            }
+            
+            .factor-status {
+                font-size: 9px !important;
+                padding: 2px 6px !important;
+            }
+            
+            /* Score section compact */
+            .score-donut-container {
+                width: 120px !important;
+                height: 120px !important;
+                margin: 10px auto !important;
+            }
+            
+            .score-donut-container h3 {
+                font-size: 16px !important;
+                margin-bottom: 10px !important;
+            }
+            
+            /* Citations pagination logic */
+            .citations-page-1 {
+                display: block;
+                page-break-inside: avoid;
+            }
+            
+            .citations-page-2 {
+                display: none;
+                page-break-before: always;
+                page-break-after: auto;
+            }
+            
+            /* When detailed analysis is run, move all citations to page 2 */
+            .detailed-analysis-active .citations-page-1 {
+                display: none !important;
+            }
+            
+            .detailed-analysis-active .citations-page-2 {
+                display: block !important;
+            }
+            
+            /* Action plan always on last page */
+            .action-plan-section {
+                page-break-before: always;
+                margin-top: 0 !important;
             }
             
             /* Page 1: Score and Factors */
@@ -1130,7 +1454,14 @@
             .container { padding: 10px; }
             .header h1 { font-size: 2rem; }
             .dashboard-header { flex-direction: column; align-items: stretch; }
-            .credits-section { text-align: left; margin-top: 20px; }
+            .account-menu { align-self: flex-end; margin-top: 20px; }
+            .dropdown-menu {
+                right: 0;
+                left: 0;
+                min-width: auto;
+                margin: 8px;
+                width: calc(100% - 16px);
+            }
             .reports-table { font-size: 0.9rem; }
             .reports-table th, .reports-table td { padding: 10px; }
             .factors-compact-grid { grid-template-columns: 1fr; }
@@ -1699,20 +2030,73 @@
                     <h1 style="font-size: 2.5rem; color: #0e192b; margin-bottom: 10px; text-align: left;">Welcome, <span id="userName"></span></h1>
                     <p style="color: #666; font-size: 1.1rem; text-align: left;">Your path to ranking higher starts here</p>
                 </div>
-                <div class="credits-section">
-                    <div>
-                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">Audits Remaining</div>
-                        <div class="big-number" id="creditsDisplay">0</div>
+                <!-- Account Menu -->
+                <div class="account-menu">
+                    <div class="menu-trigger" id="menuTrigger" onclick="toggleAccountMenu()">
+                        <div class="user-info">
+                            <div class="user-name" id="menuUserName">John Smith</div>
+                            <div class="credits-info" id="menuPlanInfo">Pro Plan Active</div>
+                        </div>
+                        <div class="menu-arrow">▼</div>
                     </div>
-                    <button class="btn btn-success" onclick="buyCredits()" style="width: 100%; padding: 8px 16px; font-size: 0.9rem;">
-                        Purchase
-                    </button>
-                    <button id="whiteLabelBtn" onclick="showWhiteLabelModal()" style="background: none; border: none; color: #0e192b; font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline; display: none;">
-                        White Label Customization
-                    </button>
-                    <button onclick="logout()" style="background: none; border: none; color: #999; font-size: 0.8rem; margin-top: 10px; cursor: pointer; text-decoration: underline;">
-                        Logout
-                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div class="dropdown-menu" id="accountDropdownMenu">
+                        <!-- Header -->
+                        <div class="menu-header">
+                            <h3>Account Overview</h3>
+                            <p>Manage your Locality account</p>
+                        </div>
+
+                        <!-- Credits Display -->
+                        <div class="credits-display">
+                            <div class="credits-left">
+                                <div class="credits-icon">📊</div>
+                                <div class="credits-text">
+                                    <h4>Audits Remaining</h4>
+                                </div>
+                            </div>
+                            <div class="credits-count" id="menuCreditsCount">47</div>
+                        </div>
+
+                        <!-- Menu Items -->
+                        <div class="menu-items">
+                            <button class="menu-item purchase-item" onclick="handlePurchaseCredits()">
+                                <div class="menu-item-icon">💳</div>
+                                <div class="menu-item-text">Purchase More Audits</div>
+                            </button>
+
+                            <div class="menu-divider"></div>
+
+                            <button class="menu-item" onclick="handleAccountSettings()">
+                                <div class="menu-item-icon">⚙️</div>
+                                <div class="menu-item-text">Account Settings</div>
+                            </button>
+
+                            <button class="menu-item pro-feature" id="whiteLabelMenuItem" onclick="handleWhiteLabelSettings()">
+                                <div class="menu-item-icon">🎨</div>
+                                <div class="menu-item-text">Brand Customization</div>
+                                <div class="menu-item-badge">Pro</div>
+                            </button>
+
+                            <button class="menu-item" onclick="handleBillingHistory()">
+                                <div class="menu-item-icon">📋</div>
+                                <div class="menu-item-text">Billing History</div>
+                            </button>
+
+                            <button class="menu-item" onclick="handleSupportHelp()">
+                                <div class="menu-item-icon">💬</div>
+                                <div class="menu-item-text">Support & Help</div>
+                            </button>
+
+                            <div class="menu-divider"></div>
+
+                            <button class="menu-item" onclick="handleLogout()" style="color: #dc2626;">
+                                <div class="menu-item-icon">🚪</div>
+                                <div class="menu-item-text">Logout</div>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1776,24 +2160,6 @@
             </form>
         </div>
 
-        <!-- Profile Verification Section -->
-        <div id="profileVerificationSection" class="card hidden">
-            <button class="btn btn-secondary" onclick="showReportForm()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← BACK TO FORM</button>
-            <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Verify Your Business Profile</h2>
-            
-            <div style="text-align: center; margin-bottom: 30px; color: #666;">
-                <p>We found multiple business profiles. Please select the correct one to audit:</p>
-                <div id="searchInfoDisplay" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                    <strong>Search:</strong> <span id="searchedBusinessName"></span> in <span id="searchedLocation"></span>
-                </div>
-            </div>
-            
-            <div id="profileOptionsContainer">
-                <!-- Profile options will be populated here -->
-            </div>
-            
-            <div id="profileVerificationError" class="error hidden"></div>
-        </div>
 
         <!-- Enhanced Loading Section -->
         <div id="loadingSection" class="card hidden">
@@ -1859,7 +2225,16 @@
                     <p style="text-align: center; color: #666; margin-bottom: 25px; font-size: 1.1rem; line-height: 1.5;">
                         Citations are mentions of your business across the web. They help search engines verify your business exists and boost your local search rankings.
                     </p>
-                    <div class="citations-row" id="citationsRow"></div>
+                    
+                    <!-- Citations for Page 1 (normal case: 10 citations) -->
+                    <div class="citations-page-1" id="citationsPage1">
+                        <div class="citations-row" id="citationsRow"></div>
+                    </div>
+                    
+                    <!-- Citations for Page 2 (detailed analysis: all 50 citations) -->
+                    <div class="citations-page-2" id="citationsPage2">
+                        <div id="detailedCitationsContainer"></div>
+                    </div>
                     
                     <!-- Detailed Citation Analysis Section -->
                     <div class="detailed-analysis-section">
@@ -2366,7 +2741,7 @@
         
         // Safety check: ensure at least one section is visible after 2 seconds
         setTimeout(() => {
-            const visibleSections = ['loginSection', 'signupSection', 'forgotPasswordSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection', 'profileVerificationSection']
+            const visibleSections = ['loginSection', 'signupSection', 'forgotPasswordSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection']
                 .filter(id => {
                     const element = document.getElementById(id);
                     return element && !element.classList.contains('hidden');
@@ -2563,7 +2938,7 @@
         }
 
         function hideAllSections() {
-            const sections = ['loginSection', 'signupSection', 'forgotPasswordSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection', 'profileVerificationSection'];
+            const sections = ['loginSection', 'signupSection', 'forgotPasswordSection', 'dashboardSection', 'reportFormSection', 'loadingSection', 'reportSection'];
             sections.forEach(id => {
                 const element = document.getElementById(id);
                 if (element) {
@@ -2655,8 +3030,22 @@
                 const userName = document.getElementById('userName');
                 if (userName) userName.textContent = currentUser.firstName;
                 
-                const creditsDisplay = document.getElementById('creditsDisplay');
-                if (creditsDisplay) creditsDisplay.textContent = currentUser.creditsRemaining;
+                // Update menu user name
+                const menuUserName = document.getElementById('menuUserName');
+                if (menuUserName) menuUserName.textContent = currentUser.firstName;
+                
+                // Update credits in dropdown menu
+                const menuCreditsCount = document.getElementById('menuCreditsCount');
+                if (menuCreditsCount) menuCreditsCount.textContent = currentUser.creditsRemaining;
+                
+                // Update plan info
+                const menuPlanInfo = document.getElementById('menuPlanInfo');
+                if (menuPlanInfo) {
+                    const planText = currentUser.subscriptionTier && currentUser.subscriptionTier !== 'free' ? 
+                        `${currentUser.subscriptionTier} Plan Active` : 
+                        `${currentUser.creditsRemaining} Credits Remaining`;
+                    menuPlanInfo.textContent = planText;
+                }
                 
                 // Show/hide email verification banner
                 const verificationBanner = document.getElementById('emailVerificationBanner');
@@ -2670,13 +3059,13 @@
                     }
                 }
                 
-                // Show/hide white label button for subscription users
-                const whiteLabelBtn = document.getElementById('whiteLabelBtn');
-                if (whiteLabelBtn) {
+                // Show/hide white label menu item for subscription users
+                const whiteLabelMenuItem = document.getElementById('whiteLabelMenuItem');
+                if (whiteLabelMenuItem) {
                     if (currentUser.subscriptionTier && currentUser.subscriptionTier !== 'free') {
-                        whiteLabelBtn.style.display = 'block';
+                        whiteLabelMenuItem.style.display = 'flex';
                     } else {
-                        whiteLabelBtn.style.display = 'none';
+                        whiteLabelMenuItem.style.display = 'none';
                     }
                 }
                 
@@ -2839,6 +3228,7 @@
 
         // View a stored report - fetch the full report data
         async function viewStoredReport(reportId) {
+            console.log(`📋 Loading stored report: ${reportId}`);
             try {
                 showToast('Loading stored report...', 'warning');
                 
@@ -2848,11 +3238,21 @@
                     }
                 });
                 
+                console.log(`📋 Report fetch response: ${response.status} ${response.statusText}`);
+                
                 if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`❌ Failed to load report: ${response.status} - ${errorText}`);
                     throw new Error(`Failed to load report: ${response.status}`);
                 }
                 
                 const data = await response.json();
+                console.log('📋 Report data received:', {
+                    success: data.success,
+                    hasReport: !!data.report,
+                    isLocked: data.report?.isLocked,
+                    reportKeys: data.report ? Object.keys(data.report) : []
+                });
                 
                 if (data.success && data.report) {
                     // Set the current report data before displaying, including report ID for unlocking
@@ -2863,8 +3263,11 @@
                     // Display the stored report using the existing display function
                     displayReport(currentReportData);
                     showReport(); // This will now have valid currentReportData
-                    showToast('Stored report loaded successfully!', 'success');
+                    
+                    const message = data.report.isLocked ? 'Locked report preview loaded!' : 'Report loaded successfully!';
+                    showToast(message, 'success');
                 } else {
+                    console.error('Invalid report response:', data);
                     throw new Error('Invalid report data received');
                 }
                 
@@ -3032,19 +3435,24 @@
                 return;
             }
             
-            submitBtn.textContent = 'Finding Profiles...';
+            submitBtn.textContent = 'Generating Report...';
             submitBtn.disabled = true;
             errorDiv.classList.add('hidden');
             
+            // Go straight to loading screen
+            showLoading();
+            window.pendingReportData = { businessName, location, industry, website };
+            
             try {
-                // First, verify the business profile
+                // Try profile verification first, but handle it in background
                 await verifyBusinessProfile(businessName, location);
-
                 
             } catch (error) {
-                console.error('❌ Profile verification error:', error);
-                errorDiv.textContent = 'Failed to find business profiles. Please try again.';
+                console.error('❌ Report generation error:', error);
+                errorDiv.textContent = 'Failed to generate report. Please try again.';
                 errorDiv.classList.remove('hidden');
+                hideAllSections();
+                showReportForm();
             } finally {
                 // Reset button text based on credits
                 if (currentUser && currentUser.creditsRemaining <= 0) {
@@ -3088,6 +3496,11 @@
             const businessData = reportData.business || reportData.businessData || {};
             const auditData = reportData.auditOverview || reportData.audit || reportData;
             const scoreData = auditData.overallScore || auditData.score || { score: 0, message: 'Report generated successfully' };
+            
+            // For locked/fallback reports, ensure we have minimum required data
+            if (reportData.isLocked && reportData.isFallback) {
+                console.log('📊 Displaying fallback locked report with minimal data');
+            }
             
             // Update business info header with fallback values
             document.getElementById('reportBusinessName').textContent = 
@@ -3851,10 +4264,9 @@
                     console.log('✅ DEBUG: Title updated successfully');
                 }
             
-            // Combine original 10 + detailed 40 = all 50 citations
+            // Get original 10 citations and detailed 40 citations
             const originalCitations = currentReportData.citationsAnalysis?.data?.checked?.slice(0, 10) || [];
             const detailedCitations = detailedData.results || [];
-            const allCitations = [...originalCitations, ...detailedCitations];
             
             if (!citationsRow) {
                 console.error('❌ Citations row element not found');
@@ -3863,40 +4275,158 @@
             
             let allCitationsHTML = '';
             
-            // Display all 50 citations in groups of 10
-            for (let i = 0; i < allCitations.length; i += 10) {
-                if (i > 0) {
-                    allCitationsHTML += '<div style="margin: 15px 0;"></div>'; // Add spacing between rows
+            // First, display the original 10 citations in normal 5-column grid (2 rows of 5)
+            allCitationsHTML += '<div class="citations-row">';
+            for (let i = 0; i < Math.min(originalCitations.length, 10); i++) {
+                const citation = originalCitations[i];
+                const status = citation.found ? 'found' : 'missing';
+                const icon = citation.found ? '✓' : '✗';
+                const logoUrl = directoryLogos[citation.directory] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmOGY5ZmEiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiPgo8cGF0aCBkPSJNNCA0TDggOE00IDhMOCA0IiBzdHJva2U9IiM2Yzc1N2QiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+';
+                const displayName = directoryDisplayNames[citation.directory] || citation.directory;
+                
+                // Start new row after every 5 items
+                if (i === 5) {
+                    allCitationsHTML += '</div><div class="citations-row">';
                 }
                 
-                allCitationsHTML += '<div class="citations-row">';
+                allCitationsHTML += `
+                    <div class="citation-item-simple ${status}">
+                        <div class="citation-logo" style="background-image: url('${logoUrl}');"></div>
+                        <div class="citation-content">
+                            <div class="citation-name-simple">${displayName}</div>
+                            <div class="citation-icon">${icon}</div>
+                        </div>
+                    </div>`;
+            }
+            allCitationsHTML += '</div>';
+            
+            // Add spacing between original and detailed citations
+            if (detailedCitations.length > 0) {
+                allCitationsHTML += '<div style="margin: 20px 0;"></div>';
                 
-                for (let j = i; j < Math.min(i + 10, allCitations.length); j++) {
-                    const citation = allCitations[j];
-                    const status = citation.found ? 'found' : 'missing';
-                    const icon = citation.found ? '✓' : citation.status === 'ERROR' ? '⚠' : '✗';
+                // Display detailed citations in rows of 5 (8 rows of 5 = 40 citations)
+                for (let i = 0; i < detailedCitations.length; i += 5) {
+                    allCitationsHTML += '<div class="citations-row">';
                     
-                    allCitationsHTML += `
-                        <div class="citation-item-simple ${status}">
-                            <div class="citation-content">
-                                <div class="citation-name-simple">${citation.name || citation.directory}</div>
-                                <div class="citation-icon">${icon}</div>
-                            </div>
-                        </div>`;
+                    for (let j = i; j < Math.min(i + 5, detailedCitations.length); j++) {
+                        const citation = detailedCitations[j];
+                        const status = citation.found ? 'found' : 'missing';
+                        const icon = citation.found ? '✓' : citation.status === 'ERROR' ? '⚠' : '✗';
+                        
+                        allCitationsHTML += `
+                            <div class="citation-item-simple ${status}">
+                                <div class="citation-content">
+                                    <div class="citation-name-simple">${citation.name || citation.directory}</div>
+                                    <div class="citation-icon">${icon}</div>
+                                </div>
+                            </div>`;
+                    }
+                    
+                    allCitationsHTML += '</div>';
                 }
-                
-                allCitationsHTML += '</div>';
             }
             
-            citationsRow.innerHTML = allCitationsHTML;
+            // Update the detailed citations container (Page 2)
+            const detailedCitationsContainer = document.getElementById('detailedCitationsContainer');
+            if (detailedCitationsContainer) {
+                detailedCitationsContainer.innerHTML = allCitationsHTML;
+            }
             
-                console.log('✅ Citations display updated - showing detailed analysis with all 50 citations');
+            // Mark report as having detailed analysis for print styling
+            const reportSection = document.getElementById('reportSection');
+            if (reportSection) {
+                reportSection.classList.add('detailed-analysis-active');
+            }
+            
+            // Add overall score, description, and order button after detailed analysis
+            addDetailedCitationSummary(originalCitations, detailedCitations);
+            
+            console.log('✅ Citations display updated - showing detailed analysis with all 50 citations');
                 
             } catch (error) {
                 console.error('❌ ERROR in updateMainCitationsDisplay:', error);
                 console.error('❌ ERROR stack:', error.stack);
                 throw error; // Re-throw to let the calling function handle it
             }
+        }
+        
+        // Add detailed citation summary with score, description, and order button
+        function addDetailedCitationSummary(originalCitations, detailedCitations) {
+            const allCitations = [...originalCitations, ...detailedCitations];
+            const foundCount = allCitations.filter(citation => citation.found).length;
+            const totalCount = allCitations.length;
+            
+            // Find the citations section to add summary after
+            const citationsSection = document.getElementById('citationsSection');
+            if (!citationsSection) {
+                console.error('❌ Citations section not found');
+                return;
+            }
+            
+            // Remove existing summary if it exists
+            const existingSummary = document.getElementById('detailedCitationSummary');
+            if (existingSummary) {
+                existingSummary.remove();
+            }
+            
+            // Create summary container
+            const summaryHTML = `
+                <div id="detailedCitationSummary" style="margin-top: 30px; padding: 25px; background: #f8f9fa; border-radius: 12px; border-left: 5px solid #17a2b8;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h4 style="margin: 0; color: #0e192b; font-size: 1.4rem;">Citation Analysis Complete</h4>
+                        <div style="text-align: right;">
+                            <div style="font-size: 2rem; font-weight: 700; color: #17a2b8; margin-bottom: 5px;">${foundCount}/${totalCount}</div>
+                            <div style="font-size: 0.9rem; color: #6c757d; font-weight: 600;">CITATIONS FOUND</div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h5 style="color: #0e192b; margin-bottom: 15px; font-size: 1.1rem;">Why Citations Matter for Local SEO</h5>
+                        <p style="margin-bottom: 15px; line-height: 1.6; color: #495057;">
+                            Citations are online mentions of your business name, address, and phone number (NAP) across directories, websites, and platforms. They're crucial for local SEO because:
+                        </p>
+                        <ul style="margin-bottom: 15px; padding-left: 20px; color: #495057; line-height: 1.6;">
+                            <li><strong>Build Trust:</strong> Search engines use consistent citations to verify your business legitimacy</li>
+                            <li><strong>Improve Rankings:</strong> More quality citations boost your local search visibility</li>
+                            <li><strong>Increase Discovery:</strong> Citations help customers find you on multiple platforms</li>
+                            <li><strong>Competitive Advantage:</strong> Businesses with more citations typically outrank competitors</li>
+                        </ul>
+                        <p style="margin: 0; color: #495057; line-height: 1.6;">
+                            <strong>Missing ${totalCount - foundCount} citations?</strong> Each missing citation is a missed opportunity for better local rankings and customer discovery.
+                        </p>
+                    </div>
+                    
+                    <button class="order-citations-btn" onclick="orderCitations()" style="width: 100%; font-size: 1.1rem; padding: 15px;">
+                        📋 ORDER CITATION BUILDING SERVICE
+                    </button>
+                </div>
+            `;
+            
+            // Insert summary after citations section
+            citationsSection.insertAdjacentHTML('afterend', summaryHTML);
+            
+            console.log(`✅ Added detailed citation summary: ${foundCount}/${totalCount} citations found`);
+        }
+
+        // Order citations function
+        function orderCitations() {
+            // You can customize this to open a contact form, redirect to a service page, etc.
+            const message = `Hi! I just completed a detailed citation analysis for my business and I'm interested in your citation building service. 
+
+My business details:
+- Business: ${currentReportData?.business?.name || 'Not specified'}
+- Location: ${currentReportData?.business?.location || 'Not specified'}
+
+I'd like to discuss getting citations built for the missing directories identified in my report.`;
+            
+            const encodedMessage = encodeURIComponent(message);
+            const emailSubject = encodeURIComponent('Citation Building Service Request');
+            
+            // Open email client with pre-filled message
+            window.open(`mailto:support@yourdomain.com?subject=${emailSubject}&body=${encodedMessage}`, '_blank');
+            
+            // Also show a toast for user feedback
+            showToast('Opening email client with citation request details...', 'info');
         }
 
         // Buy credits function
@@ -3907,8 +4437,14 @@
         // Download PDF function
         function downloadPDF() {
             // Hide non-printable elements
-            const elementsToHide = document.querySelectorAll('.btn, .report-actions, .how-to-fix-btn');
+            const elementsToHide = document.querySelectorAll('.btn, .report-actions, .how-to-fix-btn, .detailed-analysis-btn, .detailed-analysis-subtext, #detailedCitationSummary');
             elementsToHide.forEach(el => el.style.display = 'none');
+            
+            // Ensure proper print layout classes are applied
+            const reportSection = document.getElementById('reportSection');
+            const hasDetailedAnalysis = reportSection && reportSection.classList.contains('detailed-analysis-active');
+            
+            console.log(`📄 Generating PDF - Detailed analysis: ${hasDetailedAnalysis}`);
             
             // Trigger print
             window.print();
@@ -3917,6 +4453,73 @@
             setTimeout(() => {
                 elementsToHide.forEach(el => el.style.display = '');
             }, 1000);
+        }
+
+        // Account Menu Functions
+        function toggleAccountMenu() {
+            const trigger = document.getElementById('menuTrigger');
+            const dropdown = document.getElementById('accountDropdownMenu');
+            
+            trigger.classList.toggle('active');
+            dropdown.classList.toggle('show');
+            
+            // Close menu when clicking outside
+            if (dropdown.classList.contains('show')) {
+                document.addEventListener('click', closeMenuOnClickOutside);
+            } else {
+                document.removeEventListener('click', closeMenuOnClickOutside);
+            }
+        }
+        
+        function closeMenuOnClickOutside(event) {
+            const menu = document.querySelector('.account-menu');
+            if (!menu.contains(event.target)) {
+                closeAccountMenu();
+            }
+        }
+        
+        function closeAccountMenu() {
+            const trigger = document.getElementById('menuTrigger');
+            const dropdown = document.getElementById('accountDropdownMenu');
+            
+            trigger.classList.remove('active');
+            dropdown.classList.remove('show');
+            document.removeEventListener('click', closeMenuOnClickOutside);
+        }
+        
+        // Menu Item Handlers
+        function handlePurchaseCredits() {
+            closeAccountMenu();
+            buyCredits();
+        }
+        
+        function handleAccountSettings() {
+            closeAccountMenu();
+            // Placeholder for account settings functionality
+            showToast('Account settings feature coming soon!', 'info');
+        }
+        
+        function handleWhiteLabelSettings() {
+            closeAccountMenu();
+            showWhiteLabelModal();
+        }
+        
+        function handleBillingHistory() {
+            closeAccountMenu();
+            // Placeholder for billing history functionality
+            showToast('Billing history feature coming soon!', 'info');
+        }
+        
+        function handleSupportHelp() {
+            closeAccountMenu();
+            // Placeholder for support functionality
+            window.open('mailto:support@yourdomain.com?subject=Support Request', '_blank');
+            showToast('Opening email client for support...', 'info');
+        }
+        
+        function handleLogout() {
+            closeAccountMenu();
+            logout();
         }
 
         // Logout function
@@ -4473,12 +5076,16 @@
                 }
                 
                 const data = await response.json();
+                
+                if (!data.success || !data.profiles || data.profiles.length === 0) {
+                    throw new Error('No business profiles found');
+                }
+                
                 console.log(`✅ Found ${data.profiles.length} profile options`);
                 
                 if (data.profiles.length === 1) {
-                    // Only one profile found - use it directly
+                    // Only one profile found - use it directly (loading screen already showing)
                     console.log('✅ Single profile found, proceeding directly to report generation');
-                    showLoading();
                     try {
                         await generateReportWithProfile(data.profiles[0]);
                     } catch (reportError) {
@@ -4489,7 +5096,7 @@
                         throw reportError;
                     }
                 } else if (data.profiles.length > 1) {
-                    // Multiple profiles - show verification UI
+                    // Multiple profiles - show verification UI over the loading screen
                     console.log('🔍 Multiple profiles found, showing verification UI');
                     showProfileVerification(data.profiles, data.searchQuery);
                 } else {
@@ -4498,7 +5105,14 @@
                 
             } catch (error) {
                 console.error('❌ Profile verification error:', error);
-                throw error;
+                // If profile verification fails, try generating report without profile (loading already showing)
+                console.log('⚠️ Falling back to report generation without profile verification');
+                try {
+                    await generateReportWithProfile(null);
+                } catch (reportError) {
+                    console.error('❌ Report generation also failed:', reportError);
+                    throw error; // Throw original error
+                }
             }
         }
         
@@ -4589,6 +5203,7 @@
             const selectedProfile = profileOptions[selectedProfileId];
             console.log(`🚀 Proceeding with selected profile: ${selectedProfile.name}`);
             
+            // Go back to loading screen
             showLoading();
             
             try {
@@ -4603,7 +5218,7 @@
         
         // Function to generate report with selected profile
         async function generateReportWithProfile(selectedProfile) {
-            console.log(`📊 Generating report with profile: ${selectedProfile.name}`);
+            console.log(`📊 Generating report${selectedProfile ? ` with profile: ${selectedProfile.name}` : ''}`);
             
             const { businessName, location, industry, website } = window.pendingReportData;
             
@@ -4667,32 +5282,23 @@
                     showToast(message, 'success');
                     console.log('✅ Report displayed successfully!');
                 } else {
-                    console.error('❌ Report validation failed. Data structure:', data);
-                    console.error('  - Has success flag:', data?.success);
-                    console.error('  - Has audit overview:', !!data?.auditOverview);
-                    console.error('  - Has business data:', !!data?.business);
-                    
-                    // More helpful error message
-                    const errorMsg = !data ? 'No data received from server' :
-                                   'Report data structure is incomplete';
-                    throw new Error(errorMsg);
+                    throw new Error('Invalid report data received');
                 }
                 
             } catch (error) {
                 console.error('❌ Report generation error:', error);
-                console.error('❌ Error details:', error.message);
-                console.error('❌ Error stack:', error.stack);
-                
-                // Try to log response details if available
-                if (response) {
-                    console.error('❌ Response status:', response.status);
-                    console.error('❌ Response ok:', response.ok);
-                }
-                
-                throw error;
+                hideAllSections();
+                showReportForm();
+                showToast('Failed to generate report. Please try again.', 'error');
             }
         }
-        
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
     </script>
 </body>
 </html>

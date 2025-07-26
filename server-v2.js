@@ -1706,28 +1706,54 @@ function analyzeDescriptionCriteria(description, businessName, location, industr
   const { city } = extractCityState(location);
   const cityLowerCase = city.toLowerCase();
   
-  // Check for localized keywords
+  // Check for localized keywords (expanded patterns)
   const localPatterns = [
     `${cityLowerCase}`,
     `local`,
     `serving ${cityLowerCase}`,
     `${cityLowerCase} area`,
     `${cityLowerCase} ${industry.toLowerCase()}`,
-    `${industry.toLowerCase()} in ${cityLowerCase}`
+    `${industry.toLowerCase()} in ${cityLowerCase}`,
+    `based in ${cityLowerCase}`,
+    `located in ${cityLowerCase}`,
+    `${cityLowerCase} based`,
+    `near ${cityLowerCase}`,
+    `around ${cityLowerCase}`,
+    `throughout ${cityLowerCase}`,
+    `community`,
+    `neighborhood`,
+    `locally owned`,
+    `family owned`,
+    `established`,
+    `trusted`,
+    `reliable`
   ];
   const hasLocalKeywords = localPatterns.some(pattern => descLower.includes(pattern));
   
-  // Check for services overview
+  // Check for services overview (expanded patterns)
   const servicePatterns = [
     'we provide', 'we offer', 'our services', 'services include',
-    'we specialize', 'expertise in', 'professional'
+    'we specialize', 'expertise in', 'professional', 'expert',
+    'specializing in', 'offering', 'providing', 'delivering',
+    'solutions', 'helping', 'committed to', 'dedicated to',
+    'focused on', 'skilled in', 'experienced in', 'trained',
+    'certified', 'licensed', 'qualified', 'team of',
+    'years of experience', 'comprehensive', 'full service',
+    'custom', 'tailored', 'personalized'
   ];
   const hasServices = servicePatterns.some(pattern => descLower.includes(pattern));
   
-  // Check for call to action
+  // Check for call to action (expanded patterns)
   const ctaPatterns = [
     'contact us', 'call us', 'reach out', 'schedule', 'book',
-    'get started', 'learn more', 'visit us', 'today'
+    'get started', 'learn more', 'visit us', 'today',
+    'call today', 'call now', 'phone', 'email us',
+    'request', 'inquire', 'ask about', 'speak with',
+    'discuss', 'consultation', 'estimate', 'quote',
+    'appointment', 'meeting', 'available', 'ready to help',
+    'here to help', 'let us', 'we can help', 'talk to us',
+    'reach us', 'message us', 'questions', 'interested',
+    'more information', 'details', 'find out more'
   ];
   const hasCTA = ctaPatterns.some(pattern => descLower.includes(pattern));
   
