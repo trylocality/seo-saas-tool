@@ -1695,9 +1695,9 @@
             </div>
             
             <div class="dashboard-header">
-                <div>
-                    <h1 style="font-size: 2.5rem; color: #0e192b; margin-bottom: 10px;">Welcome, <span id="userName"></span></h1>
-                    <p style="color: #666; font-size: 1.1rem;">Generate comprehensive local SEO audits for your business</p>
+                <div style="text-align: left;">
+                    <h1 style="font-size: 2.5rem; color: #0e192b; margin-bottom: 10px; text-align: left;">Welcome, <span id="userName"></span></h1>
+                    <p style="color: #666; font-size: 1.1rem; text-align: left;">Your path to ranking higher starts here</p>
                 </div>
                 <div class="credits-section">
                     <div>
@@ -1758,7 +1758,7 @@
                 </div>
                 <div class="form-group">
                     <label for="location">Location <span class="required">*</span></label>
-                    <input type="text" id="location" required placeholder="e.g., Miami, FL or Utah County, UT or 123 Main St, Miami, FL">
+                    <input type="text" id="location" required placeholder="123 Main St, Miami, FL">
                     <small style="color: #666; font-size: 0.85rem; margin-top: 5px; display: block;">
                         💡 You can use city/state (Miami, FL), county/state (Utah County, UT), or full address
                     </small>
@@ -2717,8 +2717,6 @@
                                  score >= 60 ? 'score-fair' : 'score-poor';
                 
                 const lockIcon = !report.was_paid ? '<span class="lock-icon">🔒</span>' : '';
-                const unlockButton = !report.was_paid ? 
-                    `<button class="report-action-btn unlock-btn" onclick="unlockReportFromDashboard(${report.id})" title="Unlock this report">UNLOCK</button>` : '';
                 
                 tableHTML += `
                     <tr>
@@ -2732,7 +2730,6 @@
                         <td>${date}</td>
                         <td>
                             <button class="report-action-btn view-btn" onclick="viewStoredReport(${report.id})">VIEW</button>
-                            ${unlockButton}
                             <button class="report-action-btn run-again-btn" onclick="runReportAgain('${report.business_name}', '${report.city}', '${report.industry}', '${report.website || ''}')">
                                 RUN AGAIN
                             </button>
@@ -3214,23 +3211,6 @@
         }
 
         // Unlock a report from dashboard
-        async function unlockReportFromDashboard(reportId) {
-            if (!currentUser || currentUser.creditsRemaining <= 0) {
-                showToast('You need credits to unlock this report. Please purchase credits first.', 'error');
-                redirectToPricing();
-                return;
-            }
-
-            if (!confirm(`Unlock this report for 1 credit? You have ${currentUser.creditsRemaining} credits remaining.`)) {
-                return;
-            }
-
-            await unlockReport(reportId, () => {
-                // Refresh the reports table
-                loadUserReports();
-                showToast('Report unlocked successfully!', 'success');
-            });
-        }
 
         // Generic unlock report function
         async function unlockReport(reportId, onSuccess) {
@@ -4495,6 +4475,7 @@
                 if (data.profiles.length === 1) {
                     // Only one profile found - use it directly
                     console.log('✅ Single profile found, proceeding directly to report generation');
+                    showLoading();
                     await generateReportWithProfile(data.profiles[0]);
                 } else if (data.profiles.length > 1) {
                     // Multiple profiles - show verification UI
@@ -4641,12 +4622,12 @@
                 const data = await response.json();
                 console.log('📊 Report data received successfully');
 
-                // Validate report data
-                const hasRequiredData = data && data.auditOverview && data.auditOverview.overallScore && data.auditOverview.factors;
-                const isLockedReport = data && data.isLocked && data.auditOverview && data.auditOverview.factors;
-                const hasBasicData = data && data.auditOverview && data.auditOverview.factors;
+                // Validate report data - more flexible validation
+                const hasAuditData = data && data.auditOverview;
+                const hasFactors = hasAuditData && (data.auditOverview.factors || data.factors);
+                const isValidReport = data && (hasFactors || data.isLocked);
                 
-                if (hasRequiredData || isLockedReport || hasBasicData) {
+                if (isValidReport) {
                     console.log('✅ Report data validation passed', data.isLocked ? '(Preview Mode)' : '(Full Report)');
                     currentReportData = data;
                     displayReport(data);
@@ -4660,11 +4641,17 @@
                     showToast(message, 'success');
                     console.log('✅ Report displayed successfully!');
                 } else {
+                    console.error('❌ Report validation failed. Data received:', data);
+                    console.error('Has audit data:', hasAuditData);
+                    console.error('Has factors:', hasFactors);
+                    console.error('Is valid report:', isValidReport);
+                    console.error('Is locked:', data?.isLocked);
                     throw new Error('Invalid report data received');
                 }
                 
             } catch (error) {
                 console.error('❌ Report generation error:', error);
+                console.error('Error details:', error.message);
                 throw error;
             }
         }
