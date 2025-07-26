@@ -4628,8 +4628,25 @@
                     throw new Error(`Server error: ${response.status} - ${errorText}`);
                 }
 
+                console.log('📊 Response received - Status:', response.status, 'OK:', response.ok);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Server returned error:', response.status, errorText);
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+                
                 const data = await response.json();
                 console.log('📊 Report data received successfully');
+                console.log('📊 DEBUGGING - Data structure check:');
+                console.log('  - data exists:', !!data);
+                console.log('  - data.success:', data?.success);
+                console.log('  - data.isLocked:', data?.isLocked);  
+                console.log('  - data.isFallback:', data?.isFallback);
+                console.log('  - data.auditOverview exists:', !!data?.auditOverview);
+                console.log('  - data.auditOverview.factors exists:', !!data?.auditOverview?.factors);
+                console.log('  - factors length:', data?.auditOverview?.factors?.length);
+                console.log('  - data.factors exists (legacy):', !!data?.factors);
 
                 // Validate report data - very flexible validation for locked reports
                 const hasAuditData = data && data.auditOverview;
@@ -4661,7 +4678,15 @@
                 
             } catch (error) {
                 console.error('❌ Report generation error:', error);
-                console.error('Error details:', error.message);
+                console.error('❌ Error details:', error.message);
+                console.error('❌ Error stack:', error.stack);
+                
+                // Try to log response details if available
+                if (response) {
+                    console.error('❌ Response status:', response.status);
+                    console.error('❌ Response ok:', response.ok);
+                }
+                
                 throw error;
             }
         }
