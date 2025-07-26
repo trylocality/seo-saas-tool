@@ -1,5 +1,5 @@
 [dotenv@17.2.0] injecting env (9) from .env (tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`)
-[dotenv@17.2.0] injecting env (0) from .env (tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild)
+[dotenv@17.2.0] injecting env (0) from .env (tip: ⚙️  write to custom object with { processEnv: myObject })
 📁 No DATABASE_URL, using SQLite for local development
 🚀 Local SEO Audit v3 (COMPLETE) running on http://localhost:3000
 
@@ -32,38 +32,6 @@
 ⚠️ Column email_verification_expires setup skipped: columnCheck.some is not a function
 ⚠️ Column password_reset_token setup skipped: columnCheck.some is not a function
 ⚠️ Column password_reset_expires setup skipped: columnCheck.some is not a function
+⚠️ Reports was_paid column setup skipped: reportColumnCheck.some is not a function
 ✅ SQLite tables created/verified
 ✅ Database ready for connections
-Error in run() method:
-Query text: INSERT INTO users (email, password_hash, first_name, last_name, email_verification_token, email_verification_expires) VALUES ($1, $2, $3, $4, $5, $6)
-Params: [
-  'trylocality@gmail.com',
-  '$2b$10$yZ.3oJ1qLBi/2YvYhV7rZedXHWx2hXcPbIaDqY.d5mcXYFZKNUJxW',
-  'Jake',
-  'Snelson',
-  '77ad5ac8ded906ec61bf405f04ac0ca6fc9a039bf411e3d52459c941a2f9d725',
-  2025-07-25T15:36:12.133Z
-]
-Signup error: Error: SQLITE_ERROR: table users has no column named email_verification_token
---> in Database#run('INSERT INTO users (email, password_hash, first_name, last_name, email_verification_token, email_verification_expires) VALUES (?, ?, ?, ?, ?, ?)', [
-  'trylocality@gmail.com',
-  '$2b$10$yZ.3oJ1qLBi/2YvYhV7rZedXHWx2hXcPbIaDqY.d5mcXYFZKNUJxW',
-  'Jake',
-  'Snelson',
-  '77ad5ac8ded906ec61bf405f04ac0ca6fc9a039bf411e3d52459c941a2f9d725',
-  2025-07-25T15:36:12.133Z
-], [Function (anonymous)])
-    at /workspaces/seo-saas-tool/database-adapter.js:135:25
-    at new Promise (<anonymous>)
-    at DatabaseAdapter.query (/workspaces/seo-saas-tool/database-adapter.js:123:14)
-    at DatabaseAdapter.run (/workspaces/seo-saas-tool/database-adapter.js:242:33)
-    at /workspaces/seo-saas-tool/server-v2.js:2020:29 {
-  errno: 1,
-  code: 'SQLITE_ERROR',
-  __augmented: true
-}
-✅ User logged in: test@test.com
-📋 Loading reports for user 1
-✅ Found 0 reports for user 1
-📋 Loading reports for user 1
-✅ Found 0 reports for user 1

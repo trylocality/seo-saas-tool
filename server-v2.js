@@ -4065,6 +4065,38 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Ready for production deployment!');
 });
 
+// Webhook configuration debug endpoint
+app.get('/api/webhook-config', (req, res) => {
+  const config = {
+    stripe: {
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ? 
+        (process.env.STRIPE_WEBHOOK_SECRET.startsWith('whsec_') ? 'CONFIGURED' : 'PLACEHOLDER') : 'NOT_SET',
+      secretKey: process.env.STRIPE_SECRET_KEY ? 'CONFIGURED' : 'NOT_SET'
+    },
+    email: {
+      feedbackWebhook: process.env.FEEDBACK_WEBHOOK_URL ? 'CONFIGURED' : 'NOT_SET',
+      emailWebhook: process.env.EMAIL_WEBHOOK_URL ? 'CONFIGURED' : 'NOT_SET',
+      emailVerificationWebhook: process.env.EMAIL_VERIFICATION_WEBHOOK_URL ? 'CONFIGURED' : 'NOT_SET',
+      passwordResetWebhook: process.env.PASSWORD_RESET_WEBHOOK_URL ? 'CONFIGURED' : 'NOT_SET',
+      newUserWebhook: process.env.NEW_USER_WEBHOOK_URL ? 'CONFIGURED' : 'NOT_SET'
+    },
+    app: {
+      appUrl: process.env.APP_URL || 'NOT_SET',
+      environment: process.env.NODE_ENV || 'development'
+    },
+    webhookUrls: {
+      feedback: process.env.FEEDBACK_WEBHOOK_URL,
+      email: process.env.EMAIL_WEBHOOK_URL,
+      emailVerification: process.env.EMAIL_VERIFICATION_WEBHOOK_URL,
+      passwordReset: process.env.PASSWORD_RESET_WEBHOOK_URL,
+      newUser: process.env.NEW_USER_WEBHOOK_URL
+    }
+  };
+  
+  console.log('🔧 Webhook configuration requested');
+  res.json(config);
+});
+
 // Emergency fix for subscription issue
 app.post('/api/emergency-fix-subscription', async (req, res) => {
   try {
