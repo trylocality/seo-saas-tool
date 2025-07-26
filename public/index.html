@@ -757,9 +757,10 @@
         .purchase-item {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
-            margin: 8px 12px 12px;
+            margin: 8px 8px 12px 8px;
             border-radius: 8px;
             font-weight: 600;
+            width: calc(100% - 16px);
         }
 
         .purchase-item:hover {
@@ -1003,6 +1004,13 @@
         .citation-item-simple { text-align: center; padding: 15px 10px; background: white; border-radius: 8px; border: 2px solid #e9ecef; }
         .citation-item-simple.found { border-color: #28a745; background: #f8fff8; }
         .citation-item-simple.missing { border-color: #dc3545; background: #fff8f8; }
+        
+        /* Compact Citations Row (for detailed analysis) */
+        .citations-row-compact { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; margin-bottom: 4px; }
+        .citation-item-compact { text-align: center; padding: 8px 6px; background: white; border-radius: 6px; border: 1px solid #e9ecef; }
+        .citation-item-compact.found { border-color: #28a745; background: #f8fff8; }
+        .citation-item-compact.missing { border-color: #dc3545; background: #fff8f8; }
+        .citation-name-compact { font-size: 0.75rem; font-weight: 500; color: #333; line-height: 1.2; }
         .citation-logo { width: 32px; height: 32px; margin: 0 auto 8px; background-size: contain; background-repeat: no-repeat; background-position: center; }
         .citation-content { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
         .citation-name-simple { font-size: 0.8rem; font-weight: 600; color: #495057; flex: 1; text-align: left; }
@@ -3557,6 +3565,12 @@
                 // Display action plan with fallback
                 const actionPlan = reportData.actionPlan || generateDefaultActionPlan(factors);
                 displayActionPlanSimple(actionPlan);
+                
+                // Auto-display stored detailed citation analysis if it exists
+                if (reportData.detailedCitationAnalysis) {
+                    console.log('📊 Auto-displaying stored detailed citation analysis');
+                    displayStoredDetailedResults(reportData.detailedCitationAnalysis);
+                }
             }
         }
 
@@ -4164,8 +4178,16 @@
                     throw new Error('Not authenticated. Please log in again.');
                 }
                 
+                // Get report ID for storing analysis results
+                const reportId = currentReportData?.reportId;
+                const requestPayload = {
+                    businessName,
+                    location,
+                    reportId
+                };
+                
                 console.log('🌐 Making API request to /api/detailed-citation-analysis');
-                console.log('🌐 Request payload:', { businessName, location });
+                console.log('🌐 Request payload:', requestPayload);
                 
                 // Create AbortController for timeout
                 const controller = new AbortController();
@@ -4177,10 +4199,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${currentAuthToken}`
                     },
-                    body: JSON.stringify({
-                        businessName,
-                        location
-                    }),
+                    body: JSON.stringify(requestPayload),
                     signal: controller.signal
                 });
                 
@@ -4246,6 +4265,78 @@
             
             // Update main citations display to show all 50 citations
             updateMainCitationsDisplay(data);
+        }
+        
+        // Display stored detailed citation results (without duplicating original 10)
+        function displayStoredDetailedResults(data) {
+            console.log('📊 Displaying stored detailed results:', data);
+            
+            // Hide the button since analysis was already run
+            const button = document.getElementById('detailedAnalysisBtn');
+            if (button) {
+                button.style.display = 'none';
+            }
+            
+            // Hide the subtext as well
+            const subtext = document.querySelector('.detailed-analysis-subtext');
+            if (subtext) {
+                subtext.style.display = 'none';
+            }
+            
+            // Display only the detailed 40 citations without the original 10
+            displayDetailedCitationsOnly(data);
+        }
+        
+        // Display only the detailed 40 citations with compact spacing
+        function displayDetailedCitationsOnly(detailedData) {
+            console.log('📊 Displaying detailed citations only:', detailedData);
+            
+            try {
+                const detailedCitations = detailedData.results || [];
+                let detailedHTML = '';
+                
+                // Display detailed citations in rows of 5 with reduced spacing
+                for (let i = 0; i < detailedCitations.length; i += 5) {
+                    detailedHTML += '<div class="citations-row-compact">';
+                    
+                    for (let j = i; j < Math.min(i + 5, detailedCitations.length); j++) {
+                        const citation = detailedCitations[j];
+                        const status = citation.found ? 'found' : 'missing';
+                        const icon = citation.found ? '✓' : citation.status === 'ERROR' ? '⚠' : '✗';
+                        
+                        detailedHTML += `
+                            <div class="citation-item-compact ${status}">
+                                <div class="citation-content">
+                                    <div class="citation-name-compact">${citation.name || citation.directory}</div>
+                                    <div class="citation-icon">${icon}</div>
+                                </div>
+                            </div>`;
+                    }
+                    
+                    detailedHTML += '</div>';
+                }
+                
+                // Update the detailed citations container
+                const detailedCitationsContainer = document.getElementById('detailedCitationsContainer');
+                if (detailedCitationsContainer) {
+                    detailedCitationsContainer.innerHTML = detailedHTML;
+                }
+                
+                // Mark report as having detailed analysis for print styling
+                const reportSection = document.getElementById('reportSection');
+                if (reportSection) {
+                    reportSection.classList.add('detailed-analysis-active');
+                }
+                
+                // Add overall score, description, and order button
+                const originalCitations = currentReportData.citationsAnalysis?.data?.checked?.slice(0, 10) || [];
+                addDetailedCitationSummary(originalCitations, detailedCitations);
+                
+                console.log('✅ Detailed citations only displayed with compact spacing');
+                
+            } catch (error) {
+                console.error('❌ ERROR in displayDetailedCitationsOnly:', error);
+            }
         }
         
         // Update main citations display with detailed analysis (replaces original)
@@ -5263,22 +5354,22 @@ I'd like to discuss getting citations built for the missing directories identifi
                 console.log('  - factors length:', data?.auditOverview?.factors?.length);
                 console.log('  - data.factors exists (legacy):', !!data?.factors);
 
-                // SIMPLIFIED VALIDATION - Just check if we have data
-                if (data && (data.success || data.auditOverview || data.business)) {
+                // Check for consistent success response format
+                if (data && data.success && data.report) {
                     console.log('✅ Report data received and validated');
-                    console.log('  - Report type:', data.isLocked ? 'LOCKED/PREVIEW' : 'FULL');
-                    console.log('  - Has audit data:', !!data.auditOverview);
-                    console.log('  - Has business data:', !!data.business);
+                    console.log('  - Report type:', data.report.isLocked ? 'LOCKED/PREVIEW' : 'FULL');
+                    console.log('  - Has audit data:', !!data.report.auditOverview);
+                    console.log('  - Has business data:', !!data.report.business);
                     
-                    currentReportData = data;
-                    displayReport(data);
+                    currentReportData = data.report;
+                    displayReport(data.report);
                     showReport();
                     
                     // Refresh user data and reports after generating new report
                     await checkAuth();
                     await loadUserReports();
                     
-                    const message = data.isLocked ? 'Preview report generated successfully!' : 'Report generated successfully!';
+                    const message = data.report.isLocked ? 'Preview report generated successfully!' : 'Report generated successfully!';
                     showToast(message, 'success');
                     console.log('✅ Report displayed successfully!');
                 } else {

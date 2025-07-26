@@ -398,6 +398,22 @@ class DatabaseAdapter {
     } catch (e) {
       console.log(`⚠️ Reports was_paid column setup skipped: ${e.message}`);
     }
+
+    // Add detailed_citation_analysis column to reports table if it doesn't exist
+    try {
+      const detailedColumnCheck = await this.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'reports' AND column_name = 'detailed_citation_analysis'
+      `);
+      
+      if (detailedColumnCheck.length === 0) {
+        await this.query(`ALTER TABLE reports ADD COLUMN detailed_citation_analysis TEXT DEFAULT NULL`);
+        console.log(`✅ Added detailed_citation_analysis column to reports table`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Reports detailed_citation_analysis column setup skipped: ${e.message}`);
+    }
     
     console.log('✅ PostgreSQL tables created/verified');
   }
@@ -556,6 +572,19 @@ class DatabaseAdapter {
       }
     } catch (e) {
       console.log(`⚠️ Reports was_paid column setup skipped: ${e.message}`);
+    }
+
+    // Add detailed_citation_analysis column to reports table if it doesn't exist
+    try {
+      const reportColumnCheck = await this.query('PRAGMA table_info(reports)');
+      const detailedColumnExists = reportColumnCheck.some(col => col.name === 'detailed_citation_analysis');
+      
+      if (!detailedColumnExists) {
+        await this.query(`ALTER TABLE reports ADD COLUMN detailed_citation_analysis TEXT DEFAULT NULL`);
+        console.log(`✅ Added detailed_citation_analysis column to reports table`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Reports detailed_citation_analysis column setup skipped: ${e.message}`);
     }
     
     console.log('✅ SQLite tables created/verified');

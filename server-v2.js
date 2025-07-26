@@ -2978,7 +2978,10 @@ app.post('/api/generate-report', authenticateToken, async (req, res) => {
       reportId: savedReportId
     };
     
-    res.json(responseReport);
+    res.json({
+      success: true,
+      report: responseReport
+    });
     
   } catch (error) {
     console.error('❌ Report generation error:', error);
@@ -3142,7 +3145,7 @@ app.post('/api/reports/:id/unlock', authenticateToken, async (req, res) => {
 // Detailed Citation Analysis endpoint
 app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) => {
   try {
-    const { businessName, location } = req.body;
+    const { businessName, location, reportId } = req.body;
     
     console.log(`🔍 Detailed citation analysis request received`);
     console.log(`🔍 Request body:`, req.body);
@@ -3317,6 +3320,27 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
 
     console.log(`✅ Detailed citation analysis complete: ${foundCount}/40 directories found`);
 
+    // Save analysis results to database if reportId is provided
+    if (reportId) {
+      try {
+        const analysisData = {
+          summary,
+          results,
+          timestamp: new Date().toISOString()
+        };
+        
+        await db.query(
+          'UPDATE reports SET detailed_citation_analysis = $1 WHERE id = $2 AND user_id = $3',
+          [JSON.stringify(analysisData), reportId, req.user.id]
+        );
+        
+        console.log(`💾 Detailed citation analysis saved to report ${reportId}`);
+      } catch (dbError) {
+        console.error('❌ Failed to save detailed citation analysis:', dbError);
+        // Continue with response even if saving fails
+      }
+    }
+
     res.json({
       success: true,
       summary,
@@ -3366,6 +3390,16 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
         isLocked: !wasPaid,
         optimizationOpportunities: wasPaid ? 0 : optimizationOpportunities
       };
+      
+      // Include stored detailed citation analysis if it exists
+      if (report.detailed_citation_analysis) {
+        try {
+          responseReport.detailedCitationAnalysis = JSON.parse(report.detailed_citation_analysis);
+          console.log(`📊 Loaded stored detailed citation analysis for report ${reportId}`);
+        } catch (analysisParseError) {
+          console.error('❌ Failed to parse stored detailed citation analysis:', analysisParseError);
+        }
+      }
       
       console.log(`✅ Successfully loaded report ${reportId} (${wasPaid ? 'PAID' : 'LOCKED'})`);
       
