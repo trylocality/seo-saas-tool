@@ -2081,139 +2081,193 @@ function getInstructionsFor(type) {
 // MAIN REPORT GENERATION (COMPLETE VERSION)
 // ==========================================
 
+// Fallback functions for failed API calls
+function getFallbackBusinessData(businessName, location) {
+  return {
+    name: businessName,
+    phone: '',
+    address: location,
+    website: '',
+    rating: 0,
+    reviews: 0,
+    verified: false,
+    description: '',
+    photos_count: 0,
+    categories: [],
+    hours: null,
+    place_id: null,
+    google_id: null,
+    reviews_link: null
+  };
+}
+
+function getFallbackCitations() {
+  return {
+    found: [],
+    checked: [],
+    total: 7,
+    stats: { found: 0, missing: 7, percentage: 0, score: 0 }
+  };
+}
+
+function getFallbackReviews() {
+  return {
+    hasRecentReview: false,
+    hasBusinessResponses: false,
+    reviewCount: 0,
+    note: 'Reviews analysis failed'
+  };
+}
+
+function getFallbackQA() {
+  return {
+    hasQA: false,
+    questionCount: 0,
+    questions: [],
+    note: 'Q&A analysis failed'
+  };
+}
+
+function getFallbackWebsite() {
+  return {
+    hasGBPEmbed: false,
+    hasLocalizedPage: false,
+    services: [],
+    content: '',
+    note: 'Website analysis failed'
+  };
+}
+
+function getFallbackAIAnalysis() {
+  return {
+    posts: { hasRecent: false, count: 0 },
+    productTiles: { hasAny: false, count: 0 },
+    qa: { hasAny: false, count: 0 },
+    social: { hasAny: false, count: 0 }
+  };
+}
+
 async function generateCompleteReport(businessName, location, industry, website, user = null, selectedProfile = null) {
-  console.log(`🚀 Generating COMPLETE report for: ${businessName} in ${location}`);
+  console.log(`🚀 Generating OPTIMIZED report for: ${businessName} in ${location}`);
   
   const errors = [];
-  let partialData = {};
   
   try {
-    // Step 1: Get primary business data - use selected profile if provided
-    console.log('📍 Step 1: Getting business data...');
-    try {
-      if (selectedProfile && selectedProfile.rawData) {
-        console.log(`✅ Using pre-selected profile: ${selectedProfile.name}`);
-        // Convert selected profile to the expected format
-        const business = selectedProfile.rawData;
-        partialData.outscraper = {
-          name: business.name || business.title || businessName,
-          phone: business.phone || '',
-          address: business.full_address || business.address || '',
-          website: business.site || business.website || '',
-          rating: parseFloat(business.rating) || 0,
-          reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
-          verified: business.verified || business.claimed || false,
-          description: business.description || '',
-          photos_count: parseInt(business.photos_count) || parseInt(business.photos) || 0,
-          categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
-          hours: business.working_hours || business.hours || null,
-          place_id: business.place_id || business.google_id,
-          google_id: business.google_id || business.place_id,
-          reviews_link: business.reviews_link
-        };
-      } else {
-        // Fallback to original search method
-        partialData.outscraper = await getOutscraperData(businessName, location);
+    // GROUP 1: Foundation Data (Independent calls)
+    console.log('📊 Group 1: Getting foundation data in parallel...');
+    const foundationPromises = [];
+    
+    // Business data (or use selected profile)
+    if (selectedProfile && selectedProfile.rawData) {
+      console.log(`✅ Using pre-selected profile: ${selectedProfile.name}`);
+      const business = selectedProfile.rawData;
+      foundationPromises.push(Promise.resolve({
+        name: business.name || business.title || businessName,
+        phone: business.phone || '',
+        address: business.full_address || business.address || '',
+        website: business.site || business.website || '',
+        rating: parseFloat(business.rating) || 0,
+        reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
+        verified: business.verified || business.claimed || false,
+        description: business.description || '',
+        photos_count: parseInt(business.photos_count) || parseInt(business.photos) || 0,
+        categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
+        hours: business.working_hours || business.hours || null,
+        place_id: business.place_id || business.google_id,
+        google_id: business.google_id || business.place_id,
+        reviews_link: business.reviews_link
+      }));
+    } else {
+      foundationPromises.push(getOutscraperData(businessName, location));
+    }
+    
+    // Screenshot and Citations (independent)
+    foundationPromises.push(takeBusinessProfileScreenshot(businessName, location));
+    foundationPromises.push(checkCitations(businessName, location));
+    
+    const foundationResults = await Promise.allSettled(foundationPromises);
+    
+    // Extract results with fallbacks
+    const businessData = foundationResults[0].status === 'fulfilled' 
+      ? foundationResults[0].value 
+      : getFallbackBusinessData(businessName, location);
+    
+    const screenshot = foundationResults[1].status === 'fulfilled' 
+      ? foundationResults[1].value 
+      : null;
+    
+    const citations = foundationResults[2].status === 'fulfilled' 
+      ? foundationResults[2].value 
+      : getFallbackCitations();
+    
+    // Log any foundation failures
+    foundationResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const stepNames = ['Business Data', 'Screenshot', 'Citations'];
+        errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
+        console.log(`⚠️ ${stepNames[index]} failed: ${result.reason?.message}`);
       }
-    } catch (error) {
-      errors.push(`Outscraper: ${error.message}`);
-      // Instead of throwing fatal error, provide fallback data
-      console.log('⚠️ Using fallback business data due to outscraper failure');
-      partialData.outscraper = {
-        name: businessName,
-        phone: '',
-        address: location,
-        website: '',
-        rating: 0,
-        reviews: 0,
-        verified: false,
-        description: '',
-        photos_count: 0,
-        categories: [],
-        hours: null,
-        place_id: null,
-        google_id: null,
-        reviews_link: null
-      };
+    });
+    
+    console.log(`✅ Group 1 completed: Business data, Screenshot, Citations`);
+    
+    // GROUP 2: Dependent Analysis (Needs data from Group 1)
+    console.log('📊 Group 2: Running dependent analysis in parallel...');
+    const analysisPromises = [
+      analyzeReviews(businessName, location, businessData.place_id),
+      analyzeQuestionsAndAnswers(businessName, location, businessData.place_id),
+      analyzeWebsite(businessData.website || website, location)
+    ];
+    
+    // Add AI analysis if we have screenshot
+    if (screenshot) {
+      analysisPromises.push(analyzeScreenshotWithAI(screenshot.filepath, businessName));
+    } else {
+      analysisPromises.push(Promise.resolve(getFallbackAIAnalysis()));
     }
     
-    // Step 2: Take screenshot for visual analysis
-    console.log('📸 Step 2: Taking screenshot...');
-    try {
-      const screenshot = await takeBusinessProfileScreenshot(businessName, location);
-      partialData.screenshot = screenshot;
-      
-      // Step 3: AI analysis of screenshot
-      console.log('🤖 Step 3: AI analyzing screenshot...');
-      partialData.aiAnalysis = await analyzeScreenshotWithAI(screenshot.filepath, businessName);
-    } catch (error) {
-      errors.push(`Screenshot/AI: ${error.message}`);
-      partialData.aiAnalysis = {
-        posts: { hasRecent: false, count: 0 },
-        productTiles: { hasAny: false, count: 0 },
-        qa: { hasAny: false, count: 0 },
-        social: { hasAny: false, count: 0 }
-      };
-    }
+    const analysisResults = await Promise.allSettled(analysisPromises);
     
-    // Step 4: Check citations
-    console.log('🔍 Step 4: Checking citations...');
-    try {
-      partialData.citations = await checkCitations(businessName, location);
-    } catch (error) {
-      errors.push(`Citations: ${error.message}`);
-      partialData.citations = {
-        found: [],
-        checked: [],
-        total: 7,
-        stats: { found: 0, missing: 7, percentage: 0, score: 0 }
-      };
-    }
+    // Extract analysis results with fallbacks
+    const reviewsAnalysis = analysisResults[0].status === 'fulfilled' 
+      ? analysisResults[0].value 
+      : getFallbackReviews();
     
-    // Step 5: Analyze website
-    console.log('🌐 Step 5: Analyzing website...');
-    try {
-      partialData.websiteAnalysis = await analyzeWebsite(website, location);
-    } catch (error) {
-      errors.push(`Website: ${error.message}`);
-      partialData.websiteAnalysis = {
-        hasGBPEmbed: false,
-        hasLocalizedPage: false,
-        services: [],
-        content: '',
-        note: 'Website analysis failed'
-      };
-    }
+    const qaAnalysis = analysisResults[1].status === 'fulfilled' 
+      ? analysisResults[1].value 
+      : getFallbackQA();
     
-    // Step 6: Analyze reviews
-    console.log('📝 Step 6: Analyzing reviews...');
-    try {
-      partialData.reviewsAnalysis = await analyzeReviews(businessName, location, partialData.outscraper.place_id);
-    } catch (error) {
-      errors.push(`Reviews: ${error.message}`);
-      partialData.reviewsAnalysis = {
-        hasRecentReview: false,
-        hasBusinessResponses: false,
-        reviewCount: 0,
-        note: 'Reviews analysis failed'
-      };
-    }
+    const websiteAnalysis = analysisResults[2].status === 'fulfilled' 
+      ? analysisResults[2].value 
+      : getFallbackWebsite();
     
-    // Step 7: Analyze Q&A using SerpAPI
-    console.log('❓ Step 7: Analyzing Q&A...');
-    try {
-      partialData.qaAnalysis = await analyzeQuestionsAndAnswers(businessName, location, partialData.outscraper.place_id);
-    } catch (error) {
-      errors.push(`Q&A: ${error.message}`);
-      partialData.qaAnalysis = {
-        hasQA: false,
-        questionCount: 0,
-        questions: [],
-        note: 'Q&A analysis failed'
-      };
-    }
+    const aiAnalysis = analysisResults[3].status === 'fulfilled' 
+      ? analysisResults[3].value 
+      : getFallbackAIAnalysis();
     
-    // Step 8: Compile data for scoring
+    // Log any analysis failures
+    analysisResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const stepNames = ['Reviews', 'Q&A', 'Website', 'AI Analysis'];
+        errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
+        console.log(`⚠️ ${stepNames[index]} failed: ${result.reason?.message}`);
+      }
+    });
+    
+    console.log(`✅ Group 2 completed: Reviews, Q&A, Website, AI Analysis`);
+    
+    // Compile data for scoring (same as before)
+    const partialData = {
+      outscraper: businessData,
+      screenshot: screenshot,
+      aiAnalysis: aiAnalysis,
+      citations: citations,
+      websiteAnalysis: websiteAnalysis,
+      reviewsAnalysis: reviewsAnalysis,
+      qaAnalysis: qaAnalysis
+    };
+    
+    // Compile data for scoring
     const compiledData = {
       businessInfo: { businessName, location, industry, website },
       outscraper: partialData.outscraper,
@@ -2225,29 +2279,38 @@ async function generateCompleteReport(businessName, location, industry, website,
       screenshot: partialData.screenshot
     };
     
-    // Step 9: Calculate score
-    console.log('📊 Step 9: Calculating score...');
+    // Calculate score
+    console.log('📊 Calculating score...');
     const scoreData = calculateScore(compiledData);
     
-    // Step 10: Generate smart suggestions
-    console.log('🧠 Step 10: Generating smart suggestions...');
-    let smartSuggestions = {};
-    try {
-      smartSuggestions = await generateSmartSuggestions(
-        { businessName, location, industry, website },
-        scoreData,
-        partialData.websiteAnalysis.services || []
-      );
-    } catch (error) {
-      errors.push(`Smart Suggestions: ${error.message}`);
-      smartSuggestions = { error: error.message };
-    }
-    
-    // Step 11: Generate action plan
-    console.log('📋 Step 11: Creating action plan...');
+    // Generate action plan
+    console.log('📋 Creating action plan...');
     const actionPlan = generateActionPlan(scoreData);
     
-    // Step 12: Build final report
+    // GROUP 3: Smart Suggestions (Async - can happen after basic report is ready)
+    console.log('🧠 Group 3: Starting smart suggestions (async)...');
+    let smartSuggestions = { 
+      loading: true, 
+      message: 'Smart suggestions are being generated...' 
+    };
+    
+    // Start async generation (non-blocking)
+    generateSmartSuggestions(
+      { businessName, location, industry, website },
+      scoreData,
+      partialData.websiteAnalysis.services || []
+    ).then(suggestions => {
+      smartSuggestions = suggestions;
+      console.log('✅ Smart suggestions completed asynchronously');
+    }).catch(error => {
+      console.error('⚠️ Smart suggestions failed (non-critical):', error.message);
+      smartSuggestions = { 
+        error: error.message,
+        message: 'Smart suggestions could not be generated' 
+      };
+    });
+    
+    // Build final report (with basic smart suggestions placeholder)
     // Get user-specific branding or use default
     const brandName = (user && user.custom_brand_name) || BRAND_CONFIG.name;
     const brandLogo = (user && user.custom_brand_logo) || BRAND_CONFIG.logo;
@@ -2337,9 +2400,10 @@ async function generateCompleteReport(businessName, location, industry, website,
       }
     };
     
-    console.log(`✅ COMPLETE Report generated successfully - Score: ${scoreData.totalScore}/100`);
+    console.log(`✅ OPTIMIZED Report generated successfully - Score: ${scoreData.totalScore}/100`);
+    console.log(`⚡ Performance: Parallel processing completed in 3 groups`);
     if (errors.length > 0) {
-      console.log(`⚠️ ${errors.length} non-critical errors occurred`);
+      console.log(`⚠️ ${errors.length} non-critical errors occurred (gracefully handled)`);
     }
     
     return report;

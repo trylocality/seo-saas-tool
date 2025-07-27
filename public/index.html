@@ -2574,9 +2574,19 @@
                             <span id="accountCredits" style="color: #0e192b; font-weight: 500;">Loading...</span>
                         </div>
                         
-                        <div style="display: flex; justify-content: space-between;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
                             <span style="font-weight: 600; color: #333;">White Label Status:</span>
                             <span id="accountWhiteLabel" style="color: #0e192b; font-weight: 500;">Loading...</span>
+                        </div>
+                        
+                        <!-- Manage Account Button -->
+                        <div style="text-align: center; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                            <button type="button" onclick="handleManageAccount()" 
+                                style="padding: 12px 24px; border: 2px solid #17a2b8; background: white; color: #17a2b8; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: 100%;"
+                                onmouseover="this.style.background='#17a2b8'; this.style.color='white'; this.style.transform='translateY(-1px)'"
+                                onmouseout="this.style.background='white'; this.style.color='#17a2b8'; this.style.transform='translateY(0)'">
+                                💳 MANAGE PLAN & CREDITS
+                            </button>
                         </div>
                     </div>
 
@@ -3659,27 +3669,40 @@
             // Display factors with fallback data
             let factors = auditData.factors || reportData.factors || generateDefaultFactors(score);
             
-            // Convert factors array to object format if needed (for consistency)
-            if (Array.isArray(factors)) {
-                const factorsObj = {};
-                factors.forEach(factor => {
-                    factorsObj[factor.id] = {
-                        title: factor.name,
-                        score: factor.score,
-                        maxScore: factor.maxScore,
-                        status: factor.status,
-                        message: factor.message
-                    };
-                });
-                factors = factorsObj;
-            }
-            
             // Handle locked report display
             if (reportData.isLocked) {
+                console.log('🔒 Displaying LOCKED report');
+                // Convert factors array to object format for locked display
+                if (Array.isArray(factors)) {
+                    const factorsObj = {};
+                    factors.forEach(factor => {
+                        factorsObj[factor.id] = {
+                            title: factor.name,
+                            score: factor.score,
+                            maxScore: factor.maxScore,
+                            status: factor.status,
+                            message: factor.message
+                        };
+                    });
+                    factors = factorsObj;
+                }
                 // Add locked class to report section
                 document.getElementById('reportSection').classList.add('locked');
                 displayLockedReport(factors, reportData.optimizationOpportunities || 0);
             } else {
+                console.log('🔓 Displaying UNLOCKED report with full factors');
+                // Keep factors as array for unlocked display
+                if (!Array.isArray(factors)) {
+                    // Convert object back to array if needed
+                    factors = Object.keys(factors).map(id => ({
+                        id: id,
+                        name: factors[id].title || factors[id].name,
+                        status: factors[id].status,
+                        message: factors[id].message,
+                        score: factors[id].score,
+                        maxScore: factors[id].maxScore
+                    }));
+                }
                 // Remove locked class if present
                 document.getElementById('reportSection').classList.remove('locked');
                 displayFactorsCompact(factors, reportData.smartSuggestions || {});
@@ -3725,85 +3748,107 @@
 
         // Display locked report with blur effect and unlock overlay
         function displayLockedReport(factors, optimizationOpportunities) {
-            const factorsGrid = document.getElementById('factorsGrid');
+            console.log('🔒 Displaying locked report with blur overlay');
             
             // Calculate actual optimization opportunities from factors
             const actualOpportunities = calculateOptimizationOpportunities(factors);
             
-            // IMPORTANT: Don't call displayFactorsCompact because it removes the locked class
-            // Instead, render factors directly with locked state
+            // First, display everything normally using the regular functions
+            displayFactorsCompact(factors, {});
             
-            // Add locked class FIRST before rendering
-            factorsGrid.classList.add('factors-locked');
+            // Display citations with sample data
+            const fallbackCitations = {
+                data: {
+                    checked: [
+                        { directory: 'Google', found: true },
+                        { directory: 'Yelp', found: false },
+                        { directory: 'Facebook', found: true },
+                        { directory: 'Yellow Pages', found: false },
+                        { directory: 'Bing Places', found: false },
+                        { directory: 'Apple Maps', found: true },
+                        { directory: 'Foursquare', found: false },
+                        { directory: 'Better Business Bureau', found: false },
+                        { directory: 'Merchant Circle', found: false },
+                        { directory: 'Chamber of Commerce', found: false }
+                    ]
+                }
+            };
+            displayCitationsRow(fallbackCitations);
             
-            // Render factors directly (simplified version without interactions)
-            let factorsHTML = '<div class="factors-compact-grid">';
+            // Display action plan with sample data
+            const fallbackActionPlan = [
+                { task: 'Optimize Business Description', priority: 'HIGH', completed: false, estimatedTime: '15 minutes' },
+                { task: 'Add Product/Service Tiles', priority: 'HIGH', completed: false, estimatedTime: '30 minutes' },
+                { task: 'Upload High-Quality Photos', priority: 'MEDIUM', completed: false, estimatedTime: '1 hour' },
+                { task: 'Build Local Citations', priority: 'HIGH', completed: false, estimatedTime: '2-4 hours' },
+                { task: 'Implement Review Strategy', priority: 'HIGH', completed: false, estimatedTime: '2-4 weeks' }
+            ];
+            displayActionPlanSimple(fallbackActionPlan);
             
-            for (const factorId in factors) {
-                const factor = factors[factorId];
-                const colorClass = getColorClass(factor.status);
-                const icon = getFactorIcon(factor.status);
-                
-                factorsHTML += `
-                    <div class="factor-card ${colorClass}">
-                        <div class="factor-header">
-                            <div class="factor-title">
-                                <span class="factor-icon">${icon}</span>
-                                ${factor.title}
-                            </div>
-                            <span class="factor-status ${colorClass}">
-                                ${factor.status.replace(/_/g, ' ')}
-                            </span>
-                        </div>
-                        <div class="factor-description">
-                            ${factor.description}
-                        </div>
-                    </div>`;
-            }
+            // NOW apply locked class to blur everything
+            document.getElementById('reportSection').classList.add('locked');
             
-            factorsHTML += '</div>';
-            factorsGrid.innerHTML = factorsHTML;
-            
-            // Create unlock overlay
+            // Create floating unlock overlay
             const unlockOverlay = document.createElement('div');
-            unlockOverlay.className = 'unlock-report-banner';
+            unlockOverlay.id = 'unlockReportOverlay';
+            unlockOverlay.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                z-index: 1000;
+                background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+                border: 2px solid #0e192b;
+                border-radius: 15px;
+                padding: 30px;
+                text-align: center;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+                max-width: 400px;
+                width: 90%;
+                backdrop-filter: blur(10px);
+            `;
             unlockOverlay.innerHTML = `
-                <div class="unlock-banner-title">ANALYSIS COMPLETE</div>
-                <div class="unlock-banner-subtitle">
+                <div style="font-size: 1.8rem; margin-bottom: 10px;">🔒</div>
+                <div style="font-size: 1.4rem; font-weight: bold; color: #0e192b; margin-bottom: 10px;">
+                    ANALYSIS COMPLETE
+                </div>
+                <div style="color: #666; margin-bottom: 20px; font-size: 1rem;">
                     ${actualOpportunities} Optimization Opportunities Found
                 </div>
-                <button class="unlock-btn" onclick="handleUnlockAccess()">
-                    UNLOCK ACCESS
+                <div style="color: #888; margin-bottom: 25px; font-size: 0.9rem; line-height: 1.4;">
+                    Your complete SEO audit is ready! Unlock to see detailed recommendations and actionable insights.
+                </div>
+                <button class="unlock-btn" onclick="handleUnlockAccess()" style="
+                    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+                    color: white;
+                    border: none;
+                    padding: 15px 30px;
+                    border-radius: 8px;
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    width: 100%;
+                ">
+                    🔓 UNLOCK FULL REPORT
                 </button>
             `;
             
-            // Insert overlay into the factors container
-            const factorsContainer = factorsGrid.parentElement;
-            factorsContainer.style.position = 'relative';
-            factorsContainer.appendChild(unlockOverlay);
+            // Add hover effect to unlock button
+            const unlockBtn = unlockOverlay.querySelector('.unlock-btn');
+            unlockBtn.addEventListener('mouseenter', () => {
+                unlockBtn.style.transform = 'translateY(-2px)';
+                unlockBtn.style.boxShadow = '0 8px 25px rgba(30, 64, 175, 0.4)';
+            });
+            unlockBtn.addEventListener('mouseleave', () => {
+                unlockBtn.style.transform = 'translateY(0)';
+                unlockBtn.style.boxShadow = 'none';
+            });
             
-            // Hide citations and action plan sections for locked reports
-            const citationsSection = document.getElementById('citationsSection');
-            const actionPlanSection = document.getElementById('actionPlanSection');
-            const detailedSection = document.querySelector('.detailed-analysis-section');
-            const upsellBox = document.querySelector('.upsell-box');
+            // Insert overlay into document body
+            document.body.appendChild(unlockOverlay);
             
-            if (citationsSection) {
-                citationsSection.style.display = 'none';
-            }
-            if (actionPlanSection) {
-                actionPlanSection.style.display = 'none';
-            }
-            if (detailedSection) {
-                detailedSection.style.display = 'none';
-            }
-            if (upsellBox) {
-                upsellBox.style.display = 'none';
-            }
-            
-            // Also hide any interactive buttons within the factors
-            const buttons = document.querySelectorAll('.copy-suggestion-btn, .order-citations-btn, .detailed-analysis-btn');
-            buttons.forEach(btn => btn.style.display = 'none');
+            console.log('✅ Locked report displayed with blur effect and unlock overlay');
         }
 
         // Handle unlock access - either use credits or buy more
@@ -3919,6 +3964,12 @@
             const existingOverlay = factorsGrid.parentElement.querySelector('.unlock-report-banner');
             if (existingOverlay) {
                 existingOverlay.remove();
+            }
+            
+            // Also remove the floating unlock overlay if it exists
+            const floatingOverlay = document.getElementById('unlockReportOverlay');
+            if (floatingOverlay) {
+                floatingOverlay.remove();
             }
             
             // Show citations and action plan sections for unlocked reports
@@ -4756,6 +4807,12 @@ I'd like to discuss getting citations built for the missing directories identifi
             document.getElementById('accountSettingsModal').classList.remove('show');
             document.getElementById('accountSettingsModal').classList.add('hidden');
             document.body.style.overflow = 'auto';
+        }
+
+        function handleManageAccount() {
+            closeAccountSettingsModal();
+            showPricingModal();
+            showToast('Manage your plan and purchase additional credits below', 'info');
         }
 
         async function loadAccountSettings() {
@@ -5609,12 +5666,15 @@ I'd like to discuss getting citations built for the missing directories identifi
                     console.log('  - Report type:', data.report.isLocked ? 'LOCKED/PREVIEW' : 'FULL');
                     console.log('  - Has audit data:', !!data.report.auditOverview);
                     console.log('  - Has business data:', !!data.report.business);
+                    console.log('  - Has factors:', !!data.report.auditOverview?.factors);
+                    console.log('  - Factors count:', data.report.auditOverview?.factors?.length);
                     
                     currentReportData = data.report;
                     displayReport(data.report);
                     showReport();
                     
-                    // Refresh user data and reports after generating new report
+                    // Only refresh user data after successful report generation
+                    // Don't redirect to dashboard - stay on report
                     await checkAuth();
                     await loadUserReports();
                     
