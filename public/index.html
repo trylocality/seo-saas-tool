@@ -2500,6 +2500,102 @@
         </div>
     </div>
 
+    <!-- Account Settings Modal -->
+    <div id="accountSettingsModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 600px; width: 95%;">
+            <div class="modal-header">
+                <h2>Account Settings</h2>
+                <span class="close-modal" onclick="closeAccountSettingsModal()">&times;</span>
+            </div>
+            <div style="padding: 30px;">
+                <form id="accountSettingsForm">
+                    <!-- Name Section -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #0e192b; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;">Personal Information</h3>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label for="settingsFirstName" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                                First Name (Display Name)
+                            </label>
+                            <input type="text" id="settingsFirstName" name="firstName" placeholder="Enter your first name" 
+                                style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label for="settingsLastName" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                                Last Name
+                            </label>
+                            <input type="text" id="settingsLastName" name="lastName" placeholder="Enter your last name" 
+                                style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                        </div>
+                    </div>
+
+                    <!-- Password Section -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #0e192b; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;">Change Password</h3>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label for="currentPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                                Current Password
+                            </label>
+                            <input type="password" id="currentPassword" name="currentPassword" placeholder="Enter current password" 
+                                style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label for="newPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                                New Password
+                            </label>
+                            <input type="password" id="newPassword" name="newPassword" placeholder="Enter new password" 
+                                style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                            <small style="color: #666; display: block; margin-top: 5px;">Leave blank if you don't want to change your password</small>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label for="confirmPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                                Confirm New Password
+                            </label>
+                            <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm new password" 
+                                style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                        </div>
+                    </div>
+
+                    <!-- Plan Information -->
+                    <div style="margin-bottom: 30px;">
+                        <h3 style="color: #0e192b; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;">Account Information</h3>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                            <span style="font-weight: 600; color: #333;">Current Plan:</span>
+                            <span id="accountPlan" style="color: #0e192b; font-weight: 500;">Loading...</span>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                            <span style="font-weight: 600; color: #333;">Credits Remaining:</span>
+                            <span id="accountCredits" style="color: #0e192b; font-weight: 500;">Loading...</span>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="font-weight: 600; color: #333;">White Label Status:</span>
+                            <span id="accountWhiteLabel" style="color: #0e192b; font-weight: 500;">Loading...</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                        <button type="button" onclick="closeAccountSettingsModal()" 
+                            style="padding: 12px 24px; border: 2px solid #e9ecef; background: white; color: #64748b; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                            style="padding: 12px 24px; border: none; background: #0e192b; color: white; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Modern Pricing Modal -->
     <div id="pricingModal" class="pricing-modal hidden">
         <div class="pricing-modal-content">
@@ -3500,14 +3596,29 @@
             console.log('📊 Displaying single-page report:', reportData);
             console.log('📊 Data structure check:', Object.keys(reportData));
             
-            // More flexible data access to handle different backend structures
-            const businessData = reportData.business || reportData.businessData || {};
-            const auditData = reportData.auditOverview || reportData.audit || reportData;
+            try {
+                // More flexible data access to handle different backend structures
+                const businessData = reportData.business || reportData.businessData || {};
+                const auditData = reportData.auditOverview || reportData.audit || reportData;
             const scoreData = auditData.overallScore || auditData.score || { score: 0, message: 'Report generated successfully' };
             
             // For locked/fallback reports, ensure we have minimum required data
             if (reportData.isLocked && reportData.isFallback) {
                 console.log('📊 Displaying fallback locked report with minimal data');
+                // Ensure factors are in the correct format (convert array to object if needed)
+                if (Array.isArray(auditData.factors)) {
+                    const factorsObj = {};
+                    auditData.factors.forEach(factor => {
+                        factorsObj[factor.id] = {
+                            title: factor.name,
+                            score: factor.score,
+                            maxScore: factor.maxScore,
+                            status: factor.status,
+                            message: factor.message
+                        };
+                    });
+                    auditData.factors = factorsObj;
+                }
             }
             
             // Update business info header with fallback values
@@ -3546,7 +3657,22 @@
             updateScoreDonut(score);
 
             // Display factors with fallback data
-            const factors = auditData.factors || reportData.factors || generateDefaultFactors(score);
+            let factors = auditData.factors || reportData.factors || generateDefaultFactors(score);
+            
+            // Convert factors array to object format if needed (for consistency)
+            if (Array.isArray(factors)) {
+                const factorsObj = {};
+                factors.forEach(factor => {
+                    factorsObj[factor.id] = {
+                        title: factor.name,
+                        score: factor.score,
+                        maxScore: factor.maxScore,
+                        status: factor.status,
+                        message: factor.message
+                    };
+                });
+                factors = factorsObj;
+            }
             
             // Handle locked report display
             if (reportData.isLocked) {
@@ -3571,6 +3697,13 @@
                     console.log('📊 Auto-displaying stored detailed citation analysis');
                     displayStoredDetailedResults(reportData.detailedCitationAnalysis);
                 }
+            }
+            } catch (error) {
+                console.error('❌ Error displaying report:', error);
+                console.error('Report data that caused error:', reportData);
+                showToast('Error displaying report. Please refresh and try again.', 'error');
+                // Still try to show the report section even if there's an error
+                showReport();
             }
         }
 
@@ -4359,68 +4492,36 @@
             const originalCitations = currentReportData.citationsAnalysis?.data?.checked?.slice(0, 10) || [];
             const detailedCitations = detailedData.results || [];
             
-            if (!citationsRow) {
-                console.error('❌ Citations row element not found');
-                return;
-            }
+            // Don't modify the original citations display (citationsRow) - it's already showing the first 10
+            // Only update the detailed citations container with the additional 40
             
-            let allCitationsHTML = '';
-            
-            // First, display the original 10 citations in normal 5-column grid (2 rows of 5)
-            allCitationsHTML += '<div class="citations-row">';
-            for (let i = 0; i < Math.min(originalCitations.length, 10); i++) {
-                const citation = originalCitations[i];
-                const status = citation.found ? 'found' : 'missing';
-                const icon = citation.found ? '✓' : '✗';
-                const logoUrl = directoryLogos[citation.directory] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmOGY5ZmEiLz4KPHN2ZyB4PSI2IiB5PSI2IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiPgo8cGF0aCBkPSJNNCA0TDggOE00IDhMOCA0IiBzdHJva2U9IiM2Yzc1N2QiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4KPC9zdmc+';
-                const displayName = directoryDisplayNames[citation.directory] || citation.directory;
+            // Update the detailed citations container (Page 2) with only the 40 additional citations
+            const detailedCitationsContainer = document.getElementById('detailedCitationsContainer');
+            if (detailedCitationsContainer && detailedCitations.length > 0) {
+                let detailedHTML = '';
                 
-                // Start new row after every 5 items
-                if (i === 5) {
-                    allCitationsHTML += '</div><div class="citations-row">';
-                }
-                
-                allCitationsHTML += `
-                    <div class="citation-item-simple ${status}">
-                        <div class="citation-logo" style="background-image: url('${logoUrl}');"></div>
-                        <div class="citation-content">
-                            <div class="citation-name-simple">${displayName}</div>
-                            <div class="citation-icon">${icon}</div>
-                        </div>
-                    </div>`;
-            }
-            allCitationsHTML += '</div>';
-            
-            // Add spacing between original and detailed citations
-            if (detailedCitations.length > 0) {
-                allCitationsHTML += '<div style="margin: 20px 0;"></div>';
-                
-                // Display detailed citations in rows of 5 (8 rows of 5 = 40 citations)
+                // Display detailed citations in rows of 5 with compact spacing
                 for (let i = 0; i < detailedCitations.length; i += 5) {
-                    allCitationsHTML += '<div class="citations-row">';
+                    detailedHTML += '<div class="citations-row-compact">';
                     
                     for (let j = i; j < Math.min(i + 5, detailedCitations.length); j++) {
                         const citation = detailedCitations[j];
                         const status = citation.found ? 'found' : 'missing';
                         const icon = citation.found ? '✓' : citation.status === 'ERROR' ? '⚠' : '✗';
                         
-                        allCitationsHTML += `
-                            <div class="citation-item-simple ${status}">
+                        detailedHTML += `
+                            <div class="citation-item-compact ${status}">
                                 <div class="citation-content">
-                                    <div class="citation-name-simple">${citation.name || citation.directory}</div>
+                                    <div class="citation-name-compact">${citation.name || citation.directory}</div>
                                     <div class="citation-icon">${icon}</div>
                                 </div>
                             </div>`;
                     }
                     
-                    allCitationsHTML += '</div>';
+                    detailedHTML += '</div>';
                 }
-            }
-            
-            // Update the detailed citations container (Page 2)
-            const detailedCitationsContainer = document.getElementById('detailedCitationsContainer');
-            if (detailedCitationsContainer) {
-                detailedCitationsContainer.innerHTML = allCitationsHTML;
+                
+                detailedCitationsContainer.innerHTML = detailedHTML;
             }
             
             // Mark report as having detailed analysis for print styling
@@ -4514,7 +4615,7 @@ I'd like to discuss getting citations built for the missing directories identifi
             const emailSubject = encodeURIComponent('Citation Building Service Request');
             
             // Open email client with pre-filled message
-            window.open(`mailto:support@yourdomain.com?subject=${emailSubject}&body=${encodedMessage}`, '_blank');
+            window.open(`mailto:trylocality@gmail.com?subject=${emailSubject}&body=${encodedMessage}`, '_blank');
             
             // Also show a toast for user feedback
             showToast('Opening email client with citation request details...', 'info');
@@ -4586,8 +4687,7 @@ I'd like to discuss getting citations built for the missing directories identifi
         
         function handleAccountSettings() {
             closeAccountMenu();
-            // Placeholder for account settings functionality
-            showToast('Account settings feature coming soon!', 'info');
+            showAccountSettingsModal();
         }
         
         function handleWhiteLabelSettings() {
@@ -4604,7 +4704,7 @@ I'd like to discuss getting citations built for the missing directories identifi
         function handleSupportHelp() {
             closeAccountMenu();
             // Placeholder for support functionality
-            window.open('mailto:support@yourdomain.com?subject=Support Request', '_blank');
+            window.open('mailto:trylocality@gmail.com?subject=Support Request', '_blank');
             showToast('Opening email client for support...', 'info');
         }
         
@@ -4642,6 +4742,62 @@ I'd like to discuss getting citations built for the missing directories identifi
             document.querySelectorAll('.star').forEach(star => star.classList.remove('active'));
             document.getElementById('feedbackError').classList.add('hidden');
             document.getElementById('feedbackSuccess').classList.add('hidden');
+        }
+
+        // Account Settings Functions
+        function showAccountSettingsModal() {
+            document.getElementById('accountSettingsModal').classList.remove('hidden');
+            document.getElementById('accountSettingsModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            loadAccountSettings();
+        }
+
+        function closeAccountSettingsModal() {
+            document.getElementById('accountSettingsModal').classList.remove('show');
+            document.getElementById('accountSettingsModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        async function loadAccountSettings() {
+            try {
+                // Load current user data
+                if (currentUser) {
+                    document.getElementById('settingsFirstName').value = currentUser.firstName || '';
+                    document.getElementById('settingsLastName').value = currentUser.lastName || '';
+                    document.getElementById('accountPlan').textContent = formatPlanName(currentUser.subscriptionTier || 'free');
+                    document.getElementById('accountCredits').textContent = currentUser.creditsRemaining || 0;
+                    
+                    // Check white label status
+                    const currentAuthToken = localStorage.getItem('authToken');
+                    const response = await fetch('/api/white-label', {
+                        headers: {
+                            'Authorization': `Bearer ${currentAuthToken}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const isEnabled = data.settings?.enabled || false;
+                        document.getElementById('accountWhiteLabel').textContent = isEnabled ? 'Enabled' : 'Disabled';
+                    } else {
+                        document.getElementById('accountWhiteLabel').textContent = 'Disabled';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading account settings:', error);
+                document.getElementById('accountWhiteLabel').textContent = 'Unknown';
+            }
+        }
+
+        function formatPlanName(tier) {
+            const planNames = {
+                'free': 'Free',
+                'starter': 'Starter',
+                'professional': 'Professional',
+                'agency': 'Agency',
+                'unlimited': 'Unlimited'
+            };
+            return planNames[tier] || tier.charAt(0).toUpperCase() + tier.slice(1);
         }
 
         // White Label Functions
@@ -4731,6 +4887,99 @@ I'd like to discuss getting citations built for the missing directories identifi
         }
 
         // Add event listeners for white label form
+        // Account Settings Form Handler
+        document.getElementById('accountSettingsForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+            
+            try {
+                const formData = new FormData(e.target);
+                const updates = {};
+                
+                // Check if name fields have changed
+                const firstName = formData.get('firstName').trim();
+                const lastName = formData.get('lastName').trim();
+                
+                if (firstName !== currentUser.firstName) {
+                    updates.firstName = firstName;
+                }
+                if (lastName !== currentUser.lastName) {
+                    updates.lastName = lastName;
+                }
+                
+                // Check if password fields are filled
+                const currentPassword = formData.get('currentPassword');
+                const newPassword = formData.get('newPassword');
+                const confirmPassword = formData.get('confirmPassword');
+                
+                if (newPassword) {
+                    if (!currentPassword) {
+                        showToast('Please enter your current password', 'error');
+                        return;
+                    }
+                    if (newPassword !== confirmPassword) {
+                        showToast('New passwords do not match', 'error');
+                        return;
+                    }
+                    if (newPassword.length < 6) {
+                        showToast('New password must be at least 6 characters', 'error');
+                        return;
+                    }
+                    
+                    updates.currentPassword = currentPassword;
+                    updates.newPassword = newPassword;
+                }
+                
+                // Only proceed if there are updates
+                if (Object.keys(updates).length === 0) {
+                    showToast('No changes to save', 'info');
+                    closeAccountSettingsModal();
+                    return;
+                }
+                
+                const currentAuthToken = localStorage.getItem('authToken');
+                const response = await fetch('/api/user/update', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentAuthToken}`
+                    },
+                    body: JSON.stringify(updates)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast('Account settings updated successfully!', 'success');
+                    
+                    // Update currentUser object
+                    if (updates.firstName) currentUser.firstName = updates.firstName;
+                    if (updates.lastName) currentUser.lastName = updates.lastName;
+                    
+                    // Update display name in UI
+                    updateUserDisplay();
+                    
+                    // Clear password fields
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                    
+                    closeAccountSettingsModal();
+                } else {
+                    showToast(result.error || 'Failed to update account settings', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating account settings:', error);
+                showToast('Network error. Please try again.', 'error');
+            } finally {
+                submitBtn.textContent = 'Save Changes';
+                submitBtn.disabled = false;
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             // Logo upload handler
             const logoUpload = document.getElementById('logoUpload');

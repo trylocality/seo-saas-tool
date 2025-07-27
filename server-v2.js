@@ -1102,12 +1102,40 @@ async function analyzeWebsite(websiteUrl, location) {
     // For international addresses, also check for country-specific patterns
     const locationParts = location.toLowerCase().split(/[,\-]/).map(p => p.trim());
     
-    // URL-based patterns only - looking for dedicated location pages
+    // First, extract all links from the page to check for location pages
+    const linkPattern = /<a[^>]*href=["']([^"']+)["'][^>]*>/gi;
+    const links = [];
+    let match;
+    while ((match = linkPattern.exec(htmlContent)) !== null) {
+      links.push(match[1].toLowerCase());
+    }
+    
+    // Check if site has location directory structure (like /locations/)
+    const locationDirectoryPatterns = [
+      /\/locations?\//,
+      /\/service-areas?\//,
+      /\/areas?\//,
+      /\/cities\//,
+      /\/serving\//,
+      /\/serve\//,
+      /\/where-we-serve\//,
+      /\/coverage\//,
+      /\/regions?\//
+    ];
+    
+    const hasLocationDirectory = links.some(link => 
+      locationDirectoryPatterns.some(pattern => pattern.test(link))
+    );
+    
+    // URL-based patterns - looking for dedicated location pages
     const localizedIndicators = [
       // Direct location URLs
       `/${cityLower}/`,
       `/${cityLower}.html`,
       `/${cityLower}.php`,
+      `/${cityLower}-`,
+      `-${cityLower}-`,
+      `-${cityLower}/`,
       
       // Location directory structures
       `/location/${cityLower}`,
@@ -1118,6 +1146,17 @@ async function analyzeWebsite(websiteUrl, location) {
       `/cities/${cityLower}`,
       `/serving/${cityLower}`,
       `/serve/${cityLower}`,
+      
+      // Common patterns like "provo-custom-home-builder"
+      `${cityLower}-custom-`,
+      `${cityLower}-home-`,
+      `${cityLower}-house-`,
+      `${cityLower}-residential-`,
+      `${cityLower}-commercial-`,
+      `${cityLower}-builder`,
+      `${cityLower}-contractor`,
+      `${cityLower}-construction`,
+      `${cityLower}-service`,
       
       // State-based URLs (avoid short abbreviations that could match other things)
       ...(stateLower.length > 2 ? [
@@ -1137,18 +1176,32 @@ async function analyzeWebsite(websiteUrl, location) {
           `/${part}/`,
           `/${part}.html`,
           `/${part}.php`,
+          `/${part}-`,
           `/location/${part}`,
           `/locations/${part}`,
           `/service-area/${part}`,
-          `/areas/${part}`
+          `/areas/${part}`,
+          `${part}-custom-`,
+          `${part}-home-`,
+          `${part}-builder`
         ])
     ];
-    const hasLocalizedPage = localizedIndicators.some(indicator => htmlLower.includes(indicator));
+    
+    // Check current page content, linked pages, or if site has location directory
+    const hasLocalizedPage = hasLocationDirectory || 
+      localizedIndicators.some(indicator => htmlLower.includes(indicator)) ||
+      links.some(link => localizedIndicators.some(indicator => link.includes(indicator)));
     
     // Extract services for smart suggestions
     const services = extractServicesFromHTML(htmlContent);
     
     console.log(`${hasGBPEmbed ? '✅' : '❌'} GBP Embed | ${hasLocalizedPage ? '✅' : '❌'} Localized Page | ${services.length} services found`);
+    if (hasLocationDirectory) {
+      console.log(`✅ Found location directory structure on website`);
+    }
+    if (hasLocalizedPage && !hasLocationDirectory) {
+      console.log(`✅ Found localized page references for ${city}`);
+    }
     
     return {
       hasGBPEmbed: hasGBPEmbed,
@@ -4015,6 +4068,81 @@ app.post('/api/white-label', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error updating white label settings:', error);
     res.status(500).json({ error: 'Failed to update white label settings' });
+  }
+});
+
+// Update user account settings
+app.put('/api/user/update', authenticateToken, async (req, res) => {
+  try {
+    const { firstName, lastName, currentPassword, newPassword } = req.body;
+    const updates = [];
+    const values = [];
+    let valueIndex = 1;
+    
+    // Handle name updates
+    if (firstName !== undefined) {
+      updates.push(`first_name = $${valueIndex++}`);
+      values.push(firstName);
+    }
+    
+    if (lastName !== undefined) {
+      updates.push(`last_name = $${valueIndex++}`);
+      values.push(lastName);
+    }
+    
+    // Handle password update
+    if (newPassword && currentPassword) {
+      // Verify current password
+      const userResult = await db.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+      
+      if (!userResult.rows || userResult.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      const user = userResult.rows[0];
+      const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+      
+      if (!passwordMatch) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+      
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      updates.push(`password = $${valueIndex++}`);
+      values.push(hashedPassword);
+    }
+    
+    // Only update if there are changes
+    if (updates.length === 0) {
+      return res.json({ success: true, message: 'No changes to update' });
+    }
+    
+    // Add updated_at
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    
+    // Add user ID for WHERE clause
+    values.push(req.user.id);
+    
+    // Execute update
+    const updateQuery = `UPDATE users SET ${updates.join(', ')} WHERE id = $${valueIndex} RETURNING first_name, last_name`;
+    const result = await db.query(updateQuery, values);
+    
+    if (result.rows && result.rows.length > 0) {
+      res.json({
+        success: true,
+        message: 'Account settings updated successfully',
+        user: {
+          firstName: result.rows[0].first_name,
+          lastName: result.rows[0].last_name
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to update account settings' });
+    }
+    
+  } catch (error) {
+    console.error('Error updating user account:', error);
+    res.status(500).json({ error: 'Failed to update account settings' });
   }
 });
 
