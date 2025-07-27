@@ -2610,6 +2610,80 @@
         </div>
     </div>
 
+    <!-- Billing History Modal -->
+    <div id="billingHistoryModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 800px; width: 95%; margin: 2% auto; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>📋 Billing History</h2>
+                <span class="close-modal" onclick="closeBillingHistoryModal()">&times;</span>
+            </div>
+            <div style="padding: 30px;">
+                <div id="billingHistoryContent">
+                    <!-- Loading state -->
+                    <div id="billingHistoryLoading" style="text-align: center; padding: 40px;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">⏳</div>
+                        <p style="color: #666;">Loading your billing history...</p>
+                    </div>
+                    
+                    <!-- Empty state -->
+                    <div id="billingHistoryEmpty" class="hidden" style="text-align: center; padding: 40px;">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">💳</div>
+                        <h3 style="color: #0e192b; margin-bottom: 10px;">No Purchases Yet</h3>
+                        <p style="color: #666; margin-bottom: 20px;">Your billing history will appear here after your first purchase.</p>
+                        <button onclick="closeBillingHistoryModal(); showPricingModal();" 
+                            style="padding: 12px 24px; background: #0e192b; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            Browse Plans
+                        </button>
+                    </div>
+                    
+                    <!-- Error state -->
+                    <div id="billingHistoryError" class="hidden" style="text-align: center; padding: 40px;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                        <h3 style="color: #dc3545; margin-bottom: 10px;">Unable to Load Billing History</h3>
+                        <p style="color: #666; margin-bottom: 20px;">Please try again or contact support if the problem persists.</p>
+                        <button onclick="loadBillingHistory()" 
+                            style="padding: 12px 24px; background: #17a2b8; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            Try Again
+                        </button>
+                    </div>
+                    
+                    <!-- Billing history table -->
+                    <div id="billingHistoryTable" class="hidden">
+                        <div style="margin-bottom: 20px;">
+                            <h3 style="color: #0e192b; margin-bottom: 5px;">Purchase History</h3>
+                            <p style="color: #666; font-size: 0.9rem;">All your purchases and subscription payments</p>
+                        </div>
+                        
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <thead>
+                                    <tr style="background: #f8f9fa; border-bottom: 2px solid #e9ecef;">
+                                        <th style="padding: 15px; text-align: left; font-weight: 600; color: #0e192b;">Date</th>
+                                        <th style="padding: 15px; text-align: left; font-weight: 600; color: #0e192b;">Plan</th>
+                                        <th style="padding: 15px; text-align: center; font-weight: 600; color: #0e192b;">Credits</th>
+                                        <th style="padding: 15px; text-align: right; font-weight: 600; color: #0e192b;">Amount</th>
+                                        <th style="padding: 15px; text-align: center; font-weight: 600; color: #0e192b;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="billingHistoryTableBody">
+                                    <!-- Payment rows will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #17a2b8;">
+                            <h4 style="color: #0e192b; margin-bottom: 10px;">💡 Need Help?</h4>
+                            <p style="color: #666; margin: 0; font-size: 0.9rem;">
+                                For billing questions or refund requests, contact us at 
+                                <a href="mailto:trylocality@gmail.com" style="color: #17a2b8; text-decoration: none;">trylocality@gmail.com</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modern Pricing Modal -->
     <div id="pricingModal" class="pricing-modal hidden">
         <div class="pricing-modal-content">
@@ -3914,6 +3988,25 @@
             showToast('Please purchase credits to unlock the full report!', 'info');
         }
 
+        // Update credit display in UI
+        function updateCreditDisplay() {
+            if (!currentUser) return;
+            
+            // Update credits in dropdown menu
+            const menuCreditsCount = document.getElementById('menuCreditsCount');
+            if (menuCreditsCount) {
+                menuCreditsCount.textContent = currentUser.creditsRemaining;
+            }
+            
+            // Update credits in account settings modal if open
+            const accountCredits = document.getElementById('accountCredits');
+            if (accountCredits) {
+                accountCredits.textContent = currentUser.creditsRemaining || 0;
+            }
+            
+            console.log(`💳 Credit display updated: ${currentUser.creditsRemaining} credits remaining`);
+        }
+
         // Unlock the current report using credits
         async function unlockCurrentReport() {
             if (!currentReportData || !currentReportData.reportId) {
@@ -3929,12 +4022,41 @@
                 }
                 
                 // Remove the locked class to un-blur content
-                document.getElementById('reportSection').classList.remove('locked');
+                const reportSection = document.getElementById('reportSection');
+                if (reportSection) {
+                    reportSection.classList.remove('locked');
+                }
                 
-                // Update current report data and re-display
-                currentReportData = currentReportData;
+                // Update current report data to mark as unlocked
                 currentReportData.isLocked = false;
-                displayReport(currentReportData);
+                
+                // Ensure we're in the reports view and display the unlocked report
+                try {
+                    // Switch to reports view if not already there
+                    showSection('reports');
+                    
+                    // Re-display the full unlocked report immediately
+                    displayReport(currentReportData);
+                    
+                    // Scroll to top of report
+                    const reportSection = document.getElementById('reportSection');
+                    if (reportSection) {
+                        reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    
+                    console.log('🔓 Report successfully unlocked and displayed');
+                } catch (displayError) {
+                    console.error('Error displaying unlocked report:', displayError);
+                    // Fallback: show success message and suggest refresh
+                    showToast('Report unlocked! Refreshing page to display full report...', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                    return;
+                }
+                
+                // Show success message
+                showToast('Report unlocked! You can now view the full analysis.', 'success');
             });
         }
 
@@ -3957,7 +4079,12 @@
                     // Update user credits
                     if (currentUser) {
                         currentUser.creditsRemaining = data.creditsRemaining;
-                        updateCreditDisplay();
+                        // Safely update credit display
+                        try {
+                            updateCreditDisplay();
+                        } catch (updateError) {
+                            console.error('Error updating credit display:', updateError);
+                        }
                     }
 
                     console.log('🔓 Report unlocked successfully');
@@ -4389,16 +4516,14 @@
                                    currentReportData?.businessData?.name ||
                                    document.getElementById('reportBusinessName')?.textContent?.trim() || '';
                                    
-                const location = currentReportData?.location || 
-                                currentReportData?.business?.location ||
-                                currentReportData?.businessData?.location ||
-                                currentReportData?.city ||
-                                document.getElementById('reportLocation')?.textContent?.trim() || '';
+                const phoneNumber = currentReportData?.business?.phone ||
+                                  currentReportData?.businessData?.phone ||
+                                  currentReportData?.phone || '';
                 
-                console.log('🔍 Extracted business data:', { businessName, location });
+                console.log('🔍 Extracted business data:', { businessName, phoneNumber });
                 
-                if (!businessName || !location) {
-                    throw new Error('Business information not available. Please ensure a report is loaded.');
+                if (!businessName) {
+                    throw new Error('Business name not available. Please ensure a report is loaded.');
                 }
                 
                 // Make API call - get fresh token from localStorage
@@ -4416,7 +4541,7 @@
                 const reportId = currentReportData?.reportId;
                 const requestPayload = {
                     businessName,
-                    location,
+                    phoneNumber,
                     reportId
                 };
                 
@@ -4798,8 +4923,107 @@ I'd like to discuss getting citations built for the missing directories identifi
         
         function handleBillingHistory() {
             closeAccountMenu();
-            // Placeholder for billing history functionality
-            showToast('Billing history feature coming soon!', 'info');
+            showBillingHistoryModal();
+        }
+        
+        // Billing History Modal Functions
+        function showBillingHistoryModal() {
+            document.getElementById('billingHistoryModal').classList.remove('hidden');
+            document.getElementById('billingHistoryModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            loadBillingHistory();
+        }
+        
+        function closeBillingHistoryModal() {
+            document.getElementById('billingHistoryModal').classList.remove('show');
+            document.getElementById('billingHistoryModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+        
+        async function loadBillingHistory() {
+            try {
+                // Show loading state
+                document.getElementById('billingHistoryLoading').classList.remove('hidden');
+                document.getElementById('billingHistoryEmpty').classList.add('hidden');
+                document.getElementById('billingHistoryError').classList.add('hidden');
+                document.getElementById('billingHistoryTable').classList.add('hidden');
+                
+                console.log('🔍 Loading billing history...');
+                
+                const response = await fetch('/api/billing-history', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    console.log(`✅ Loaded ${data.payments.length} payment records`);
+                    
+                    // Hide loading state
+                    document.getElementById('billingHistoryLoading').classList.add('hidden');
+                    
+                    if (data.payments.length === 0) {
+                        // Show empty state
+                        document.getElementById('billingHistoryEmpty').classList.remove('hidden');
+                    } else {
+                        // Show billing history table
+                        displayBillingHistory(data.payments);
+                        document.getElementById('billingHistoryTable').classList.remove('hidden');
+                    }
+                } else {
+                    throw new Error(data.error || 'Failed to load billing history');
+                }
+                
+            } catch (error) {
+                console.error('❌ Billing history error:', error);
+                
+                // Hide loading state and show error
+                document.getElementById('billingHistoryLoading').classList.add('hidden');
+                document.getElementById('billingHistoryError').classList.remove('hidden');
+                
+                showToast('Failed to load billing history', 'error');
+            }
+        }
+        
+        function displayBillingHistory(payments) {
+            const tbody = document.getElementById('billingHistoryTableBody');
+            tbody.innerHTML = '';
+            
+            payments.forEach((payment, index) => {
+                const row = document.createElement('tr');
+                row.style.borderBottom = '1px solid #e9ecef';
+                
+                // Alternate row colors
+                if (index % 2 === 0) {
+                    row.style.backgroundColor = '#fafafa';
+                }
+                
+                // Add hover effect
+                row.onmouseover = () => row.style.backgroundColor = '#f0f8ff';
+                row.onmouseout = () => row.style.backgroundColor = index % 2 === 0 ? '#fafafa' : 'white';
+                
+                // Status badge styling
+                let statusBadge = '';
+                if (payment.status === 'Completed') {
+                    statusBadge = `<span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">✅ ${payment.status}</span>`;
+                } else {
+                    statusBadge = `<span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">❌ ${payment.status}</span>`;
+                }
+                
+                row.innerHTML = `
+                    <td style="padding: 15px; color: #333;">${payment.date}</td>
+                    <td style="padding: 15px; color: #333; font-weight: 500;">${payment.planType}</td>
+                    <td style="padding: 15px; text-align: center; color: #0e192b; font-weight: 600;">${payment.credits}</td>
+                    <td style="padding: 15px; text-align: right; color: #0e192b; font-weight: 600; font-size: 1.1rem;">$${payment.amount}</td>
+                    <td style="padding: 15px; text-align: center;">${statusBadge}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            console.log(`📊 Displayed ${payments.length} payment records in table`);
         }
         
         function handleSupportHelp() {

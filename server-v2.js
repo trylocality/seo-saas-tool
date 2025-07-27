@@ -953,17 +953,19 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
   }
 }
 // 4. CITATION CHECKER - Check presence in major directories
-async function checkCitations(businessName, location) {
+async function checkCitations(businessName, phoneNumber) {
   try {
-    console.log(`🔍 Checking citations: ${businessName} in ${location}`);
+    console.log(`🔍 Checking citations: ${businessName} with phone ${phoneNumber}`);
     
     if (!SERPAPI_KEY) {
       throw new Error('SerpAPI key not configured');
     }
     
-    // Parse location for better citation searches
-    const { city, state, isCounty } = extractCityState(location);
-    const searchLocation = isCounty ? `${city} County ${state}` : location;
+    // Generate phone number search patterns for flexible matching
+    const phonePatterns = generatePhoneSearchPatterns(phoneNumber);
+    if (phonePatterns.length === 0) {
+      console.warn('⚠️ No valid phone patterns generated, using business name only');
+    }
     
     const directories = [
       { name: 'Angi', domain: 'angi.com' },
@@ -983,39 +985,77 @@ async function checkCitations(businessName, location) {
     
     for (const directory of directories) {
       try {
-        const searchQuery = `site:${directory.domain} "${businessName}" ${searchLocation}`;
+        // Create search query with business name and phone patterns
+        let searchQuery;
+        if (phonePatterns.length > 0) {
+          // Use the most common phone pattern (first one) for the search
+          const primaryPhone = phonePatterns[0];
+          searchQuery = `site:${directory.domain} "${businessName}" "${primaryPhone}"`;
+        } else {
+          // Fallback to name only if no phone patterns
+          searchQuery = `site:${directory.domain} "${businessName}"`;
+        }
         
-        // Detect location for better search results
-        const { region } = detectCountryRegion(location);
-        const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+        // Use US as default region for citations
+        const googleDomain = 'google.com';
         
         const response = await axios.get('https://serpapi.com/search.json', {
           params: {
             engine: 'google',
             q: searchQuery,
             api_key: SERPAPI_KEY,
-            num: 3,
+            num: 5, // Get more results to check phone number matches
             google_domain: googleDomain,
-            gl: region.toLowerCase(),
+            gl: 'us',
             hl: 'en'
           },
           timeout: 10000
         });
         
-        const hasResults = response.data.organic_results && response.data.organic_results.length > 0;
+        // Enhanced validation: check if results contain both business name and phone number
+        let hasValidResults = false;
+        let bestResult = null;
+        
+        if (response.data.organic_results && response.data.organic_results.length > 0) {
+          for (const result of response.data.organic_results) {
+            const resultText = `${result.title || ''} ${result.snippet || ''}`.toLowerCase();
+            const businessNameFound = resultText.includes(businessName.toLowerCase());
+            
+            // Check if any phone pattern matches the result text
+            let phoneFound = false;
+            if (phonePatterns.length > 0) {
+              phoneFound = phonePatterns.some(pattern => 
+                resultText.includes(pattern.toLowerCase()) ||
+                resultText.includes(normalizePhoneNumber(pattern))
+              );
+            } else {
+              // If no phone provided, just check business name
+              phoneFound = true;
+            }
+            
+            if (businessNameFound && phoneFound) {
+              hasValidResults = true;
+              bestResult = result;
+              break;
+            }
+          }
+        }
         
         checked.push({
           directory: directory.name,
           domain: directory.domain,
-          found: hasResults,
-          searchQuery: searchQuery
+          found: hasValidResults,
+          searchQuery: searchQuery,
+          matchType: hasValidResults ? 'name+phone' : 'none'
         });
         
-        if (hasResults) {
+        if (hasValidResults && bestResult) {
           found.push({
             directory: directory.name,
             domain: directory.domain,
-            url: response.data.organic_results[0].link
+            url: bestResult.link,
+            title: bestResult.title,
+            matchType: 'name+phone'
           });
         }
         
@@ -1223,7 +1263,149 @@ async function analyzeWebsite(websiteUrl, location) {
   }
 }
 
-// 7. Q&A ANALYSIS - Get Q&A data directly from SerpAPI
+// 7. Q&A ANALYSIS - Enhanced Q&A detection using ScrapingBee
+async function analyzeQAWithScraping(businessName, location, placeId) {
+  try {
+    console.log(`❓ Analyzing Q&A with ScrapingBee: ${businessName}`);
+    
+    if (!SCRAPINGBEE_API_KEY) {
+      console.log('⚠️ ScrapingBee API key not configured, falling back to SerpAPI');
+      return await analyzeQuestionsAndAnswers(businessName, location, placeId);
+    }
+    
+    // Construct Google Maps URL for the business
+    let mapsUrl;
+    if (placeId) {
+      // Use place_id if available for more accurate results
+      mapsUrl = `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+    } else {
+      // Fallback to search-based URL
+      const { city, state, isCounty } = extractCityState(location);
+      const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
+      mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`;
+    }
+    
+    console.log(`📍 Using Maps URL: ${mapsUrl.substring(0, 100)}...`);
+    
+    // Use ScrapingBee to get the Maps page HTML
+    const response = await axios.get('https://app.scrapingbee.com/api/v1', {
+      params: {
+        api_key: SCRAPINGBEE_API_KEY,
+        url: mapsUrl,
+        custom_google: 'true',
+        premium_proxy: 'true', // Required for Google Maps
+        render_js: 'true',
+        wait: '5000', // Wait for Q&A section to load
+        window_width: '1920',
+        window_height: '1080'
+      },
+      timeout: 60000 // Give it more time due to premium proxy
+    });
+    
+    const html = response.data;
+    console.log(`📄 Retrieved HTML (${html.length} characters)`);
+    
+    // Check for Q&A indicators
+    const qaIndicators = [
+      'Questions & answers',
+      'Questions and answers',
+      'Ask a question',
+      'Be the first to ask a question',
+      'questions have been asked',
+      'Most relevant questions'
+    ];
+    
+    let hasQA = false;
+    let qaIndicatorFound = '';
+    
+    for (const indicator of qaIndicators) {
+      if (html.includes(indicator)) {
+        hasQA = true;
+        qaIndicatorFound = indicator;
+        console.log(`✅ Found Q&A indicator: "${indicator}"`);
+        break;
+      }
+    }
+    
+    if (!hasQA) {
+      console.log('❌ No Q&A section found');
+      return {
+        hasQA: false,
+        questionCount: 0,
+        questions: [],
+        note: 'No Q&A section detected on Google Maps page'
+      };
+    }
+    
+    // Extract questions from aria-labels
+    const questionPattern = /aria-label="([^"]+\?[^"]*)"/g;
+    const questions = [];
+    let match;
+    
+    while ((match = questionPattern.exec(html)) !== null) {
+      const question = match[1].trim();
+      // Validate it's actually a question
+      if (question.length > 10 && question.includes('?')) {
+        questions.push(question);
+      }
+    }
+    
+    // Also look for questions in other patterns
+    const altQuestionPattern = /<span[^>]*>([^<]+\?[^<]*)<\/span>/g;
+    while ((match = altQuestionPattern.exec(html)) !== null) {
+      const question = match[1].trim();
+      if (question.length > 10 && question.includes('?') && !questions.includes(question)) {
+        questions.push(question);
+      }
+    }
+    
+    // Check if Q&A section exists but is empty
+    if (hasQA && questions.length === 0) {
+      if (html.includes('Be the first to ask a question')) {
+        console.log('📝 Q&A section exists but no questions have been asked yet');
+        return {
+          hasQA: true,
+          questionCount: 0,
+          questions: [],
+          note: 'Q&A section exists but no questions have been asked yet'
+        };
+      }
+    }
+    
+    console.log(`✅ Found ${questions.length} questions in Q&A section`);
+    if (questions.length > 0) {
+      console.log('🔍 Sample questions:', questions.slice(0, 2));
+    }
+    
+    return {
+      hasQA: true,
+      questionCount: questions.length,
+      questions: questions.slice(0, 5), // Store first 5 for reference
+      note: questions.length > 0 
+        ? `Found ${questions.length} questions and answers`
+        : 'Q&A section exists but no questions detected'
+    };
+    
+  } catch (error) {
+    console.error('❌ ScrapingBee Q&A analysis error:', error.message);
+    console.log('🔄 Falling back to SerpAPI Q&A analysis');
+    
+    // Fallback to the original SerpAPI method
+    try {
+      return await analyzeQuestionsAndAnswers(businessName, location, placeId);
+    } catch (fallbackError) {
+      console.error('❌ Fallback Q&A analysis also failed:', fallbackError.message);
+      return { 
+        hasQA: false,
+        questionCount: 0,
+        questions: [],
+        note: `Q&A analysis failed: ${error.message}`
+      };
+    }
+  }
+}
+
+// 7. Q&A ANALYSIS (LEGACY) - Get Q&A data directly from SerpAPI
 async function analyzeQuestionsAndAnswers(businessName, location, placeId) {
   try {
     console.log(`❓ Analyzing Q&A for: ${businessName}`);
@@ -2192,7 +2374,10 @@ async function generateCompleteReport(businessName, location, industry, website,
     
     // Screenshot and Citations (independent)
     foundationPromises.push(takeBusinessProfileScreenshot(businessName, location));
-    foundationPromises.push(checkCitations(businessName, location));
+    
+    // For citations, we need the phone number from business data
+    // Since we need to wait for business data to get phone, we'll handle citations separately
+    foundationPromises.push(Promise.resolve(null)); // Placeholder for citations
     
     const foundationResults = await Promise.allSettled(foundationPromises);
     
@@ -2205,9 +2390,16 @@ async function generateCompleteReport(businessName, location, industry, website,
       ? foundationResults[1].value 
       : null;
     
-    const citations = foundationResults[2].status === 'fulfilled' 
-      ? foundationResults[2].value 
-      : getFallbackCitations();
+    // Now check citations with phone number from business data
+    console.log(`📞 Checking citations with phone: ${businessData.phone || 'No phone available'}`);
+    let citations;
+    try {
+      citations = await checkCitations(businessName, businessData.phone || '');
+    } catch (citationError) {
+      console.error('❌ Citation check failed:', citationError.message);
+      citations = getFallbackCitations();
+      errors.push(`Citations: ${citationError.message}`);
+    }
     
     // Log any foundation failures
     foundationResults.forEach((result, index) => {
@@ -2224,7 +2416,7 @@ async function generateCompleteReport(businessName, location, industry, website,
     console.log('📊 Group 2: Running dependent analysis in parallel...');
     const analysisPromises = [
       analyzeReviews(businessName, location, businessData.place_id),
-      analyzeQuestionsAndAnswers(businessName, location, businessData.place_id),
+      analyzeQAWithScraping(businessName, location, businessData.place_id),
       analyzeWebsite(businessData.website || website, location)
     ];
     
@@ -2436,6 +2628,54 @@ async function generateCompleteReport(businessName, location, industry, website,
 // ==========================================
 // HELPER FUNCTIONS
 // ==========================================
+
+// Normalize phone number for flexible matching
+function normalizePhoneNumber(phone) {
+  if (!phone) return '';
+  
+  // Remove all non-digit characters
+  const digitsOnly = phone.replace(/\D/g, '');
+  
+  // Return just the digits for comparison
+  return digitsOnly;
+}
+
+// Generate flexible phone number search patterns
+function generatePhoneSearchPatterns(phone) {
+  if (!phone) return [];
+  
+  const normalized = normalizePhoneNumber(phone);
+  if (normalized.length < 10) return [];
+  
+  // Extract parts (assuming US phone format)
+  const areaCode = normalized.slice(-10, -7);
+  const prefix = normalized.slice(-7, -4);
+  const number = normalized.slice(-4);
+  
+  const patterns = [
+    // Standard formats
+    `(${areaCode}) ${prefix}-${number}`,
+    `${areaCode}-${prefix}-${number}`,
+    `${areaCode}.${prefix}.${number}`,
+    `${areaCode} ${prefix} ${number}`,
+    // No separators
+    `${areaCode}${prefix}${number}`,
+    // Parentheses only around area code
+    `(${areaCode})${prefix}-${number}`,
+    `(${areaCode}) ${prefix}${number}`,
+    // With country code variations
+    `1-${areaCode}-${prefix}-${number}`,
+    `+1 ${areaCode} ${prefix} ${number}`,
+    `+1-${areaCode}-${prefix}-${number}`,
+    // Partial matches for citations that might truncate
+    `${areaCode}-${prefix}`,
+    `(${areaCode}) ${prefix}`,
+    // Just the area code and first 3 digits
+    `${areaCode}${prefix}`
+  ];
+  
+  return patterns;
+}
 
 function getScoreGrade(score) {
   if (score >= 90) return 'A';
@@ -3281,14 +3521,14 @@ app.post('/api/reports/:id/unlock', authenticateToken, async (req, res) => {
 // Detailed Citation Analysis endpoint
 app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) => {
   try {
-    const { businessName, location, reportId } = req.body;
+    const { businessName, phoneNumber, reportId } = req.body;
     
     console.log(`🔍 Detailed citation analysis request received`);
     console.log(`🔍 Request body:`, req.body);
     
-    if (!businessName || !location) {
-      console.error('❌ Missing required fields:', { businessName, location });
-      return res.status(400).json({ error: 'Business name and location are required' });
+    if (!businessName) {
+      console.error('❌ Missing required fields:', { businessName, phoneNumber });
+      return res.status(400).json({ error: 'Business name is required' });
     }
     
     // Check for SERPAPI key
@@ -3297,12 +3537,14 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
       return res.status(500).json({ error: 'Citation analysis service not configured. Please contact support.' });
     }
 
-    console.log(`🔍 Starting detailed citation analysis for: ${businessName} in ${location}`);
+    console.log(`🔍 Starting detailed citation analysis for: ${businessName} with phone: ${phoneNumber || 'none'}`);
     
-    // Parse location for better search results
-    const { city, state, isCounty } = extractCityState(location);
-    const searchLocation = isCounty ? `${city} County ${state}` : location;
-    console.log(`🔍 Using search location: ${searchLocation}`);
+    // Generate phone patterns for flexible matching
+    const phonePatterns = generatePhoneSearchPatterns(phoneNumber);
+    if (phonePatterns.length === 0 && phoneNumber) {
+      console.warn('⚠️ No valid phone patterns generated from provided number');
+    }
+    console.log(`🔍 Generated ${phonePatterns.length} phone search patterns`);
 
     // Define 40 premium directories grouped into sets of 4
     const premiumDirectories = [
@@ -3379,8 +3621,6 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
     ];
 
     const results = [];
-    const { region } = detectCountryRegion(location);
-    const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
 
     // Process each group of 4 directories
     console.log(`📊 Processing ${premiumDirectories.length} groups of directories...`);
@@ -3390,7 +3630,15 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
       try {
         // Create OR query for the group of 4 directories
         const siteQueries = group.map(dir => `site:${dir.domain}`).join(' OR ');
-        const searchQuery = `(${siteQueries}) "${businessName}" ${searchLocation}`;
+        
+        // Create search query with phone number if available
+        let searchQuery;
+        if (phonePatterns.length > 0) {
+          const primaryPhone = phonePatterns[0]; // Use most common format
+          searchQuery = `(${siteQueries}) "${businessName}" "${primaryPhone}"`;
+        } else {
+          searchQuery = `(${siteQueries}) "${businessName}"`;
+        }
         
         console.log(`🔍 Group ${groupIndex + 1}/10: Searching ${group.map(d => d.name).join(', ')}`);
         console.log(`🔍 Search query: ${searchQuery}`);
@@ -3401,24 +3649,56 @@ app.post('/api/detailed-citation-analysis', authenticateToken, async (req, res) 
             q: searchQuery,
             api_key: SERPAPI_KEY,
             num: 10, // More results to catch all 4 potential directories
-            google_domain: googleDomain,
-            gl: region.toLowerCase(),
+            google_domain: 'google.com',
+            gl: 'us',
             hl: 'en'
           },
           timeout: 10000
         });
 
-        // Process results for each directory in the group
+        // Process results for each directory in the group with enhanced validation
         group.forEach(directory => {
-          const found = response.data.organic_results?.some(result => 
-            result.link && result.link.includes(directory.domain)
-          ) || false;
+          let found = false;
+          let matchType = 'none';
+          
+          if (response.data.organic_results) {
+            for (const result of response.data.organic_results) {
+              if (result.link && result.link.includes(directory.domain)) {
+                const resultText = `${result.title || ''} ${result.snippet || ''}`.toLowerCase();
+                const businessNameFound = resultText.includes(businessName.toLowerCase());
+                
+                // Check if any phone pattern matches the result text
+                let phoneFound = false;
+                if (phonePatterns.length > 0) {
+                  phoneFound = phonePatterns.some(pattern => 
+                    resultText.includes(pattern.toLowerCase()) ||
+                    resultText.includes(normalizePhoneNumber(pattern))
+                  );
+                } else {
+                  // If no phone provided, just check business name
+                  phoneFound = true;
+                }
+                
+                if (businessNameFound && phoneFound) {
+                  found = true;
+                  matchType = phonePatterns.length > 0 ? 'name+phone' : 'name-only';
+                  break;
+                } else if (businessNameFound) {
+                  // Business name found but no phone match
+                  found = true;
+                  matchType = 'name-only';
+                  break;
+                }
+              }
+            }
+          }
 
           results.push({
             name: directory.name,
             domain: directory.domain,
             found: found,
-            status: found ? 'FOUND' : 'MISSING'
+            status: found ? 'FOUND' : 'MISSING',
+            matchType: matchType
           });
         });
 
@@ -4087,6 +4367,69 @@ app.post('/api/stripe-webhook', async (req, res) => {
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
+
+// Billing History endpoint
+app.get('/api/billing-history', authenticateToken, async (req, res) => {
+  try {
+    console.log(`📋 Fetching billing history for user ${req.user.id}`);
+    
+    // Get all payments for this user
+    const payments = await db.query(`
+      SELECT 
+        stripe_session_id,
+        stripe_payment_intent_id,
+        amount,
+        status,
+        product_type,
+        credits_purchased,
+        created_at
+      FROM payments 
+      WHERE user_id = $1 
+      ORDER BY created_at DESC
+    `, [req.user.id]);
+    
+    // Format the payment data for display
+    const formattedPayments = payments.rows.map(payment => ({
+      id: payment.stripe_session_id,
+      date: new Date(payment.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      amount: (payment.amount / 100).toFixed(2), // Convert cents to dollars
+      credits: payment.credits_purchased,
+      planType: formatPlanName(payment.product_type),
+      status: payment.status.charAt(0).toUpperCase() + payment.status.slice(1),
+      stripeSessionId: payment.stripe_session_id
+    }));
+    
+    console.log(`✅ Found ${formattedPayments.length} payments for user`);
+    
+    res.json({
+      success: true,
+      payments: formattedPayments,
+      totalPayments: formattedPayments.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Billing history error:', error);
+    res.status(500).json({ error: 'Failed to fetch billing history' });
+  }
+});
+
+// Helper function to format plan names for display
+function formatPlanName(productType) {
+  const planNames = {
+    'oneTime': 'Single Report',
+    'pro': 'Pro Plan (50 Credits)',
+    'premium': 'Premium Plan (100 Credits)',
+    'starter': 'Pro Plan (50 Credits)', // Legacy compatibility
+    'professional': 'Premium Plan (100 Credits)'
+  };
+  return planNames[productType] || productType;
+}
 
 // DEBUG: Check recent payments and webhook activity
 app.get('/api/debug/payments', authenticateToken, async (req, res) => {
