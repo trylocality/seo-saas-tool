@@ -1830,17 +1830,21 @@
 }
 
 /* Stronger blur for locked content */
-.report-section.locked .factors-compact-grid {
+#reportSection.locked .factors-compact-grid,
+#reportSection.locked #factorsGrid,
+#reportSection.locked .factor-item-compact {
     filter: blur(12px);
     opacity: 0.3;
     pointer-events: none !important;
     user-select: none;
 }
 
-.report-section.locked .citations-row,
-.report-section.locked .action-plan-section {
+#reportSection.locked .citations-row,
+#reportSection.locked #citationsSection,
+#reportSection.locked .action-plan-section,
+#reportSection.locked #actionPlanSection {
     filter: blur(12px);
-    opacity: 0.2;
+    opacity: 0.3;
     pointer-events: none !important;
     user-select: none;
 }
@@ -2502,7 +2506,7 @@
 
     <!-- Account Settings Modal -->
     <div id="accountSettingsModal" class="modal hidden">
-        <div class="modal-content" style="max-width: 600px; width: 95%;">
+        <div class="modal-content" style="max-width: 600px; width: 95%; margin: 2% auto; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
                 <h2>Account Settings</h2>
                 <span class="close-modal" onclick="closeAccountSettingsModal()">&times;</span>
@@ -2844,6 +2848,7 @@
             console.log('🔍 Checking authentication...');
             try {
                 await checkAuth();
+                showDashboard(); // Explicitly show dashboard on initial load
             } catch (authError) {
                 console.error('❌ Auth check failed, showing login:', authError);
                 showLogin();
@@ -3121,7 +3126,7 @@
                     const data = await response.json();
                     currentUser = data.user;
                     updateDashboard();
-                    showDashboard();
+                    // Don't automatically redirect to dashboard - let calling function decide
                     console.log('✅ User authenticated:', currentUser.firstName);
                 } else {
                     console.log('❌ Token invalid (status:', response.status, '), clearing auth state...');
@@ -3754,7 +3759,19 @@
             const actualOpportunities = calculateOptimizationOpportunities(factors);
             
             // First, display everything normally using the regular functions
-            displayFactorsCompact(factors, {});
+            // Convert factors object to array format for displayFactorsCompact
+            let factorsArray = factors;
+            if (!Array.isArray(factors) && typeof factors === 'object') {
+                factorsArray = Object.keys(factors).map(id => ({
+                    id: id,
+                    name: factors[id].title || factors[id].name,
+                    status: factors[id].status,
+                    message: factors[id].message,
+                    score: factors[id].score,
+                    maxScore: factors[id].maxScore
+                }));
+            }
+            displayFactorsCompact(factorsArray, {});
             
             // Display citations with sample data
             const fallbackCitations = {
@@ -5697,7 +5714,11 @@ I'd like to discuss getting citations built for the missing directories identifi
         // INITIALIZATION
         // ==========================================
         document.addEventListener('DOMContentLoaded', () => {
-            checkAuth();
+            if (authToken) {
+                checkAuth().then(() => showDashboard());
+            } else {
+                showLogin();
+            }
         });
     </script>
 </body>

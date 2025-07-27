@@ -45,11 +45,11 @@ if (missingKeys.length > 0) {
   process.exit(1);
 }
 
-// Stripe Configuration
+// Stripe Configuration  
 const STRIPE_PRICES = {
   oneTime: process.env.STRIPE_PRICE_ONE_TIME || 'price_1Ro50jDEq7s1BPEYpT3Hexlh',
-  starter: process.env.STRIPE_PRICE_STARTER || 'price_1Ro501DEq7s1BPEYrXB78dyu',
-  pro: process.env.STRIPE_PRICE_PRO || 'price_1ReR1MDEq7s1BPEYHzSW0uTn'
+  pro: process.env.STRIPE_PRICE_STARTER || 'price_1Ro501DEq7s1BPEYrXB78dyu', // 50 credits - renamed from starter to pro
+  premium: process.env.STRIPE_PRICE_PRO || 'price_1ReR1MDEq7s1BPEYHzSW0uTn'  // 100 credits - renamed from pro to premium
 };
 
 const CREDIT_AMOUNTS = {
@@ -1234,6 +1234,7 @@ async function analyzeQuestionsAndAnswers(businessName, location, placeId) {
     
     // First get place_id if we don't have a reliable one
     let businessPlaceId = placeId;
+    console.log(`🔍 Q&A Analysis starting with place_id: ${businessPlaceId || 'NOT PROVIDED'}`);
     
     if (!businessPlaceId) {
       console.log('🔍 Getting place_id for Q&A analysis...');
@@ -1284,6 +1285,12 @@ async function analyzeQuestionsAndAnswers(businessName, location, placeId) {
     });
     
     console.log('📊 Q&A Response received');
+    console.log('🔍 DEBUG - QA Response structure:', {
+      hasPlaceResult: !!qaResponse.data.place_result,
+      placeResultKeys: qaResponse.data.place_result ? Object.keys(qaResponse.data.place_result) : [],
+      hasQuestionsAndAnswers: !!qaResponse.data.place_result?.questions_and_answers,
+      qaLength: qaResponse.data.place_result?.questions_and_answers?.length || 0
+    });
     
     // Extract Q&A data from response
     const placeResults = qaResponse.data.place_result;
@@ -1291,6 +1298,7 @@ async function analyzeQuestionsAndAnswers(businessName, location, placeId) {
     
     if (questionsAndAnswers.length > 0) {
       console.log(`✅ Found ${questionsAndAnswers.length} Q&A items`);
+      console.log('🔍 Sample Q&A:', questionsAndAnswers.slice(0, 2));
       
       return {
         hasQA: true,
@@ -1299,12 +1307,13 @@ async function analyzeQuestionsAndAnswers(businessName, location, placeId) {
         note: `Found ${questionsAndAnswers.length} questions and answers`
       };
     } else {
-      console.log('❌ No Q&A found');
+      console.log('❌ No Q&A found in response');
+      console.log('🔍 Full response structure:', JSON.stringify(qaResponse.data, null, 2));
       return {
         hasQA: false,
         questionCount: 0,
         questions: [],
-        note: 'No questions and answers found'
+        note: 'No questions and answers found in API response'
       };
     }
     
@@ -2245,12 +2254,22 @@ async function generateCompleteReport(businessName, location, industry, website,
       ? analysisResults[3].value 
       : getFallbackAIAnalysis();
     
-    // Log any analysis failures
+    // Log any analysis failures with detailed debugging
     analysisResults.forEach((result, index) => {
+      const stepNames = ['Reviews', 'Q&A', 'Website', 'AI Analysis'];
       if (result.status === 'rejected') {
-        const stepNames = ['Reviews', 'Q&A', 'Website', 'AI Analysis'];
         errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
-        console.log(`⚠️ ${stepNames[index]} failed: ${result.reason?.message}`);
+        console.log(`❌ ${stepNames[index]} FAILED: ${result.reason?.message}`);
+        console.log(`🔍 Full error:`, result.reason);
+      } else {
+        console.log(`✅ ${stepNames[index]} succeeded`);
+        if (index === 1) { // Q&A analysis
+          console.log(`🔍 Q&A Result:`, {
+            hasQA: result.value?.hasQA,
+            questionCount: result.value?.questionCount,
+            note: result.value?.note
+          });
+        }
       }
     });
     
@@ -3979,7 +3998,16 @@ app.post('/api/stripe-webhook', async (req, res) => {
         // Handle successful payment
         const userId = parseInt(session.metadata.userId);
         const credits = parseInt(session.metadata.credits);
-        const priceType = session.metadata.priceType;
+        let priceType = session.metadata.priceType;
+        
+        // Handle backward compatibility for old plan names
+        if (priceType === 'starter') {
+          priceType = 'pro'; // Map old 'starter' to new 'pro'
+          console.log('🔄 Mapped legacy "starter" plan to "pro"');
+        } else if (priceType === 'pro') {
+          priceType = 'premium'; // Map old 'pro' to new 'premium'  
+          console.log('🔄 Mapped legacy "pro" plan to "premium"');
+        }
         
         // Check for duplicate payment processing
         const existingPayment = await db.query(
