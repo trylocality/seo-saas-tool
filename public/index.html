@@ -2682,7 +2682,7 @@
                             </ul>
                         </div>
 
-                        <button class="pricing-modal-button pricing-modal-btn-primary" onclick="subscribePlanModal('starter')">
+                        <button class="pricing-modal-button pricing-modal-btn-primary" onclick="subscribePlanModal('pro')">
                             Get Started
                         </button>
                     </div>
@@ -2724,6 +2724,19 @@
         function clearReportState() {
             console.log('🧹 Clearing report state...');
             currentReportData = null;
+            
+            // Remove any unlock overlay that might be showing
+            const unlockOverlay = document.getElementById('unlockReportOverlay');
+            if (unlockOverlay) {
+                unlockOverlay.remove();
+                console.log('🧹 Removed unlock overlay during state clear');
+            }
+            
+            // Remove locked class from report section
+            const reportSection = document.getElementById('reportSection');
+            if (reportSection) {
+                reportSection.classList.remove('locked');
+            }
             
             // Clear report elements with null checks
             const reportBusinessName = document.getElementById('reportBusinessName');
@@ -2980,6 +2993,7 @@
         // Navigation functions
         function showLogin() {
             hideAllSections();
+            clearReportState(); // Clear any stale report data and overlays
             const loginSection = document.getElementById('loginSection');
             if (loginSection) {
                 loginSection.classList.remove('hidden');
@@ -2991,11 +3005,13 @@
 
         function showSignup() {
             hideAllSections();
+            clearReportState(); // Clear any stale report data and overlays
             document.getElementById('signupSection').classList.remove('hidden');
         }
 
         function showForgotPassword() {
             hideAllSections();
+            clearReportState(); // Clear any stale report data and overlays
             document.getElementById('forgotPasswordSection').classList.remove('hidden');
         }
 
@@ -3755,6 +3771,12 @@
         function displayLockedReport(factors, optimizationOpportunities) {
             console.log('🔒 Displaying locked report with blur overlay');
             
+            // Remove any existing unlock overlay first
+            const existingOverlay = document.getElementById('unlockReportOverlay');
+            if (existingOverlay) {
+                existingOverlay.remove();
+            }
+            
             // Calculate actual optimization opportunities from factors
             const actualOpportunities = calculateOptimizationOpportunities(factors);
             
@@ -3900,6 +3922,15 @@
             }
 
             await unlockReport(currentReportData.reportId, () => {
+                // Remove the unlock overlay
+                const overlay = document.getElementById('unlockReportOverlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+                
+                // Remove the locked class to un-blur content
+                document.getElementById('reportSection').classList.remove('locked');
+                
                 // Update current report data and re-display
                 currentReportData = currentReportData;
                 currentReportData.isLocked = false;
@@ -4868,9 +4899,11 @@ I'd like to discuss getting citations built for the missing directories identifi
         function formatPlanName(tier) {
             const planNames = {
                 'free': 'Free',
-                'starter': 'Starter',
-                'professional': 'Professional',
-                'agency': 'Agency',
+                'pro': 'Pro',
+                'premium': 'Premium',
+                'starter': 'Pro', // Backward compatibility
+                'professional': 'Premium',
+                'agency': 'Premium',
                 'unlimited': 'Unlimited'
             };
             return planNames[tier] || tier.charAt(0).toUpperCase() + tier.slice(1);
@@ -5306,6 +5339,12 @@ I'd like to discuss getting citations built for the missing directories identifi
 
         // Pricing Modal Functions
         function showPricingModal(highlightSingle = false) {
+            // Remove any unlock overlay when opening pricing modal
+            const unlockOverlay = document.getElementById('unlockReportOverlay');
+            if (unlockOverlay) {
+                unlockOverlay.remove();
+            }
+            
             const modal = document.getElementById('pricingModal');
             modal.classList.remove('hidden');
             modal.style.display = 'flex';

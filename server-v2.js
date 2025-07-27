@@ -3931,8 +3931,12 @@ app.use((err, req, res, next) => {
 app.post('/api/create-checkout-session', authenticateToken, async (req, res) => {
   try {
     const { priceType } = req.body;
+    console.log(`🛒 Checkout session request - priceType: "${priceType}", type: ${typeof priceType}`);
+    console.log(`🛒 Available price types:`, Object.keys(STRIPE_PRICES));
+    console.log(`🛒 Full request body:`, req.body);
     
     if (!['oneTime', 'pro', 'premium'].includes(priceType)) {
+      console.log(`❌ Invalid price type "${priceType}" - not in allowed list`);
       return res.status(400).json({ error: 'Invalid price type' });
     }
     
