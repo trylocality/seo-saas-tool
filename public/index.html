@@ -1833,8 +1833,8 @@
 #reportSection.locked .factors-compact-grid,
 #reportSection.locked #factorsGrid,
 #reportSection.locked .factor-item-compact {
-    filter: blur(12px);
-    opacity: 0.3;
+    filter: blur(4px);
+    opacity: 0.5;
     pointer-events: none !important;
     user-select: none;
 }
@@ -1843,8 +1843,8 @@
 #reportSection.locked #citationsSection,
 #reportSection.locked .action-plan-section,
 #reportSection.locked #actionPlanSection {
-    filter: blur(12px);
-    opacity: 0.3;
+    filter: blur(4px);
+    opacity: 0.5;
     pointer-events: none !important;
     user-select: none;
 }
@@ -3793,13 +3793,15 @@
             displayCitationsRow(fallbackCitations);
             
             // Display action plan with sample data
-            const fallbackActionPlan = [
-                { task: 'Optimize Business Description', priority: 'HIGH', completed: false, estimatedTime: '15 minutes' },
-                { task: 'Add Product/Service Tiles', priority: 'HIGH', completed: false, estimatedTime: '30 minutes' },
-                { task: 'Upload High-Quality Photos', priority: 'MEDIUM', completed: false, estimatedTime: '1 hour' },
-                { task: 'Build Local Citations', priority: 'HIGH', completed: false, estimatedTime: '2-4 hours' },
-                { task: 'Implement Review Strategy', priority: 'HIGH', completed: false, estimatedTime: '2-4 weeks' }
-            ];
+            const fallbackActionPlan = {
+                actions: [
+                    { id: 'description', task: 'Optimize Business Description', priority: 'HIGH', completed: false, estimatedTime: '15 minutes' },
+                    { id: 'tiles', task: 'Add Product/Service Tiles', priority: 'HIGH', completed: false, estimatedTime: '30 minutes' },
+                    { id: 'photos', task: 'Upload High-Quality Photos', priority: 'MEDIUM', completed: false, estimatedTime: '1 hour' },
+                    { id: 'citations', task: 'Build Local Citations', priority: 'HIGH', completed: false, estimatedTime: '2-4 hours' },
+                    { id: 'reviews', task: 'Implement Review Strategy', priority: 'HIGH', completed: false, estimatedTime: '2-4 weeks' }
+                ]
+            };
             displayActionPlanSimple(fallbackActionPlan);
             
             // NOW apply locked class to blur everything
