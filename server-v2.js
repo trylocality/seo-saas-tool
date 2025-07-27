@@ -1083,7 +1083,7 @@ async function checkCitations(businessName, phoneNumber) {
         found: found.length,
         missing: directories.length - found.length,
         percentage: Math.round((found.length / directories.length) * 100),
-        score: Math.ceil(found.length * 1.5) // 1.5 points per citation found, rounded up
+        score: found.length // 1 point per citation found
       }
     };
     
@@ -1770,7 +1770,7 @@ function calculateScore(data) {
     qa: 0,                // 4 pts
     social: 0,            // 2 pts
     reviews: 0,           // 12 pts (3 each for 4 criteria)
-    citations: 0,         // 14 pts
+    citations: 0,         // 10 pts (1 per directory)
     gbpEmbed: 0,          // 8 pts
     landingPage: 0        // 8 pts
   };
@@ -1901,11 +1901,11 @@ function calculateScore(data) {
     message: reviewScore >= 9 ? 'Strong review presence builds trust' : (reviewScore >= 6 ? 'Good start - keep encouraging reviews' : 'Limited reviews - affecting customer trust')
   };
   
-  // 10. CITATIONS (16 pts) - 1.5 pts per directory found, rounded up
+  // 10. CITATIONS (10 pts) - 1 pt per directory found
   scores.citations = data.citations.stats.score;
-  if (scores.citations >= 12) {
+  if (scores.citations >= 8) {
     details.citations = { status: 'GOOD', message: 'Excellent online presence across directories' };
-  } else if (scores.citations >= 8) {
+  } else if (scores.citations >= 5) {
     details.citations = { status: 'NEEDS IMPROVEMENT', message: 'Found in some directories - expand your reach' };
   } else {
     details.citations = { status: 'MISSING', message: 'Limited directory presence hurts local rankings' };
@@ -1929,7 +1929,24 @@ function calculateScore(data) {
     details.landingPage = { status: 'MISSING', message: 'No local page - missing local search traffic' };
   }
   
-  const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
+  // Calculate base score
+  let totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
+  
+  // BONUS POINTS: 1 point per 2 GREEN/GOOD factors
+  const goodFactors = Object.entries(details).filter(([key, detail]) => 
+    detail.status === 'GOOD'
+  ).length;
+  const bonusPoints = Math.floor(goodFactors / 2);
+  
+  console.log(`🌟 BONUS: ${goodFactors} good factors = ${bonusPoints} bonus points`);
+  totalScore += bonusPoints;
+  
+  // Store bonus info for display
+  scores.bonus = bonusPoints;
+  details.bonus = { 
+    status: 'BONUS', 
+    message: `${bonusPoints} bonus points earned (${goodFactors} green factors)` 
+  };
   
   console.log(`📊 Final Score: ${totalScore}/100`);
   
@@ -2141,7 +2158,7 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
     }
     
     // 7. Citation Building (if needed)
-    if (scoreData.scores.citations < 12) {
+    if (scoreData.scores.citations < 8) {
       const citationsPrompt = `
       Create a citation building strategy for:
       Business: ${businessName}
@@ -2707,7 +2724,8 @@ function formatFactorName(key) {
     reviews: 'Customer Reviews',
     citations: 'Local Citations',
     gbpEmbed: 'GBP Website Embed',
-    landingPage: 'Localized Landing Page'
+    landingPage: 'Localized Landing Page',
+    bonus: 'Bonus Points'
   };
   return nameMap[key] || key;
 }
@@ -2716,7 +2734,8 @@ function getMaxScore(key) {
   const maxScores = {
     claimed: 8, description: 10, categories: 8, productTiles: 10,
     photos: 8, posts: 8, qa: 4, social: 2,
-    reviews: 12, citations: 16, gbpEmbed: 8, landingPage: 8
+    reviews: 12, citations: 10, gbpEmbed: 8, landingPage: 8,
+    bonus: 6 // Maximum possible bonus points (12 factors / 2)
   };
   return maxScores[key] || 0;
 }
@@ -2773,7 +2792,7 @@ function generateCitationRecommendations(citationsData) {
   return {
     summary: `Found in ${citationsData.stats.found} out of 7 major directories`,
     score: citationsData.stats.score,
-    maxScore: 14,
+    maxScore: 10,
     missingDirectories: missing.map(dir => dir.directory),
     recommendations: missing.length > 0 ? 
       `Focus on getting listed in: ${missing.slice(0, 3).map(dir => dir.directory).join(', ')}` :
@@ -4576,14 +4595,13 @@ app.put('/api/user/update', authenticateToken, async (req, res) => {
     // Handle password update
     if (newPassword && currentPassword) {
       // Verify current password
-      const userResult = await db.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+      const user = await db.get('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
       
-      if (!userResult.rows || userResult.rows.length === 0) {
+      if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
       
-      const user = userResult.rows[0];
-      const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+      const passwordMatch = await bcrypt.compare(currentPassword, user.password_hash);
       
       if (!passwordMatch) {
         return res.status(400).json({ error: 'Current password is incorrect' });
@@ -4591,7 +4609,7 @@ app.put('/api/user/update', authenticateToken, async (req, res) => {
       
       // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, 10);
-      updates.push(`password = $${valueIndex++}`);
+      updates.push(`password_hash = $${valueIndex++}`);
       values.push(hashedPassword);
     }
     
@@ -4600,23 +4618,28 @@ app.put('/api/user/update', authenticateToken, async (req, res) => {
       return res.json({ success: true, message: 'No changes to update' });
     }
     
-    // Add updated_at
-    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    // Add updated_at for PostgreSQL, skip for SQLite
+    if (db.dbType === 'postgresql') {
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    }
     
     // Add user ID for WHERE clause
     values.push(req.user.id);
     
     // Execute update
-    const updateQuery = `UPDATE users SET ${updates.join(', ')} WHERE id = $${valueIndex} RETURNING first_name, last_name`;
-    const result = await db.query(updateQuery, values);
+    const updateQuery = `UPDATE users SET ${updates.join(', ')} WHERE id = $${valueIndex}`;
+    await db.run(updateQuery, values);
     
-    if (result.rows && result.rows.length > 0) {
+    // Get updated user data
+    const updatedUser = await db.get('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]);
+    
+    if (updatedUser) {
       res.json({
         success: true,
         message: 'Account settings updated successfully',
         user: {
-          firstName: result.rows[0].first_name,
-          lastName: result.rows[0].last_name
+          firstName: updatedUser.first_name,
+          lastName: updatedUser.last_name
         }
       });
     } else {
@@ -4645,6 +4668,332 @@ process.on('SIGINT', () => {
     }
     process.exit(0);
   });
+});
+
+// ==========================================
+// ENHANCED CITATION ANALYSIS - TEST FUNCTIONS
+// ==========================================
+
+// Generate business name variations for more accurate citation searches
+function generateBusinessNameVariations(businessName) {
+  const variations = [businessName]; // Start with original name
+  
+  // Common business suffixes to try adding/removing
+  const suffixes = ['LLC', 'Inc', 'Corp', 'Company', 'Co', 'Ltd', 'LTD', 'INC'];
+  const serviceWords = ['Services', 'Service', 'Group', 'Solutions', 'Enterprises'];
+  
+  // Remove suffixes if present
+  let baseName = businessName;
+  suffixes.forEach(suffix => {
+    const regex = new RegExp(`\\s+(${suffix})\\.?$`, 'i');
+    if (regex.test(baseName)) {
+      baseName = baseName.replace(regex, '').trim();
+      if (!variations.includes(baseName)) {
+        variations.push(baseName);
+      }
+    }
+  });
+  
+  // Add suffixes if not present
+  suffixes.forEach(suffix => {
+    const withSuffix = `${baseName} ${suffix}`;
+    if (!variations.includes(withSuffix)) {
+      variations.push(withSuffix);
+    }
+  });
+  
+  // Try with/without service words
+  serviceWords.forEach(word => {
+    const withWord = `${baseName} ${word}`;
+    const withoutWord = baseName.replace(new RegExp(`\\s+${word}$`, 'i'), '').trim();
+    
+    if (!variations.includes(withWord)) {
+      variations.push(withWord);
+    }
+    if (withoutWord !== baseName && !variations.includes(withoutWord)) {
+      variations.push(withoutWord);
+    }
+  });
+  
+  console.log(`🔍 Generated ${variations.length} name variations:`, variations);
+  return variations;
+}
+
+// Enhanced citation checker with name variations and NAP detection
+async function checkCitationsEnhanced(businessName, phoneNumber, address = '') {
+  try {
+    console.log(`🔍 ENHANCED CITATION CHECK: ${businessName}`);
+    
+    if (!SERPAPI_KEY) {
+      throw new Error('SerpAPI key not configured');
+    }
+    
+    const nameVariations = generateBusinessNameVariations(businessName);
+    const phonePatterns = generatePhoneSearchPatterns(phoneNumber);
+    
+    const directories = [
+      { name: 'Angi', domain: 'angi.com' },
+      { name: 'Apple Maps Business Connect', domain: 'mapsconnect.apple.com' },
+      { name: 'Better Business Bureau', domain: 'bbb.org' },
+      { name: 'Bing Places', domain: 'bing.com/maps' },
+      { name: 'Chamber of Commerce', domain: 'chamberofcommerce.com' },
+      { name: 'DNB (Dun & Bradstreet)', domain: 'dnb.com' },
+      { name: 'Facebook', domain: 'facebook.com' },
+      { name: 'Foursquare', domain: 'foursquare.com' },
+      { name: 'Nextdoor', domain: 'nextdoor.com' },
+      { name: 'Yelp', domain: 'yelp.com' }
+    ];
+    
+    const results = [];
+    
+    for (const directory of directories) {
+      console.log(`🔍 Searching ${directory.name}...`);
+      
+      let bestMatch = null;
+      let napStatus = 'not_found';
+      let warnings = [];
+      
+      // Try each name variation
+      for (const nameVariation of nameVariations) {
+        try {
+          // Try with phone first, then without
+          const searchQueries = [];
+          
+          if (phonePatterns.length > 0) {
+            searchQueries.push(`site:${directory.domain} "${nameVariation}" "${phonePatterns[0]}"`);
+          }
+          searchQueries.push(`site:${directory.domain} "${nameVariation}"`);
+          
+          for (const searchQuery of searchQueries) {
+            const response = await axios.get('https://serpapi.com/search.json', {
+              params: {
+                engine: 'google',
+                q: searchQuery,
+                api_key: SERPAPI_KEY,
+                num: 3,
+                google_domain: 'google.com',
+                gl: 'us',
+                hl: 'en'
+              },
+              timeout: 10000
+            });
+            
+            if (response.data.organic_results && response.data.organic_results.length > 0) {
+              for (const result of response.data.organic_results) {
+                const resultText = `${result.title || ''} ${result.snippet || ''}`.toLowerCase();
+                const nameFound = resultText.includes(nameVariation.toLowerCase());
+                
+                if (nameFound) {
+                  // Check NAP consistency
+                  const napAnalysis = analyzeNAPConsistency(result, businessName, phoneNumber, address);
+                  
+                  if (!bestMatch || napAnalysis.score > bestMatch.napAnalysis.score) {
+                    bestMatch = {
+                      directory: directory.name,
+                      domain: directory.domain,
+                      url: result.link,
+                      title: result.title,
+                      snippet: result.snippet,
+                      nameVariation: nameVariation,
+                      searchQuery: searchQuery,
+                      napAnalysis: napAnalysis
+                    };
+                    napStatus = napAnalysis.status;
+                    warnings = napAnalysis.warnings;
+                  }
+                  break; // Found a match for this name variation
+                }
+              }
+              
+              if (bestMatch) break; // Found a good match, no need to try more queries
+            }
+            
+            // Small delay between searches
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          
+          if (bestMatch) break; // Found a match, no need to try more name variations
+          
+        } catch (searchError) {
+          console.error(`❌ Search error for ${nameVariation} on ${directory.name}:`, searchError.message);
+        }
+      }
+      
+      results.push({
+        directory: directory.name,
+        domain: directory.domain,
+        found: !!bestMatch,
+        napStatus: napStatus,
+        warnings: warnings,
+        result: bestMatch,
+        searchAttempts: nameVariations.length
+      });
+      
+      // Longer delay between directories to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    const foundCount = results.filter(r => r.found).length;
+    const napIssues = results.filter(r => r.warnings.length > 0).length;
+    
+    console.log(`📊 ENHANCED RESULTS: ${foundCount}/${directories.length} found, ${napIssues} with NAP issues`);
+    
+    return {
+      found: results.filter(r => r.found),
+      results: results,
+      total: directories.length,
+      stats: {
+        found: foundCount,
+        missing: directories.length - foundCount,
+        napIssues: napIssues,
+        percentage: Math.round((foundCount / directories.length) * 100),
+        score: foundCount // 1 point per citation found
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Enhanced citation check error:', error.message);
+    throw new Error(`Enhanced citation check failed: ${error.message}`);
+  }
+}
+
+// Analyze NAP (Name, Address, Phone) consistency
+function analyzeNAPConsistency(result, expectedName, expectedPhone, expectedAddress) {
+  const resultText = `${result.title || ''} ${result.snippet || ''}`;
+  const warnings = [];
+  let score = 0;
+  
+  // Check name consistency (basic)
+  const nameMatch = resultText.toLowerCase().includes(expectedName.toLowerCase());
+  if (nameMatch) score += 3;
+  
+  // Check phone consistency
+  if (expectedPhone) {
+    const phonePatterns = generatePhoneSearchPatterns(expectedPhone);
+    const phoneFound = phonePatterns.some(pattern => 
+      resultText.toLowerCase().includes(pattern.toLowerCase()) ||
+      resultText.includes(normalizePhoneNumber(pattern))
+    );
+    
+    if (phoneFound) {
+      score += 3;
+    } else {
+      warnings.push({
+        type: 'phone_mismatch',
+        message: 'Phone number not found or doesn\'t match',
+        severity: 'warning'
+      });
+    }
+  }
+  
+  // Check for common NAP issues
+  if (resultText.includes('permanently closed') || resultText.includes('out of business')) {
+    warnings.push({
+      type: 'business_closed',
+      message: 'Directory shows business as closed',
+      severity: 'error'
+    });
+  }
+  
+  // Check for address inconsistencies (basic)
+  if (expectedAddress && expectedAddress.length > 10) {
+    const addressParts = expectedAddress.split(',').map(part => part.trim().toLowerCase());
+    const addressFound = addressParts.some(part => 
+      part.length > 3 && resultText.toLowerCase().includes(part)
+    );
+    
+    if (addressFound) {
+      score += 2;
+    } else {
+      warnings.push({
+        type: 'address_mismatch',
+        message: 'Address may not match expected location',
+        severity: 'warning'
+      });
+    }
+  }
+  
+  // Determine overall status
+  let status = 'not_found';
+  if (score >= 6) status = 'good';
+  else if (score >= 3) status = 'partial';
+  else if (warnings.length > 0) status = 'issues';
+  
+  return {
+    score: score,
+    status: status,
+    warnings: warnings,
+    matchedElements: {
+      name: nameMatch,
+      phone: expectedPhone ? score >= 3 : null,
+      address: expectedAddress ? score >= 2 : null
+    }
+  };
+}
+
+// Test endpoint for enhanced citation analysis
+app.post('/api/test/enhanced-citations', async (req, res) => {
+  try {
+    const { businessName, phoneNumber, address } = req.body;
+    
+    console.log(`🧪 TESTING Enhanced Citation Analysis`);
+    console.log(`Business: ${businessName}`);
+    console.log(`Phone: ${phoneNumber}`);
+    console.log(`Address: ${address}`);
+    
+    if (!businessName) {
+      return res.status(400).json({ error: 'Business name is required' });
+    }
+    
+    if (!SERPAPI_KEY) {
+      return res.status(500).json({ error: 'SerpAPI key not configured' });
+    }
+    
+    const startTime = Date.now();
+    
+    // Run both old and new analysis for comparison
+    console.log('🔄 Running original citation analysis...');
+    const originalResults = await checkCitations(businessName, phoneNumber);
+    
+    console.log('🚀 Running enhanced citation analysis...');
+    const enhancedResults = await checkCitationsEnhanced(businessName, phoneNumber, address);
+    
+    const duration = Date.now() - startTime;
+    
+    res.json({
+      success: true,
+      testResults: {
+        original: {
+          found: originalResults.found.length,
+          score: originalResults.stats.score,
+          results: originalResults.found.map(f => ({ directory: f.directory, url: f.url }))
+        },
+        enhanced: {
+          found: enhancedResults.stats.found,
+          score: enhancedResults.stats.score,
+          napIssues: enhancedResults.stats.napIssues,
+          results: enhancedResults.results.map(r => ({
+            directory: r.directory,
+            found: r.found,
+            napStatus: r.napStatus,
+            warnings: r.warnings,
+            url: r.result?.url,
+            nameVariation: r.result?.nameVariation,
+            searchAttempts: r.searchAttempts
+          }))
+        },
+        comparison: {
+          improvementFound: enhancedResults.stats.found - originalResults.found.length,
+          newIssuesDetected: enhancedResults.stats.napIssues,
+          duration: `${duration}ms`
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Enhanced citation test error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Start server
