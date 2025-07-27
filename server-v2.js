@@ -54,8 +54,8 @@ const STRIPE_PRICES = {
 
 const CREDIT_AMOUNTS = {
   oneTime: 1,
-  starter: 50,
-  pro: 100
+  pro: 50,      // Renamed from "starter" to match Stripe
+  premium: 100  // Renamed from "pro" to match Stripe
 };
 
 // White Label Configuration
@@ -3913,7 +3913,7 @@ app.post('/api/create-checkout-session', authenticateToken, async (req, res) => 
   try {
     const { priceType } = req.body;
     
-    if (!['oneTime', 'starter', 'pro'].includes(priceType)) {
+    if (!['oneTime', 'pro', 'premium'].includes(priceType)) {
       return res.status(400).json({ error: 'Invalid price type' });
     }
     
@@ -3951,15 +3951,23 @@ app.post('/api/create-checkout-session', authenticateToken, async (req, res) => 
 
 // Stripe webhook handler
 app.post('/api/stripe-webhook', async (req, res) => {
+  console.log(`🎣 Stripe webhook received - Event type: ${req.body ? 'BODY_EXISTS' : 'NO_BODY'}`);
+  
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  
+  if (!endpointSecret) {
+    console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).send('Webhook secret not configured');
+  }
   
   let event;
   
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    console.log(`✅ Webhook verified successfully - Event type: ${event.type}`);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err);
+    console.error('❌ Webhook signature verification failed:', err.message);
     return res.status(400).send('Webhook signature verification failed');
   }
   
@@ -4007,7 +4015,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
         ]);
         
         // Update subscription tier if applicable
-        if (priceType === 'starter' || priceType === 'pro') {
+        if (priceType === 'pro' || priceType === 'premium') {
           await db.query(
             'UPDATE users SET subscription_tier = $1 WHERE id = $2',
             [priceType, userId]
@@ -4015,6 +4023,15 @@ app.post('/api/stripe-webhook', async (req, res) => {
         }
         
         console.log(`✅ Payment successful for user ${userId}: ${credits} credits added`);
+        console.log(`🔍 DEBUG - Session data:`, {
+          sessionId: session.id,
+          userId: userId,
+          credits: credits,
+          priceType: priceType,
+          metadata: session.metadata,
+          paymentIntent: session.payment_intent,
+          amountTotal: session.amount_total
+        });
         break;
         
       case 'customer.subscription.deleted':
@@ -4036,6 +4053,33 @@ app.post('/api/stripe-webhook', async (req, res) => {
   } catch (error) {
     console.error('Webhook processing error:', error);
     res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// DEBUG: Check recent payments and webhook activity
+app.get('/api/debug/payments', authenticateToken, async (req, res) => {
+  try {
+    // Get recent payments for this user
+    const payments = await db.query(
+      'SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10',
+      [req.user.id]
+    );
+    
+    // Get user's current credits
+    const user = await db.query(
+      'SELECT credits_remaining, subscription_tier FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    
+    res.json({
+      success: true,
+      userCredits: user.rows[0]?.credits_remaining || 0,
+      subscriptionTier: user.rows[0]?.subscription_tier || 'free',
+      recentPayments: payments.rows || []
+    });
+  } catch (error) {
+    console.error('Debug payments error:', error);
+    res.status(500).json({ error: 'Failed to fetch payment debug info' });
   }
 });
 
