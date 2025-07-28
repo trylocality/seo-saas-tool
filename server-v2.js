@@ -2219,12 +2219,15 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
     
     console.log(`✅ Smart suggestions generated for ${Object.keys(suggestions).length} areas`);
     
-    return suggestions;
+    return {
+      suggestions: suggestions
+    };
     
   } catch (error) {
     console.error('❌ Smart suggestions error:', error.message);
     return {
-      error: `Smart suggestions failed: ${error.message}`
+      error: `Smart suggestions failed: ${error.message}`,
+      suggestions: {}
     };
   }
 }
@@ -2515,28 +2518,26 @@ async function generateCompleteReport(businessName, location, industry, website,
     console.log('📋 Creating action plan...');
     const actionPlan = generateActionPlan(scoreData);
     
-    // GROUP 3: Smart Suggestions (Async - can happen after basic report is ready)
-    console.log('🧠 Group 3: Starting smart suggestions (async)...');
-    let smartSuggestions = { 
-      loading: true, 
-      message: 'Smart suggestions are being generated...' 
-    };
+    // GROUP 3: Smart Suggestions
+    console.log('🧠 Group 3: Generating smart suggestions...');
+    let smartSuggestions;
     
-    // Start async generation (non-blocking)
-    generateSmartSuggestions(
-      { businessName, location, industry, website },
-      scoreData,
-      partialData.websiteAnalysis.services || []
-    ).then(suggestions => {
-      smartSuggestions = suggestions;
-      console.log('✅ Smart suggestions completed asynchronously');
-    }).catch(error => {
+    try {
+      // Await the smart suggestions to ensure they're included in the report
+      smartSuggestions = await generateSmartSuggestions(
+        { businessName, location, industry, website },
+        scoreData,
+        partialData.websiteAnalysis.services || []
+      );
+      console.log('✅ Smart suggestions completed successfully');
+    } catch (error) {
       console.error('⚠️ Smart suggestions failed (non-critical):', error.message);
       smartSuggestions = { 
         error: error.message,
-        message: 'Smart suggestions could not be generated' 
+        message: 'Smart suggestions could not be generated',
+        suggestions: {} 
       };
-    });
+    }
     
     // Build final report (with basic smart suggestions placeholder)
     // Get user-specific branding or use default
@@ -2571,14 +2572,16 @@ async function generateCompleteReport(businessName, location, industry, website,
           grade: getScoreGrade(scoreData.totalScore),
           message: getScoreMessage(scoreData.totalScore)
         },
-        factors: Object.entries(scoreData.scores).map(([key, score]) => ({
-          id: key,
-          name: formatFactorName(key),
-          score: score,
-          maxScore: getMaxScore(key),
-          status: scoreData.details[key]?.status || 'UNKNOWN',
-          message: scoreData.details[key]?.message || ''
-        }))
+        factors: Object.entries(scoreData.scores)
+          .filter(([key]) => key !== 'bonus') // Exclude bonus from display
+          .map(([key, score]) => ({
+            id: key,
+            name: formatFactorName(key),
+            score: score,
+            maxScore: getMaxScore(key),
+            status: scoreData.details[key]?.status || 'UNKNOWN',
+            message: scoreData.details[key]?.message || ''
+          }))
       },
       
       // Smart Suggestions
@@ -4438,6 +4441,78 @@ app.get('/api/billing-history', authenticateToken, async (req, res) => {
   }
 });
 
+// Cancel Subscription endpoint
+app.post('/api/cancel-subscription', authenticateToken, async (req, res) => {
+  try {
+    console.log(`🚫 Cancellation request from user ${req.user.id} (${req.user.email})`);
+    
+    const { reason, feedback, timestamp } = req.body;
+    
+    // Log cancellation to console for immediate visibility
+    console.log('════════════════════════════════════════════════════════════════');
+    console.log('🚫 SUBSCRIPTION CANCELLATION REQUEST');
+    console.log('════════════════════════════════════════════════════════════════');
+    console.log(`User ID: ${req.user.id}`);
+    console.log(`Email: ${req.user.email}`);
+    console.log(`Name: ${req.user.firstName} ${req.user.lastName}`);
+    console.log(`Current Plan: ${req.user.subscriptionTier}`);
+    console.log(`Credits Remaining: ${req.user.creditsRemaining}`);
+    console.log(`Reason: ${reason}`);
+    console.log(`Feedback: ${feedback || 'No additional feedback'}`);
+    console.log(`Timestamp: ${timestamp}`);
+    console.log('════════════════════════════════════════════════════════════════');
+    
+    // Update user subscription status
+    await db.query(
+      'UPDATE users SET subscription_tier = $1, credits_remaining = $2 WHERE id = $3',
+      ['free', 0, req.user.id]
+    );
+    
+    // Store cancellation record (optional - you could create a cancellations table)
+    console.log('📝 Storing cancellation details for records...');
+    
+    // Send webhook notification if configured
+    const CANCELLATION_WEBHOOK_URL = process.env.CANCELLATION_WEBHOOK_URL;
+    if (CANCELLATION_WEBHOOK_URL) {
+      try {
+        console.log('📤 Sending cancellation webhook...');
+        await axios.post(CANCELLATION_WEBHOOK_URL, {
+          event: 'subscription_cancelled',
+          user: {
+            id: req.user.id,
+            email: req.user.email,
+            name: `${req.user.firstName} ${req.user.lastName}`,
+            previousPlan: req.user.subscriptionTier,
+            creditsLost: req.user.creditsRemaining
+          },
+          cancellation: {
+            reason: reason,
+            feedback: feedback,
+            timestamp: timestamp
+          }
+        }, {
+          timeout: 5000
+        });
+        console.log('✅ Cancellation webhook sent successfully');
+      } catch (webhookError) {
+        console.error('⚠️ Cancellation webhook failed:', webhookError.message);
+        // Continue even if webhook fails
+      }
+    }
+    
+    console.log(`✅ Subscription cancelled successfully for user ${req.user.id}`);
+    
+    res.json({
+      success: true,
+      message: 'Subscription cancelled successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ Cancellation error:', error);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
 // Helper function to format plan names for display
 function formatPlanName(productType) {
   const planNames = {
@@ -4532,8 +4607,12 @@ app.post('/api/white-label', authenticateToken, async (req, res) => {
       custom_contact_name,
       custom_contact_email,
       custom_contact_phone,
-      white_label_enabled
+      white_label_enabled,
+      remove_logo_completely
     } = req.body;
+    
+    // Handle remove logo completely option
+    const finalLogo = remove_logo_completely ? null : custom_brand_logo;
     
     await db.query(
       `UPDATE users SET 
@@ -4549,7 +4628,7 @@ app.post('/api/white-label', authenticateToken, async (req, res) => {
        WHERE id = $9`,
       [
         custom_brand_name,
-        custom_brand_logo,
+        finalLogo,
         custom_prepared_by,
         custom_primary_color,
         custom_contact_name,

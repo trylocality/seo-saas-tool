@@ -101,3 +101,42 @@ The application now includes an email notification system for user feedback subm
 - Submit feedback via the UI
 - Check server console for email notifications
 - Verify feedback is saved in database
+
+## Subscription Cancellation System
+
+The application now includes a subscription cancellation feature accessible from the billing history modal.
+
+### How it works:
+1. **Access**: Users click "CANCEL" link in billing history modal
+2. **Form**: Cancellation form asks for reason and optional feedback
+3. **Processing**: Subscription is cancelled, credits set to 0, user reverted to free tier
+4. **Notifications**: Console logging and optional webhook for cancellation tracking
+
+### Current Setup:
+- **Cancellation endpoint**: `POST /api/cancel-subscription`
+- **Console Logging**: All cancellations are logged to server console
+- **Database Update**: User's subscription_tier set to 'free', credits_remaining set to 0
+- **Optional Webhook**: Configure `CANCELLATION_WEBHOOK_URL` in .env
+
+### Webhook Configuration (Optional):
+To receive cancellation notifications via webhook:
+1. Add to .env file:
+   ```
+   CANCELLATION_WEBHOOK_URL=https://hooks.zapier.com/hooks/catch/your-webhook-id
+   ```
+2. Webhook receives:
+   - User details (ID, email, name, previous plan, credits lost)
+   - Cancellation details (reason, feedback, timestamp)
+
+### Cancellation Reasons:
+- Too expensive
+- Not using the service
+- Missing features I need
+- Found a better alternative
+- Too many technical issues
+- Other reason
+
+### Testing:
+- Test cancellation flow from billing history
+- Check server console for cancellation logs
+- Verify user is reverted to free tier

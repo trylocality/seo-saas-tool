@@ -2104,6 +2104,11 @@
                                 <div class="menu-item-text">Support & Help</div>
                             </button>
 
+                            <button class="menu-item" onclick="handleDFYServices()">
+                                <div class="menu-item-icon">🚀</div>
+                                <div class="menu-item-text">DFY SEO Services</div>
+                            </button>
+
                             <div class="menu-divider"></div>
 
                             <button class="menu-item" onclick="handleLogout()" style="color: #dc2626;">
@@ -2369,7 +2374,7 @@
 
     <!-- White Label Customization Modal -->
     <div id="whiteLabelModal" class="modal hidden">
-        <div class="modal-content" style="max-width: 1200px; width: 95%;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%; max-height: 90vh; overflow-y: auto; margin: 1% auto;">
             <div class="modal-header">
                 <h2>White Label Customization</h2>
                 <span class="close-modal" onclick="closeWhiteLabelModal()">&times;</span>
@@ -2400,6 +2405,15 @@
                                         <img id="logoPreviewImg" style="max-height: 60px; border-radius: 4px;">
                                         <button type="button" onclick="removeLogo()" style="margin-left: 10px; background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem;">Remove</button>
                                     </div>
+                                </div>
+                                
+                                <!-- Remove Logo Completely Option -->
+                                <div style="margin-top: 15px;">
+                                    <label style="display: flex; align-items: center; font-weight: 600; color: #333; cursor: pointer;">
+                                        <input type="checkbox" id="removeLogo" name="removeLogo" style="margin-right: 12px; transform: scale(1.2);">
+                                        Remove logo completely (no logo will appear on reports)
+                                    </label>
+                                    <p style="margin: 5px 0 0 24px; color: #64748b; font-size: 0.85rem;">Check this to remove any existing logo and display reports without a logo</p>
                                 </div>
                             </div>
                         </div>
@@ -2539,31 +2553,36 @@
 
                     <!-- Password Section -->
                     <div style="margin-bottom: 30px;">
-                        <h3 style="color: #0e192b; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;">Change Password</h3>
-                        
-                        <div style="margin-bottom: 20px;">
-                            <label for="currentPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
-                                Current Password
-                            </label>
-                            <input type="password" id="currentPassword" name="currentPassword" placeholder="Enter current password" 
-                                style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                        <div onclick="togglePasswordSection()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; color: #0e192b; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 2px solid #e9ecef; padding-bottom: 10px;">
+                            <h3 style="margin: 0;">Change Password</h3>
+                            <span id="passwordToggleArrow" style="font-size: 0.8rem; transition: transform 0.3s ease; color: #666;">▼</span>
                         </div>
                         
-                        <div style="margin-bottom: 20px;">
-                            <label for="newPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
-                                New Password
-                            </label>
-                            <input type="password" id="newPassword" name="newPassword" placeholder="Enter new password" 
-                                style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
-                            <small style="color: #666; display: block; margin-top: 5px;">Leave blank if you don't want to change your password</small>
-                        </div>
-                        
-                        <div style="margin-bottom: 20px;">
-                            <label for="confirmPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
-                                Confirm New Password
-                            </label>
-                            <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm new password" 
-                                style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                        <div id="passwordFields" style="display: none;">
+                            <div style="margin-bottom: 20px;">
+                                <label for="currentPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                                    Current Password
+                                </label>
+                                <input type="password" id="currentPassword" name="currentPassword" placeholder="Enter current password" 
+                                    style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                            </div>
+                            
+                            <div style="margin-bottom: 20px;">
+                                <label for="newPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                                    New Password
+                                </label>
+                                <input type="password" id="newPassword" name="newPassword" placeholder="Enter new password" 
+                                    style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                                <small style="color: #666; display: block; margin-top: 5px;">Leave blank if you don't want to change your password</small>
+                            </div>
+                            
+                            <div style="margin-bottom: 20px;">
+                                <label for="confirmPassword" style="display: block; margin-bottom: 8px; font-weight: 600; color: #333;">
+                                    Confirm New Password
+                                </label>
+                                <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm new password" 
+                                    style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem;">
+                            </div>
                         </div>
                     </div>
 
@@ -2674,6 +2693,17 @@
                             </table>
                         </div>
                         
+                        <!-- Subscription Management -->
+                        <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107; text-align: center;">
+                            <p style="color: #856404; margin: 0; font-size: 0.95rem;">
+                                Click here to 
+                                <a href="#" onclick="showCancellationModal(); return false;" style="color: #dc3545; font-weight: 600; text-decoration: underline;">CANCEL</a> 
+                                or 
+                                <a href="#" onclick="closeBillingHistoryModal(); showPricingModal(); return false;" style="color: #28a745; font-weight: 600; text-decoration: underline;">UPGRADE</a>
+                                your subscription
+                            </p>
+                        </div>
+                        
                         <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #17a2b8;">
                             <h4 style="color: #0e192b; margin-bottom: 10px;">💡 Need Help?</h4>
                             <p style="color: #666; margin: 0; font-size: 0.9rem;">
@@ -2684,6 +2714,59 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Cancellation Modal -->
+    <div id="cancellationModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>😢 Cancel Subscription</h2>
+                <span class="close-modal" onclick="closeCancellationModal()">&times;</span>
+            </div>
+            <form id="cancellationForm">
+                <div style="padding: 30px;">
+                    <p style="color: #666; margin-bottom: 20px;">We're sorry to see you go! Please help us understand why you're canceling:</p>
+                    
+                    <div class="form-group">
+                        <label for="cancellationReason">Why are you canceling? <span class="required">*</span></label>
+                        <select id="cancellationReason" name="reason" required style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px;">
+                            <option value="">Select a reason...</option>
+                            <option value="too-expensive">Too expensive</option>
+                            <option value="not-using">Not using the service</option>
+                            <option value="missing-features">Missing features I need</option>
+                            <option value="found-alternative">Found a better alternative</option>
+                            <option value="technical-issues">Too many technical issues</option>
+                            <option value="other">Other reason</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="cancellationFeedback">Additional feedback (optional)</label>
+                        <textarea id="cancellationFeedback" name="feedback" rows="4" 
+                            placeholder="Please share any additional feedback to help us improve..." 
+                            style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; resize: vertical;"></textarea>
+                    </div>
+                    
+                    <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                        <p style="color: #856404; margin: 0; font-size: 0.9rem;">
+                            <strong>⚠️ Important:</strong> Canceling will immediately end your subscription. You will lose access to all premium features and any remaining credits.
+                        </p>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" onclick="closeCancellationModal()" 
+                            style="padding: 12px 24px; border: 1px solid #ddd; background: white; color: #333; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            Keep Subscription
+                        </button>
+                        <button type="submit" 
+                            style="padding: 12px 24px; border: none; background: #dc3545; color: white; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                            CONFIRM CANCELLATION
+                        </button>
+                    </div>
+                </div>
+                <div id="cancellationError" class="error hidden" style="padding: 0 30px 20px;"></div>
+            </form>
         </div>
     </div>
 
@@ -4802,7 +4885,7 @@
             const foundCount = allCitations.filter(citation => citation.found).length;
             const totalCount = allCitations.length;
             
-            // Find the citations section to add summary after
+            // Find the citations section to add summary after the header
             const citationsSection = document.getElementById('citationsSection');
             if (!citationsSection) {
                 console.error('❌ Citations section not found');
@@ -4815,9 +4898,21 @@
                 existingSummary.remove();
             }
             
+            // Hide the original header text
+            const headerText = citationsSection.querySelector('p');
+            if (headerText) {
+                headerText.style.display = 'none';
+            }
+            
+            // Hide the detailed analysis section (button + subtext)
+            const detailedAnalysisSection = document.querySelector('.detailed-analysis-section');
+            if (detailedAnalysisSection) {
+                detailedAnalysisSection.style.display = 'none';
+            }
+            
             // Create summary container
             const summaryHTML = `
-                <div id="detailedCitationSummary" style="margin-top: 30px; padding: 25px; background: #f8f9fa; border-radius: 12px; border-left: 5px solid #17a2b8;">
+                <div id="detailedCitationSummary" style="margin: 20px 0; padding: 25px; background: #f8f9fa; border-radius: 12px; border-left: 5px solid #17a2b8;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                         <h4 style="margin: 0; color: #0e192b; font-size: 1.4rem;">Citation Analysis Complete</h4>
                         <div style="text-align: right;">
@@ -4848,8 +4943,17 @@
                 </div>
             `;
             
-            // Insert summary after citations section
-            citationsSection.insertAdjacentHTML('afterend', summaryHTML);
+            // Insert summary after the header but before the citations
+            const citationsPage1 = document.getElementById('citationsPage1');
+            if (citationsPage1) {
+                citationsPage1.insertAdjacentHTML('beforebegin', summaryHTML);
+            } else {
+                // Fallback to inserting after the section title
+                const sectionTitle = document.getElementById('citationsSectionTitle');
+                if (sectionTitle) {
+                    sectionTitle.insertAdjacentHTML('afterend', summaryHTML);
+                }
+            }
             
             console.log(`✅ Added detailed citation summary: ${foundCount}/${totalCount} citations found`);
         }
@@ -5054,11 +5158,102 @@ I'd like to discuss getting citations built for the missing directories identifi
             console.log(`📊 Displayed ${payments.length} payment records in table`);
         }
         
+        // Cancellation Modal Functions
+        function showCancellationModal() {
+            closeBillingHistoryModal();
+            document.getElementById('cancellationModal').classList.remove('hidden');
+            document.getElementById('cancellationModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeCancellationModal() {
+            document.getElementById('cancellationModal').classList.remove('show');
+            document.getElementById('cancellationModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            
+            // Reset form
+            document.getElementById('cancellationForm').reset();
+            document.getElementById('cancellationError').classList.add('hidden');
+        }
+        
+        // Initialize cancellation form event listener
+        setTimeout(() => {
+            const cancellationForm = document.getElementById('cancellationForm');
+            if (cancellationForm) {
+                cancellationForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const reason = document.getElementById('cancellationReason').value;
+                    const feedback = document.getElementById('cancellationFeedback').value;
+                    
+                    if (!reason) {
+                        document.getElementById('cancellationError').textContent = 'Please select a reason for cancellation';
+                        document.getElementById('cancellationError').classList.remove('hidden');
+                        return;
+                    }
+                    
+                    // Disable submit button
+                    const submitBtn = e.target.querySelector('button[type="submit"]');
+                    const originalText = submitBtn.textContent;
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Processing...';
+                    
+                    try {
+                        const response = await fetch('/api/cancel-subscription', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${authToken}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                reason: reason,
+                                feedback: feedback,
+                                timestamp: new Date().toISOString()
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            showToast('Subscription cancelled successfully', 'success');
+                            closeCancellationModal();
+                            
+                            // Update user data
+                            currentUser.subscriptionTier = 'free';
+                            currentUser.creditsRemaining = 0;
+                            updateDashboard();
+                            
+                            // Refresh the page after a short delay
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        } else {
+                            throw new Error(data.error || 'Failed to cancel subscription');
+                        }
+                    } catch (error) {
+                        console.error('Cancellation error:', error);
+                        document.getElementById('cancellationError').textContent = error.message || 'Failed to cancel subscription. Please try again.';
+                        document.getElementById('cancellationError').classList.remove('hidden');
+                        
+                        // Re-enable submit button
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = originalText;
+                    }
+                });
+            }
+        }, 100);
+        
         function handleSupportHelp() {
             closeAccountMenu();
             // Placeholder for support functionality
             window.open('mailto:trylocality@gmail.com?subject=Support Request', '_blank');
             showToast('Opening email client for support...', 'info');
+        }
+        
+        function handleDFYServices() {
+            closeAccountMenu();
+            window.open('https://trylocality.com/get-found-online/', '_blank');
+            showToast('Opening DFY SEO Services...', 'info');
         }
         
         function handleLogout() {
@@ -5109,6 +5304,37 @@ I'd like to discuss getting citations built for the missing directories identifi
             document.getElementById('accountSettingsModal').classList.remove('show');
             document.getElementById('accountSettingsModal').classList.add('hidden');
             document.body.style.overflow = 'auto';
+            
+            // Reset password fields and collapse section
+            const passwordFields = document.getElementById('passwordFields');
+            const passwordArrow = document.getElementById('passwordToggleArrow');
+            if (passwordFields && passwordArrow) {
+                passwordFields.style.display = 'none';
+                passwordArrow.style.transform = 'rotate(0deg)';
+            }
+            
+            // Clear password form fields
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+        }
+        
+        function togglePasswordSection() {
+            const passwordFields = document.getElementById('passwordFields');
+            const passwordArrow = document.getElementById('passwordToggleArrow');
+            
+            if (passwordFields.style.display === 'none' || passwordFields.style.display === '') {
+                passwordFields.style.display = 'block';
+                passwordArrow.style.transform = 'rotate(180deg)';
+            } else {
+                passwordFields.style.display = 'none';
+                passwordArrow.style.transform = 'rotate(0deg)';
+                
+                // Clear password fields when collapsing
+                document.getElementById('currentPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+            }
         }
 
         function handleManageAccount() {
@@ -5197,6 +5423,19 @@ I'd like to discuss getting citations built for the missing directories identifi
                     document.getElementById('customPrimaryColorText').value = settings.custom_primary_color || '#0e192b';
                     document.getElementById('whiteLabelEnabled').checked = settings.white_label_enabled || false;
                     
+                    // Handle remove logo option - if no logo exists, check the remove logo option
+                    const removeLogoCheckbox = document.getElementById('removeLogo');
+                    if (removeLogoCheckbox) {
+                        const hasLogo = settings.custom_brand_logo && settings.custom_brand_logo.trim() !== '';
+                        removeLogoCheckbox.checked = !hasLogo;
+                        
+                        // Update preview logo display
+                        const previewLogo = document.getElementById('previewLogo');
+                        if (!hasLogo) {
+                            previewLogo.style.display = 'none';
+                        }
+                    }
+                    
                     // Update preview
                     updateWhiteLabelPreview();
                 }
@@ -5245,6 +5484,13 @@ I'd like to discuss getting citations built for the missing directories identifi
         function removeLogo() {
             document.getElementById('logoUpload').value = '';
             document.getElementById('logoPreview').style.display = 'none';
+            
+            // Update preview logo to show default
+            const previewLogo = document.getElementById('previewLogo');
+            previewLogo.innerHTML = '<span style="font-size: 1.5rem; font-weight: bold; color: #0e192b;">Locality</span>';
+            
+            // Uncheck the remove logo checkbox
+            document.getElementById('removeLogo').checked = false;
         }
 
         // Add event listeners for white label form
@@ -5378,8 +5624,32 @@ I'd like to discuss getting citations built for the missing directories identifi
                             // Update preview logo
                             const previewLogo = document.getElementById('previewLogo');
                             previewLogo.innerHTML = `<img src="${e.target.result}" alt="Logo" style="max-height: 100%; max-width: 120px;">`;
+                            
+                            // Uncheck remove logo completely when new logo is uploaded
+                            document.getElementById('removeLogo').checked = false;
                         };
                         reader.readAsDataURL(file);
+                    }
+                });
+            }
+            
+            // Remove logo completely checkbox handler
+            const removeLogoCheckbox = document.getElementById('removeLogo');
+            if (removeLogoCheckbox) {
+                removeLogoCheckbox.addEventListener('change', function() {
+                    const previewLogo = document.getElementById('previewLogo');
+                    
+                    if (this.checked) {
+                        // Hide logo completely
+                        previewLogo.style.display = 'none';
+                        
+                        // Clear any uploaded logo
+                        document.getElementById('logoUpload').value = '';
+                        document.getElementById('logoPreview').style.display = 'none';
+                    } else {
+                        // Show default logo
+                        previewLogo.style.display = 'block';
+                        previewLogo.innerHTML = '<span style="font-size: 1.5rem; font-weight: bold; color: #0e192b;">Locality</span>';
                     }
                 });
             }
@@ -5430,7 +5700,8 @@ I'd like to discuss getting citations built for the missing directories identifi
                             custom_contact_phone: document.getElementById('customContactPhone').value,
                             custom_prepared_by: document.getElementById('customPreparedBy').value,
                             custom_primary_color: document.getElementById('customPrimaryColor').value,
-                            white_label_enabled: document.getElementById('whiteLabelEnabled').checked
+                            white_label_enabled: document.getElementById('whiteLabelEnabled').checked,
+                            remove_logo_completely: document.getElementById('removeLogo').checked
                         };
                         
                         const response = await fetch('/api/white-label', {
