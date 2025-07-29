@@ -3915,7 +3915,7 @@
                 }
                 // Remove locked class if present
                 document.getElementById('reportSection').classList.remove('locked');
-                displayFactorsCompact(factors, reportData.smartSuggestions || {});
+                displayFactorsCompact(factors, reportData.smartSuggestions?.suggestions || {});
                 
                 // Display citations with fallback
                 const citations = reportData.citationsAnalysis || reportData.citations || { data: { checked: [] } };

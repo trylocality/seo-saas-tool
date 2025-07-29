@@ -362,7 +362,12 @@ class DatabaseAdapter {
       { name: 'email_verification_token', definition: 'TEXT DEFAULT NULL' },
       { name: 'email_verification_expires', definition: 'TIMESTAMP DEFAULT NULL' },
       { name: 'password_reset_token', definition: 'TEXT DEFAULT NULL' },
-      { name: 'password_reset_expires', definition: 'TIMESTAMP DEFAULT NULL' }
+      { name: 'password_reset_expires', definition: 'TIMESTAMP DEFAULT NULL' },
+      { name: 'custom_primary_color', definition: 'TEXT DEFAULT NULL' },
+      { name: 'custom_contact_name', definition: 'TEXT DEFAULT NULL' },
+      { name: 'custom_contact_email', definition: 'TEXT DEFAULT NULL' },
+      { name: 'custom_contact_phone', definition: 'TEXT DEFAULT NULL' },
+      { name: 'white_label_enabled', definition: 'BOOLEAN DEFAULT FALSE' }
     ];
 
     for (const column of columnsToAdd) {
@@ -543,7 +548,12 @@ class DatabaseAdapter {
       { name: 'email_verification_token', definition: 'TEXT DEFAULT NULL' },
       { name: 'email_verification_expires', definition: 'DATETIME DEFAULT NULL' },
       { name: 'password_reset_token', definition: 'TEXT DEFAULT NULL' },
-      { name: 'password_reset_expires', definition: 'DATETIME DEFAULT NULL' }
+      { name: 'password_reset_expires', definition: 'DATETIME DEFAULT NULL' },
+      { name: 'custom_primary_color', definition: 'TEXT DEFAULT NULL' },
+      { name: 'custom_contact_name', definition: 'TEXT DEFAULT NULL' },
+      { name: 'custom_contact_email', definition: 'TEXT DEFAULT NULL' },
+      { name: 'custom_contact_phone', definition: 'TEXT DEFAULT NULL' },
+      { name: 'white_label_enabled', definition: 'INTEGER DEFAULT 0' }
     ];
 
     for (const column of columnsToAdd) {
