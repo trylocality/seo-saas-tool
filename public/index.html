@@ -64,6 +64,71 @@
         .toast-success { background: #28a745; }
         .toast-error { background: #dc3545; }
         .toast-warning { background: #ffc107; color: #212529; }
+
+        /* Tab Interface Styles */
+        .tab-btn {
+            flex: 1;
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-btn:hover {
+            color: #2c5282;
+            background: #f8f9fa;
+        }
+        
+        .tab-btn.active {
+            color: #2c5282;
+            border-bottom-color: #2c5282;
+            background: #f8f9fa;
+        }
+
+        /* Bulk Report Styles */
+        .bulk-progress {
+            background: #f8f9fa;
+            border: 2px solid #2c5282;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .bulk-progress h3 {
+            color: #2c5282;
+            margin-bottom: 15px;
+        }
+        
+        .bulk-business-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #e9ecef;
+        }
+        
+        .bulk-business-item.completed {
+            border-left-color: #28a745;
+        }
+        
+        .bulk-business-item.processing {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        
+        .bulk-business-item.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
         
         /* NEW REPORT DESIGN */
         .single-page-report { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; }
@@ -590,27 +655,96 @@
         <!-- Report Form -->
         <div id="reportFormSection" class="card hidden">
             <button class="btn btn-secondary" onclick="showDashboard()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← Back to Dashboard</button>
-            <h2 style="text-align: center; margin-bottom: 30px; color: #2c5282;">Generate SEO Audit Report</h2>
-            <form id="reportForm">
-                <div class="form-group">
-                    <label for="businessName">Business Name <span class="required">*</span></label>
-                    <input type="text" id="businessName" required placeholder="Exactly as shown on your Google Business Profile">
+            
+            <!-- Tab Interface -->
+            <div style="display: flex; margin-bottom: 30px; border-bottom: 2px solid #e9ecef;">
+                <button class="tab-btn active" onclick="showTab('single')" id="singleTab">
+                    Single Business Audit
+                </button>
+                <button class="tab-btn" onclick="showTab('bulk')" id="bulkTab">
+                    Bulk Competitive Analysis
+                </button>
+            </div>
+
+            <!-- Single Audit Form -->
+            <div id="singleAuditForm">
+                <h2 style="text-align: center; margin-bottom: 30px; color: #2c5282;">Generate SEO Audit Report</h2>
+                <form id="reportForm">
+                    <div class="form-group">
+                        <label for="businessName">Business Name <span class="required">*</span></label>
+                        <input type="text" id="businessName" required placeholder="Exactly as shown on your Google Business Profile">
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Location <span class="required">*</span></label>
+                        <input type="text" id="location" required placeholder="e.g., Miami, FL or Denver, CO">
+                    </div>
+                    <div class="form-group">
+                        <label for="industry">Industry <span class="required">*</span></label>
+                        <input type="text" id="industry" required placeholder="e.g., Accountant or House Cleaner">
+                    </div>
+                    <div class="form-group">
+                        <label for="website">Website (Optional)</label>
+                        <input type="url" id="website" placeholder="https://www.example.com">
+                    </div>
+                    <button type="submit" class="btn">Generate Report (1 Credit)</button>
+                    <div id="reportError" class="error hidden"></div>
+                </form>
+            </div>
+
+            <!-- Bulk Audit Form -->
+            <div id="bulkAuditForm" class="hidden">
+                <h2 style="text-align: center; margin-bottom: 30px; color: #2c5282;">Bulk Competitive Analysis</h2>
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #2c5282;">
+                    <h3 style="margin: 0 0 10px 0; color: #2c5282;">🎯 Competitive Intelligence</h3>
+                    <p style="margin: 0; color: #666; line-height: 1.5;">
+                        Audit multiple competitors at once! Enter an industry and location to analyze up to 25 top-ranking businesses. 
+                        Get competitive benchmarks, identify market gaps, and discover ranking opportunities.
+                    </p>
                 </div>
-                <div class="form-group">
-                    <label for="location">Location <span class="required">*</span></label>
-                    <input type="text" id="location" required placeholder="e.g., Miami, FL or Denver, CO">
-                </div>
-                <div class="form-group">
-                    <label for="industry">Industry <span class="required">*</span></label>
-                    <input type="text" id="industry" required placeholder="e.g., Accountant or House Cleaner">
-                </div>
-                <div class="form-group">
-                    <label for="website">Website (Optional)</label>
-                    <input type="url" id="website" placeholder="https://www.example.com">
-                </div>
-                <button type="submit" class="btn">Generate Report (1 Credit)</button>
-                <div id="reportError" class="error hidden"></div>
-            </form>
+                <form id="bulkReportForm">
+                    <div class="form-group">
+                        <label for="bulkIndustry">Industry/Service <span class="required">*</span></label>
+                        <input type="text" id="bulkIndustry" required placeholder="e.g., cleaning service, dentist, plumber">
+                        <small style="color: #666; display: block; margin-top: 5px;">The type of business you want to analyze</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="bulkLocation">Location <span class="required">*</span></label>
+                        <input type="text" id="bulkLocation" required placeholder="e.g., Las Vegas, NV or Austin, TX">
+                        <small style="color: #666; display: block; margin-top: 5px;">The city/area to analyze</small>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label for="bulkCount">Number of Businesses <span class="required">*</span></label>
+                            <select id="bulkCount" required>
+                                <option value="">Select count</option>
+                                <option value="5">5 businesses (5 credits)</option>
+                                <option value="10">10 businesses (10 credits)</option>
+                                <option value="15">15 businesses (15 credits)</option>
+                                <option value="20">20 businesses (20 credits)</option>
+                                <option value="25">25 businesses (25 credits)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="bulkStartFrom">Start From Rank</label>
+                            <input type="number" id="bulkStartFrom" placeholder="1" min="1" max="75" value="1">
+                            <small style="color: #666; display: block; margin-top: 5px;">Usually start from #1</small>
+                        </div>
+                    </div>
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+                        <strong style="color: #856404;">⚠️ Important Notes:</strong>
+                        <ul style="margin: 10px 0 0 20px; color: #856404;">
+                            <li>This process takes 8+ minutes (8 seconds between each audit)</li>
+                            <li>Uses 1 credit per business analyzed</li>
+                            <li>Provides competitive analysis, benchmarks, and opportunities</li>
+                            <li>Cannot be stopped once started - please plan accordingly</li>
+                        </ul>
+                    </div>
+                    <button type="submit" class="btn" id="bulkSubmitBtn">
+                        Start Bulk Analysis (<span id="bulkCreditsNeeded">0</span> Credits)
+                    </button>
+                    <div id="bulkReportError" class="error hidden"></div>
+                </form>
+            </div>
         </div>
 
         <!-- Enhanced Loading Section -->
@@ -905,6 +1039,31 @@
             // Clear the form when showing it
             document.getElementById('reportForm').reset();
             document.getElementById('reportError').classList.add('hidden');
+            document.getElementById('bulkReportForm').reset();
+            document.getElementById('bulkReportError').classList.add('hidden');
+            
+            // Reset to single audit tab
+            showTab('single');
+        }
+
+        // Tab switching functionality
+        function showTab(tabType) {
+            const singleTab = document.getElementById('singleTab');
+            const bulkTab = document.getElementById('bulkTab');
+            const singleForm = document.getElementById('singleAuditForm');
+            const bulkForm = document.getElementById('bulkAuditForm');
+
+            if (tabType === 'single') {
+                singleTab.classList.add('active');
+                bulkTab.classList.remove('active');
+                singleForm.classList.remove('hidden');
+                bulkForm.classList.add('hidden');
+            } else if (tabType === 'bulk') {
+                singleTab.classList.remove('active');
+                bulkTab.classList.add('active');
+                singleForm.classList.add('hidden');
+                bulkForm.classList.remove('hidden');
+            }
         }
 
         function showLoading() {
@@ -1281,6 +1440,97 @@
             }
         });
 
+        // Bulk report form handler
+        document.getElementById('bulkReportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const industry = document.getElementById('bulkIndustry').value;
+            const location = document.getElementById('bulkLocation').value;
+            const count = parseInt(document.getElementById('bulkCount').value);
+            const startFrom = parseInt(document.getElementById('bulkStartFrom').value) || 1;
+            const errorDiv = document.getElementById('bulkReportError');
+            const submitBtn = document.getElementById('bulkSubmitBtn');
+            
+            // Validate location format
+            if (!location.includes(',')) {
+                errorDiv.textContent = 'Location must be in format "City, ST" (e.g., "Las Vegas, NV")';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            // Check credits
+            if (currentUser && currentUser.creditsRemaining < count) {
+                errorDiv.textContent = `Insufficient credits. You need ${count} credits but only have ${currentUser.creditsRemaining}.`;
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            submitBtn.textContent = 'Starting Analysis...';
+            submitBtn.disabled = true;
+            errorDiv.classList.add('hidden');
+            
+            // Show custom bulk loading
+            showBulkLoading(industry, location, count);
+            
+            try {
+                const response = await fetch('/api/generate-bulk-report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ 
+                        industry, 
+                        location, 
+                        count,
+                        startFrom
+                    })
+                });
+
+                console.log('📊 Bulk response status:', response.status, response.ok);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('📊 Bulk report data received successfully');
+                
+                if (data && data.success) {
+                    console.log('✅ Bulk report data validation passed');
+                    currentReportData = data;
+                    displayBulkReport(data);
+                    showReport();
+                    
+                    // Refresh user data after generating new report
+                    await checkAuth();
+                    await loadUserReports();
+                    
+                    showToast('Bulk analysis completed successfully!', 'success');
+                    console.log('✅ Bulk report displayed successfully!');
+                } else {
+                    console.error('❌ Bulk report data validation failed');
+                    throw new Error('Invalid bulk report data received');
+                }
+            } catch (error) {
+                console.error('Bulk report generation error:', error);
+                errorDiv.textContent = error.message || 'Failed to generate bulk report. Please try again.';
+                errorDiv.classList.remove('hidden');
+                showReportForm();
+                showToast('Failed to generate bulk report. Please try again.', 'error');
+            } finally {
+                submitBtn.textContent = 'Start Bulk Analysis (0 Credits)';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Update bulk credits display when count changes
+        document.getElementById('bulkCount').addEventListener('change', function() {
+            const count = this.value;
+            document.getElementById('bulkCreditsNeeded').textContent = count || '0';
+        });
+
         // Simplified function to handle donut chart - NO ANIMATION
         function updateScoreDonut(score) {
             const scoreDonut = document.getElementById('scoreDonut');
@@ -1638,7 +1888,7 @@
 
         // Buy credits function
         function buyCredits() {
-            window.open('https://trylocality.com/pricing', '_blank');
+            window.location.href = '/pricing.html';
         }
 
         // Download PDF function
@@ -1654,6 +1904,168 @@
             setTimeout(() => {
                 elementsToHide.forEach(el => el.style.display = '');
             }, 1000);
+        }
+
+        // Bulk loading display
+        function showBulkLoading(industry, location, count) {
+            hideAllSections();
+            document.getElementById('loadingSection').classList.remove('hidden');
+            
+            // Update loading content for bulk analysis
+            const loadingSection = document.getElementById('loadingSection');
+            const estimatedTime = Math.ceil(count * 8 / 60); // 8 seconds per business, convert to minutes
+            
+            loadingSection.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <div class="spinner"></div>
+                    <h3>Running Bulk Competitive Analysis...</h3>
+                    <p><strong>${industry}</strong> in <strong>${location}</strong></p>
+                    <p>Analyzing ${count} businesses (Est. ${estimatedTime} minutes)</p>
+                    
+                    <div class="bulk-progress">
+                        <h4>🔍 Analysis Progress</h4>
+                        <p style="color: #666; margin-bottom: 20px;">Please do not close this window</p>
+                        <div id="bulkProgressList">
+                            ${Array.from({length: count}, (_, i) => `
+                                <div class="bulk-business-item" id="bulk-item-${i+1}">
+                                    <span>Business #${i+1}</span>
+                                    <span>⏳ Queued</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Display bulk report
+        function displayBulkReport(bulkData) {
+            const reportSection = document.getElementById('reportSection');
+            
+            const summary = bulkData.executiveSummary;
+            const businesses = bulkData.businesses;
+            const benchmarks = bulkData.industryBenchmarks;
+            const opportunities = bulkData.opportunityMatrix;
+            
+            reportSection.innerHTML = `
+                <!-- Bulk Report Header -->
+                <div class="business-info-header">
+                    <div class="business-details">
+                        <div><strong>Analysis:</strong> ${summary.title}</div>
+                        <div><strong>Generated:</strong> ${bulkData.generatedDate}</div>
+                        <div><strong>Businesses Analyzed:</strong> ${summary.totalAnalyzed}</div>
+                        <div><strong>Average Score:</strong> ${summary.averageScore}/100</div>
+                    </div>
+                    <div class="logo-container">
+                        <img src="/assets/logo.png" alt="Logo" class="logo">
+                    </div>
+                </div>
+                
+                <!-- Executive Summary -->
+                <div style="padding: 30px; background: white;">
+                    <h2 style="color: #2c5282; margin-bottom: 20px;">📊 Executive Summary</h2>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                            <h3 style="color: #2c5282; margin: 0;">${summary.averageScore}</h3>
+                            <p style="margin: 5px 0 0; color: #666;">Average Score</p>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                            <h3 style="color: #28a745; margin: 0;">${summary.highestScore}</h3>
+                            <p style="margin: 5px 0 0; color: #666;">Highest Score</p>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                            <h3 style="color: #dc3545; margin: 0;">${summary.lowestScore}</h3>
+                            <p style="margin: 5px 0 0; color: #666;">Lowest Score</p>
+                        </div>
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                            <h3 style="color: #ffc107; margin: 0;">${summary.topRankedAverage}</h3>
+                            <p style="margin: 5px 0 0; color: #666;">Top 5 Average</p>
+                        </div>
+                    </div>
+
+                    <!-- Opportunities -->
+                    <h3 style="color: #2c5282; margin-bottom: 15px;">🎯 Key Opportunities</h3>
+                    ${opportunities.map(opp => `
+                        <div style="background: ${opp.priority === 'HIGH' ? '#fff3cd' : '#f8f9fa'}; 
+                                    border-left: 4px solid ${opp.priority === 'HIGH' ? '#ffc107' : '#6c757d'}; 
+                                    padding: 15px; margin-bottom: 10px; border-radius: 5px;">
+                            <strong>${opp.message}</strong>
+                            <p style="margin: 5px 0 0; color: #666; font-size: 0.9rem;">${opp.actionable}</p>
+                        </div>
+                    `).join('')}
+
+                    <!-- Business Rankings -->
+                    <h3 style="color: #2c5282; margin-bottom: 15px;">🏆 Business Rankings</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="reports-table" style="margin-bottom: 30px;">
+                            <thead>
+                                <tr>
+                                    <th>Google Rank</th>
+                                    <th>Business Name</th>
+                                    <th>SEO Score</th>
+                                    <th>Grade</th>
+                                    <th>Website</th>
+                                    <th>Rating</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${businesses.map(business => `
+                                    <tr>
+                                        <td style="font-weight: bold; color: #2c5282;">#${business.rank}</td>
+                                        <td>
+                                            <div class="business-name">${business.businessName}</div>
+                                        </td>
+                                        <td>
+                                            <div class="score-badge ${getScoreClass(business.score)}">
+                                                ${business.score}
+                                            </div>
+                                        </td>
+                                        <td style="font-weight: bold; font-size: 1.1rem;">${business.grade}</td>
+                                        <td>${business.website ? `<a href="${business.website}" target="_blank" style="color: #2c5282; text-decoration: none;">Visit →</a>` : 'N/A'}</td>
+                                        <td>${business.rating ? business.rating + '⭐ (' + business.reviews + ')' : 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Industry Benchmarks -->
+                    <h3 style="color: #2c5282; margin-bottom: 15px;">📈 Industry Benchmarks</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                        ${Object.values(benchmarks).map(benchmark => `
+                            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                                <h4 style="margin: 0 0 10px; color: #2c5282;">${benchmark.name}</h4>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                    <span>Industry Average:</span>
+                                    <strong>${benchmark.average}</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>Best in Market:</span>
+                                    <strong>${benchmark.best}</strong>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div style="padding: 20px 30px; background: #f8f9fa; text-align: center;">
+                    <button class="btn" onclick="printReport()" style="margin-right: 15px; width: auto; padding: 12px 30px;">
+                        📄 Print Report
+                    </button>
+                    <button class="btn btn-secondary" onclick="showDashboard()" style="width: auto; padding: 12px 30px;">
+                        ← Back to Dashboard
+                    </button>
+                </div>
+            `;
+        }
+
+        // Helper function to get score class
+        function getScoreClass(score) {
+            if (score >= 80) return 'score-good';
+            if (score >= 60) return 'score-fair';
+            return 'score-poor';
         }
 
         // Logout function
