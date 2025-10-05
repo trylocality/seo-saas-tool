@@ -307,27 +307,37 @@ class DatabaseAdapter {
     `);
 
     // Screenshot cache table
-    await this.query(`
-      CREATE TABLE IF NOT EXISTS screenshot_cache (
-        id SERIAL PRIMARY KEY,
-        cache_key TEXT UNIQUE NOT NULL,
-        filepath TEXT NOT NULL,
-        filename TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP NOT NULL
-      )
-    `);
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS screenshot_cache (
+          id SERIAL PRIMARY KEY,
+          cache_key TEXT UNIQUE NOT NULL,
+          filepath TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP NOT NULL
+        )
+      `);
+      console.log('✅ screenshot_cache table ready');
+    } catch (error) {
+      console.log(`⚠️ screenshot_cache table warning: ${error.message}`);
+    }
 
     // API cache table for Outscraper and other API results
-    await this.query(`
-      CREATE TABLE IF NOT EXISTS api_cache (
-        id SERIAL PRIMARY KEY,
-        cache_key TEXT UNIQUE NOT NULL,
-        data JSONB NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP NOT NULL
-      )
-    `);
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS api_cache (
+          id SERIAL PRIMARY KEY,
+          cache_key TEXT UNIQUE NOT NULL,
+          data JSONB NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP NOT NULL
+        )
+      `);
+      console.log('✅ api_cache table ready');
+    } catch (error) {
+      console.log(`⚠️ api_cache table warning: ${error.message}`);
+    }
 
     // Payments table
     await this.query(`
@@ -374,24 +384,35 @@ class DatabaseAdapter {
       )
     `);
 
-    // Create indexes for performance
-    await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_expires ON screenshot_cache(expires_at)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_key ON screenshot_cache(cache_key)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_api_cache_expires ON api_cache(expires_at)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_api_cache_key ON api_cache(cache_key)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(email_verification_token)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(password_reset_token)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_payments_session_id ON payments(stripe_session_id)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at DESC)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_reports_was_paid ON reports(was_paid)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_appsumo_codes_code ON appsumo_codes(code)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_appsumo_codes_redeemed ON appsumo_codes(is_redeemed)');
-    
+    // Create indexes for performance (with error handling for missing tables)
+    const indexes = [
+      'CREATE INDEX IF NOT EXISTS idx_screenshot_cache_expires ON screenshot_cache(expires_at)',
+      'CREATE INDEX IF NOT EXISTS idx_screenshot_cache_key ON screenshot_cache(cache_key)',
+      'CREATE INDEX IF NOT EXISTS idx_api_cache_expires ON api_cache(expires_at)',
+      'CREATE INDEX IF NOT EXISTS idx_api_cache_key ON api_cache(cache_key)',
+      'CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+      'CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(email_verification_token)',
+      'CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(password_reset_token)',
+      'CREATE INDEX IF NOT EXISTS idx_payments_session_id ON payments(stripe_session_id)',
+      'CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_reports_was_paid ON reports(was_paid)',
+      'CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_appsumo_codes_code ON appsumo_codes(code)',
+      'CREATE INDEX IF NOT EXISTS idx_appsumo_codes_redeemed ON appsumo_codes(is_redeemed)'
+    ];
+
+    for (const indexQuery of indexes) {
+      try {
+        await this.query(indexQuery);
+      } catch (error) {
+        // Silently skip if table/column doesn't exist (will be created on next deployment)
+        console.log(`⚠️ Skipped index: ${error.message}`);
+      }
+    }
+
     // Add new columns if they don't exist (for existing databases)
     const columnsToAdd = [
       { name: 'email_verified', definition: 'BOOLEAN DEFAULT FALSE' },
