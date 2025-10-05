@@ -769,10 +769,28 @@ function formatBusinessOptions(businesses) {
 // 1. OUTSCRAPER - Get primary business data
 async function getOutscraperData(businessName, location) {
   try {
+    // Check cache first (24 hour TTL)
+    const cacheKey = `outscraper_${businessName.toLowerCase()}_${location.toLowerCase()}`;
+    try {
+      const cached = await db.get(
+        'SELECT data, created_at FROM api_cache WHERE cache_key = $1 AND expires_at > NOW()',
+        [cacheKey]
+      );
+
+      if (cached) {
+        const age = Math.round((Date.now() - new Date(cached.created_at)) / 1000 / 60);
+        console.log(`✅ Using cached Outscraper data (age: ${age} minutes)`);
+        return JSON.parse(cached.data);
+      }
+    } catch (cacheError) {
+      console.log(`⚠️ Cache check failed: ${cacheError.message}`);
+      // Continue to fetch fresh data
+    }
+
     // Enhanced query for county-level searches
     const { city, state, isCounty } = extractCityState(location);
     let query;
-    
+
     if (isCounty) {
       // For county searches, create a broader query that includes the county name
       query = `${businessName} ${city} County ${state}`;
@@ -782,11 +800,11 @@ async function getOutscraperData(businessName, location) {
       query = `${businessName} ${location}`;
       console.log(`🔍 Outscraper search: ${query}`);
     }
-    
+
     if (!OUTSCRAPER_API_KEY) {
       throw new Error('Outscraper API key not configured');
     }
-    
+
     // Detect country/region from location
     const { region, language } = detectCountryRegion(location);
     
@@ -835,8 +853,8 @@ async function getOutscraperData(businessName, location) {
             console.log(`🔍 PROFILE DETAILS: Name: "${business.name}", Address: "${business.full_address || business.address}", Phone: "${business.phone}"`);
             console.log(`🔍 VERIFICATION STATUS: Verified: ${business.verified}, Claimed: ${business.claimed}, Rating: ${business.rating}, Reviews: ${business.reviews}`);
             console.log('🔍 FINAL BUSINESS OBJECT:', JSON.stringify(business, null, 2));
-            
-            return {
+
+            const resultData = {
               name: business.name || business.title || businessName,
               phone: business.phone || '',
               address: business.full_address || business.address || '',
@@ -852,6 +870,19 @@ async function getOutscraperData(businessName, location) {
               google_id: business.google_id || business.place_id,
               reviews_link: business.reviews_link
             };
+
+            // Cache the result for 24 hours
+            try {
+              await db.query(
+                'INSERT INTO api_cache (cache_key, data, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'24 hours\') ON CONFLICT (cache_key) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL \'24 hours\'',
+                [cacheKey, JSON.stringify(resultData)]
+              );
+              console.log(`💾 Outscraper data cached for 24 hours`);
+            } catch (cacheInsertError) {
+              console.log(`⚠️ Failed to cache Outscraper data: ${cacheInsertError.message}`);
+            }
+
+            return resultData;
           }
         } catch (pollError) {
           console.log(`⏳ Poll ${i + 1}: Still processing...`);
@@ -872,8 +903,8 @@ async function getOutscraperData(businessName, location) {
       console.log(`✅ Outscraper found: ${business.name || business.title || businessName}`);
       console.log(`🔍 PROFILE DETAILS: Name: "${business.name}", Address: "${business.full_address || business.address}", Phone: "${business.phone}"`);
       console.log(`🔍 VERIFICATION STATUS: Verified: ${business.verified}, Claimed: ${business.claimed}, Rating: ${business.rating}, Reviews: ${business.reviews}`);
-      
-      return {
+
+      const resultData = {
         name: business.name || business.title || businessName,
         phone: business.phone || '',
         address: business.full_address || business.address || '',
@@ -889,8 +920,21 @@ async function getOutscraperData(businessName, location) {
         google_id: business.google_id || business.place_id,
         reviews_link: business.reviews_link
       };
+
+      // Cache the result for 24 hours
+      try {
+        await db.query(
+          'INSERT INTO api_cache (cache_key, data, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'24 hours\') ON CONFLICT (cache_key) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL \'24 hours\'',
+          [cacheKey, JSON.stringify(resultData)]
+        );
+        console.log(`💾 Outscraper data cached for 24 hours`);
+      } catch (cacheInsertError) {
+        console.log(`⚠️ Failed to cache Outscraper data: ${cacheInsertError.message}`);
+      }
+
+      return resultData;
     }
-    
+
     throw new Error('No business found in Outscraper response');
     
   } catch (error) {
@@ -902,22 +946,54 @@ async function getOutscraperData(businessName, location) {
 async function takeBusinessProfileScreenshot(businessName, location) {
   try {
     console.log(`📸 Taking ScrapingBee screenshot: ${businessName}`);
-    
+
     await ensureScreenshotsDir();
-    
+
     if (!SCRAPINGBEE_API_KEY) {
       throw new Error('ScrapingBee API key not configured');
     }
-    
+
+    // Check cache first (24 hour TTL)
+    const cacheKey = `${businessName.toLowerCase()}_${location.toLowerCase()}`;
+    try {
+      const cached = await db.get(
+        'SELECT filepath, filename, created_at FROM screenshot_cache WHERE cache_key = $1 AND expires_at > NOW()',
+        [cacheKey]
+      );
+
+      if (cached) {
+        // Verify file still exists
+        try {
+          await fs.access(cached.filepath);
+          const age = Math.round((Date.now() - new Date(cached.created_at)) / 1000 / 60);
+          console.log(`✅ Using cached screenshot (age: ${age} minutes)`);
+          return {
+            success: true,
+            filename: cached.filename,
+            filepath: cached.filepath,
+            url: `/screenshots/${cached.filename}`,
+            fromCache: true
+          };
+        } catch (fileError) {
+          console.log(`⚠️ Cached screenshot file missing, will regenerate`);
+          // Delete stale cache entry
+          await db.query('DELETE FROM screenshot_cache WHERE cache_key = $1', [cacheKey]);
+        }
+      }
+    } catch (cacheError) {
+      console.log(`⚠️ Cache check failed: ${cacheError.message}`);
+      // Continue to generate new screenshot
+    }
+
     // Enhanced query for county-level searches
     const { city, state, isCounty } = extractCityState(location);
     const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
-    
+
     // Detect location for better screenshot results
     const { region } = detectCountryRegion(location);
     const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
     const googleSearchUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
-    
+
     const params = {
       api_key: SCRAPINGBEE_API_KEY,
       url: googleSearchUrl,
@@ -932,34 +1008,47 @@ async function takeBusinessProfileScreenshot(businessName, location) {
       block_resources: 'false',
       country_code: region.toLowerCase()
     };
-    
+
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
       timeout: 120000,
       responseType: 'arraybuffer'
     });
-    
+
     if (response.status === 200 && response.headers['content-type'].includes('image')) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const safeBusinessName = businessName.replace(/[^a-zA-Z0-9]/g, '_');
       const filename = `${safeBusinessName}_${timestamp}.png`;
       const filepath = path.join(screenshotsDir, filename);
-      
+
       await fs.writeFile(filepath, response.data);
-      
+
       console.log(`✅ Screenshot saved: ${filename}`);
-      
+
+      // Cache the screenshot for 24 hours
+      try {
+        await db.query(
+          'INSERT INTO screenshot_cache (cache_key, filepath, filename, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL \'24 hours\')',
+          [cacheKey, filepath, filename]
+        );
+        console.log(`💾 Screenshot cached for 24 hours`);
+      } catch (cacheInsertError) {
+        console.log(`⚠️ Failed to cache screenshot: ${cacheInsertError.message}`);
+        // Don't fail the request if caching fails
+      }
+
       return {
         success: true,
         filename: filename,
         filepath: filepath,
         url: `/screenshots/${filename}`,
-        fileSize: response.data.length
+        fileSize: response.data.length,
+        fromCache: false
       };
     } else {
       throw new Error(`Unexpected response: ${response.status}`);
     }
-    
+
   } catch (error) {
     console.error('❌ Screenshot error:', error.message);
     throw new Error(`Screenshot failed: ${error.message}`);
@@ -2542,9 +2631,11 @@ async function generateCompleteReport(businessName, location, industry, website,
     ];
     
     // Add AI analysis if we have screenshot
-    if (screenshot) {
+    if (screenshot && screenshot.filepath) {
+      console.log(`🤖 Adding AI screenshot analysis to queue`);
       analysisPromises.push(analyzeScreenshotWithAI(screenshot.filepath, businessName));
     } else {
+      console.log(`⚡ Skipping AI analysis (no screenshot available) - using fallback data`);
       analysisPromises.push(Promise.resolve(getFallbackAIAnalysis()));
     }
     

@@ -310,14 +310,22 @@ class DatabaseAdapter {
     await this.query(`
       CREATE TABLE IF NOT EXISTS screenshot_cache (
         id SERIAL PRIMARY KEY,
-        business_name TEXT NOT NULL,
-        city TEXT NOT NULL,
-        screenshot_filename TEXT NOT NULL,
-        screenshot_url TEXT NOT NULL,
+        cache_key TEXT UNIQUE NOT NULL,
+        filepath TEXT NOT NULL,
+        filename TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP NOT NULL,
-        file_size INTEGER,
-        UNIQUE(business_name, city)
+        expires_at TIMESTAMP NOT NULL
+      )
+    `);
+
+    // API cache table for Outscraper and other API results
+    await this.query(`
+      CREATE TABLE IF NOT EXISTS api_cache (
+        id SERIAL PRIMARY KEY,
+        cache_key TEXT UNIQUE NOT NULL,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL
       )
     `);
 
@@ -353,6 +361,9 @@ class DatabaseAdapter {
 
     // Create indexes for performance
     await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_expires ON screenshot_cache(expires_at)');
+    await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_key ON screenshot_cache(cache_key)');
+    await this.query('CREATE INDEX IF NOT EXISTS idx_api_cache_expires ON api_cache(expires_at)');
+    await this.query('CREATE INDEX IF NOT EXISTS idx_api_cache_key ON api_cache(cache_key)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
