@@ -3730,6 +3730,86 @@ app.post('/api/signup', authLimiter, async (req, res) => {
   }
 });
 
+// AppSumo code redemption endpoint
+app.post('/api/redeem-appsumo', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'AppSumo code is required' });
+    }
+
+    const cleanCode = code.trim().toUpperCase();
+
+    // Check if code exists and is not redeemed
+    const appsumoCode = await db.get(
+      'SELECT * FROM appsumo_codes WHERE code = $1',
+      [cleanCode]
+    );
+
+    if (!appsumoCode) {
+      return res.status(404).json({ error: 'Invalid AppSumo code' });
+    }
+
+    if (appsumoCode.is_redeemed) {
+      return res.status(400).json({ error: 'This code has already been redeemed' });
+    }
+
+    // Check if user already has a lifetime plan
+    if (req.user.is_lifetime) {
+      return res.status(400).json({ error: 'You already have a lifetime plan active' });
+    }
+
+    // Activate lifetime plan for user
+    await db.query(
+      `UPDATE users SET
+        appsumo_code = $1,
+        appsumo_plan_id = $2,
+        is_lifetime = $3,
+        lifetime_monthly_credits = $4,
+        credits_remaining = $5,
+        subscription_tier = $6,
+        last_credit_renewal = NOW()
+      WHERE id = $7`,
+      [
+        cleanCode,
+        appsumoCode.plan_id,
+        true,
+        appsumoCode.monthly_credits,
+        appsumoCode.monthly_credits, // Give them their first month immediately
+        appsumoCode.plan_name,
+        req.user.id
+      ]
+    );
+
+    // Mark code as redeemed
+    await db.query(
+      `UPDATE appsumo_codes SET
+        is_redeemed = $1,
+        redeemed_by_user_id = $2,
+        redeemed_at = NOW()
+      WHERE id = $3`,
+      [true, req.user.id, appsumoCode.id]
+    );
+
+    console.log(`✅ AppSumo code redeemed: ${cleanCode} by user ${req.user.email}`);
+
+    res.json({
+      success: true,
+      message: `Lifetime plan activated! You now have ${appsumoCode.monthly_credits} credits per month for life.`,
+      plan: {
+        name: appsumoCode.plan_name,
+        monthlyCredits: appsumoCode.monthly_credits,
+        creditsNow: appsumoCode.monthly_credits
+      }
+    });
+
+  } catch (error) {
+    console.error('AppSumo redemption error:', error);
+    res.status(500).json({ error: 'Failed to redeem AppSumo code' });
+  }
+});
+
 // Email verification endpoint
 app.get('/api/verify-email', async (req, res) => {
   try {
@@ -6066,6 +6146,61 @@ app.post('/api/test/enhanced-citations', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ==========================================
+// APPSUMO LIFETIME CREDIT RENEWAL CRON
+// ==========================================
+
+// Renew credits for lifetime AppSumo users monthly
+async function renewLifetimeCredits() {
+  try {
+    console.log('🔄 Running lifetime credit renewal...');
+
+    // Get all lifetime users who need renewal (last renewal > 30 days ago or null)
+    const lifetimeUsers = await db.all(`
+      SELECT id, email, lifetime_monthly_credits, last_credit_renewal, appsumo_plan_id
+      FROM users
+      WHERE is_lifetime = $1
+      AND (
+        last_credit_renewal IS NULL
+        OR last_credit_renewal < NOW() - INTERVAL '30 days'
+      )
+    `, [true]);
+
+    if (lifetimeUsers.length === 0) {
+      console.log('✅ No lifetime users need credit renewal');
+      return;
+    }
+
+    console.log(`🔄 Renewing credits for ${lifetimeUsers.length} lifetime users...`);
+
+    for (const user of lifetimeUsers) {
+      try {
+        await db.query(`
+          UPDATE users
+          SET credits_remaining = $1,
+              last_credit_renewal = NOW()
+          WHERE id = $2
+        `, [user.lifetime_monthly_credits, user.id]);
+
+        console.log(`✅ Renewed ${user.lifetime_monthly_credits} credits for ${user.email} (AppSumo ${user.appsumo_plan_id})`);
+      } catch (userError) {
+        console.error(`❌ Failed to renew credits for user ${user.email}:`, userError.message);
+      }
+    }
+
+    console.log(`✅ Lifetime credit renewal complete: ${lifetimeUsers.length} users renewed`);
+
+  } catch (error) {
+    console.error('❌ Lifetime credit renewal error:', error);
+  }
+}
+
+// Run credit renewal daily at 2 AM
+setInterval(renewLifetimeCredits, 24 * 60 * 60 * 1000); // Every 24 hours
+
+// Also run on server start (for any missed renewals)
+setTimeout(renewLifetimeCredits, 5000); // Run 5 seconds after server starts
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {

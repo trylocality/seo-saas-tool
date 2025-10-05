@@ -359,6 +359,21 @@ class DatabaseAdapter {
       )
     `);
 
+    // AppSumo codes table
+    await this.query(`
+      CREATE TABLE IF NOT EXISTS appsumo_codes (
+        id SERIAL PRIMARY KEY,
+        code TEXT UNIQUE NOT NULL,
+        plan_id TEXT NOT NULL,
+        plan_name TEXT NOT NULL,
+        monthly_credits INTEGER NOT NULL,
+        is_redeemed BOOLEAN DEFAULT FALSE,
+        redeemed_by_user_id INTEGER REFERENCES users(id),
+        redeemed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create indexes for performance
     await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_expires ON screenshot_cache(expires_at)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_key ON screenshot_cache(cache_key)');
@@ -374,6 +389,8 @@ class DatabaseAdapter {
     await this.query('CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_reports_was_paid ON reports(was_paid)');
     await this.query('CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)');
+    await this.query('CREATE INDEX IF NOT EXISTS idx_appsumo_codes_code ON appsumo_codes(code)');
+    await this.query('CREATE INDEX IF NOT EXISTS idx_appsumo_codes_redeemed ON appsumo_codes(is_redeemed)');
     
     // Add new columns if they don't exist (for existing databases)
     const columnsToAdd = [
@@ -386,7 +403,12 @@ class DatabaseAdapter {
       { name: 'custom_contact_name', definition: 'TEXT DEFAULT NULL' },
       { name: 'custom_contact_email', definition: 'TEXT DEFAULT NULL' },
       { name: 'custom_contact_phone', definition: 'TEXT DEFAULT NULL' },
-      { name: 'white_label_enabled', definition: 'BOOLEAN DEFAULT FALSE' }
+      { name: 'white_label_enabled', definition: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'appsumo_code', definition: 'TEXT DEFAULT NULL' },
+      { name: 'appsumo_plan_id', definition: 'TEXT DEFAULT NULL' },
+      { name: 'is_lifetime', definition: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'lifetime_monthly_credits', definition: 'INTEGER DEFAULT NULL' },
+      { name: 'last_credit_renewal', definition: 'TIMESTAMP DEFAULT NULL' }
     ];
 
     for (const column of columnsToAdd) {

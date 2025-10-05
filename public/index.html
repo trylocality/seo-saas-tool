@@ -2076,6 +2076,11 @@
                                 <div class="menu-item-text">Purchase More Audits</div>
                             </button>
 
+                            <button class="menu-item" onclick="handleAppSumoRedeem()">
+                                <div class="menu-item-icon"></div>
+                                <div class="menu-item-text">Redeem AppSumo Code</div>
+                            </button>
+
                             <div class="menu-divider"></div>
 
                             <button class="menu-item" onclick="handleAccountSettings()">
@@ -2382,6 +2387,49 @@
                 <button type="submit" class="btn" style="width: 100%;">Submit Feedback</button>
                 <div id="feedbackError" class="error hidden"></div>
                 <div id="feedbackSuccess" class="success hidden"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- AppSumo Redemption Modal -->
+    <div id="appsumoModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Redeem AppSumo Code</h2>
+                <span class="close-modal" onclick="closeAppSumoModal()">&times;</span>
+            </div>
+            <form id="appsumoForm" onsubmit="redeemAppSumoCode(event)">
+                <div class="form-group">
+                    <label for="appsumoCode">Enter Your AppSumo Code</label>
+                    <input
+                        type="text"
+                        id="appsumoCode"
+                        name="code"
+                        placeholder="APPSUMO-XXXXXX"
+                        required
+                        style="text-transform: uppercase; font-family: monospace; font-size: 1.1rem; letter-spacing: 1px;"
+                    >
+                    <p style="color: #666; font-size: 0.9rem; margin-top: 8px;">
+                        Enter the unique code you received from your AppSumo purchase
+                    </p>
+                </div>
+
+                <div style="background: #f0f9ff; border: 1px solid #bae6fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <h4 style="color: #0369a1; margin-top: 0;">What you'll get:</h4>
+                    <ul style="color: #075985; margin-left: 20px;">
+                        <li>Lifetime access to SEO audits</li>
+                        <li>Monthly credit renewals (based on your tier)</li>
+                        <li>No recurring payments - ever!</li>
+                        <li>Priority support</li>
+                    </ul>
+                </div>
+
+                <button type="submit" class="btn" style="width: 100%;">
+                    Activate Lifetime Access
+                </button>
+
+                <div id="appsumoError" class="error hidden"></div>
+                <div id="appsumoSuccess" class="success hidden"></div>
             </form>
         </div>
     </div>
@@ -5056,7 +5104,12 @@ I'd like to discuss getting citations built for the missing directories identifi
             closeAccountMenu();
             buyCredits();
         }
-        
+
+        function handleAppSumoRedeem() {
+            closeAccountMenu();
+            showAppSumoModal();
+        }
+
         function handleAccountSettings() {
             closeAccountMenu();
             showAccountSettingsModal();
@@ -5171,7 +5224,78 @@ I'd like to discuss getting citations built for the missing directories identifi
             
             console.log(` Displayed ${payments.length} payment records in table`);
         }
-        
+
+        // AppSumo Modal Functions
+        function showAppSumoModal() {
+            document.getElementById('appsumoModal').classList.remove('hidden');
+            document.getElementById('appsumoModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('appsumoCode').value = '';
+            document.getElementById('appsumoError').classList.add('hidden');
+            document.getElementById('appsumoSuccess').classList.add('hidden');
+        }
+
+        function closeAppSumoModal() {
+            document.getElementById('appsumoModal').classList.remove('show');
+            document.getElementById('appsumoModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        async function redeemAppSumoCode(event) {
+            event.preventDefault();
+
+            const code = document.getElementById('appsumoCode').value.trim();
+            const errorEl = document.getElementById('appsumoError');
+            const successEl = document.getElementById('appsumoSuccess');
+
+            // Hide previous messages
+            errorEl.classList.add('hidden');
+            successEl.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/redeem-appsumo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ code })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Show success message
+                    successEl.textContent = data.message;
+                    successEl.classList.remove('hidden');
+
+                    // Update user credits display
+                    if (data.plan && data.plan.creditsNow) {
+                        updateCreditsDisplay(data.plan.creditsNow);
+                    }
+
+                    // Close modal after 3 seconds
+                    setTimeout(() => {
+                        closeAppSumoModal();
+                        showToast(`AppSumo activated! You now have ${data.plan.monthlyCredits} credits/month for life!`, 'success');
+
+                        // Reload page to update user data
+                        setTimeout(() => window.location.reload(), 2000);
+                    }, 3000);
+
+                } else {
+                    // Show error message
+                    errorEl.textContent = data.error || 'Failed to redeem code';
+                    errorEl.classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error('AppSumo redemption error:', error);
+                errorEl.textContent = 'Failed to connect to server. Please try again.';
+                errorEl.classList.remove('hidden');
+            }
+        }
+
         // Cancellation Modal Functions
         function showCancellationModal() {
             closeBillingHistoryModal();
