@@ -534,10 +534,79 @@ If you didn't request a password reset, please ignore this email. Your password 
   return sendEmailWithWebhook(email, subject, htmlContent, textContent, webhookUrl, 'password_reset');
 }
 
+/**
+ * Send bulk audit completion email notification
+ * Notifies users when their bulk audit has finished processing
+ * @param {Object} auditData - Contains userEmail, userName, userId, industry, location, businessesScanned, averageScore, creditsUsed, completedAt
+ */
+async function sendBulkAuditCompleteEmail(auditData) {
+  const { userEmail, userName, userId, industry, location, businessesScanned, averageScore, creditsUsed, completedAt } = auditData;
+
+  const subject = `✅ Your Bulk Audit is Complete - ${businessesScanned} Businesses Analyzed`;
+
+  const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #0e192b;">🎉 Bulk Audit Complete!</h2>
+      <p>Hi ${userName},</p>
+      <p>Your bulk SEO audit has finished processing. Here's a summary of your results:</p>
+
+      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3 style="color: #0e192b; margin-top: 0;">📊 Audit Summary</h3>
+        <ul style="line-height: 1.8; color: #333;">
+          <li><strong>Industry:</strong> ${industry}</li>
+          <li><strong>Location:</strong> ${location}</li>
+          <li><strong>Businesses Scanned:</strong> ${businessesScanned}</li>
+          <li><strong>Average Score:</strong> ${averageScore}%</li>
+          <li><strong>Credits Used:</strong> ${creditsUsed}</li>
+          <li><strong>Completed:</strong> ${completedAt}</li>
+        </ul>
+      </div>
+
+      <p>Your complete competitive analysis report is ready to view in your dashboard.</p>
+
+      <div style="margin: 30px 0; text-align: center;">
+        <a href="${process.env.APP_URL || 'http://localhost:3000'}" style="background-color: #0e192b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+          View Your Report
+        </a>
+      </div>
+
+      <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+      <p style="color: #999; font-size: 12px;">This is an automated notification from Locality SEO Audit Tool.</p>
+    </div>
+  `;
+
+  const textContent = `
+Bulk Audit Complete!
+
+Hi ${userName},
+
+Your bulk SEO audit has finished processing. Here's a summary of your results:
+
+📊 Audit Summary:
+• Industry: ${industry}
+• Location: ${location}
+• Businesses Scanned: ${businessesScanned}
+• Average Score: ${averageScore}%
+• Credits Used: ${creditsUsed}
+• Completed: ${completedAt}
+
+Your complete competitive analysis report is ready to view in your dashboard.
+
+Visit: ${process.env.APP_URL || 'http://localhost:3000'}
+
+---
+This is an automated notification from Locality SEO Audit Tool.
+  `.trim();
+
+  // Use specific webhook for bulk audit completion
+  const webhookUrl = process.env.BULK_AUDIT_WEBHOOK_URL || process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
+  return sendEmailWithWebhook(userEmail, subject, htmlContent, textContent, webhookUrl, 'bulk_audit_complete');
+}
+
 // Send feedback email notification
 async function sendFeedbackEmail(feedbackData) {
   const { rating, type, message, email, reportData, userId, userName } = feedbackData;
-  
+
   // Email content
   const subject = `🔔 New Feedback Submission - ${rating}/5 stars`;
   const emailBody = `
@@ -863,12 +932,17 @@ async function getOutscraperData(businessName, location) {
               reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
               verified: business.verified || business.claimed || false,
               description: business.description || '',
+              photos: parseInt(business.photos_count) || parseInt(business.photos) || 0,
               photos_count: parseInt(business.photos_count) || parseInt(business.photos) || 0,
               categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
-              hours: business.working_hours || business.hours || null,
+              hours: business.working_hours || business.hours || {},
               place_id: business.place_id || business.google_id,
               google_id: business.google_id || business.place_id,
-              reviews_link: business.reviews_link
+              reviews_link: business.reviews_link || '',
+              social: {},
+              posts: 0,
+              questionsAnswers: 0,
+              photoCategories: []
             };
 
             // Cache the result for 24 hours
@@ -913,12 +987,17 @@ async function getOutscraperData(businessName, location) {
         reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
         verified: business.verified || business.claimed || false,
         description: business.description || '',
+        photos: parseInt(business.photos_count) || parseInt(business.photos) || 0,
         photos_count: parseInt(business.photos_count) || parseInt(business.photos) || 0,
         categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
-        hours: business.working_hours || business.hours || null,
+        hours: business.working_hours || business.hours || {},
         place_id: business.place_id || business.google_id,
         google_id: business.google_id || business.place_id,
-        reviews_link: business.reviews_link
+        reviews_link: business.reviews_link || '',
+        social: {},
+        posts: 0,
+        questionsAnswers: 0,
+        photoCategories: []
       };
 
       // Cache the result for 24 hours
@@ -3110,10 +3189,18 @@ async function generateFastBulkReport(businessName, location, industry, website)
       partialData.outscraper = {
         name: businessName,
         photos: 0,
+        photos_count: 0,
         reviews: 0,
         rating: 0,
         categories: [],
-        website: website || null
+        website: website || null,
+        address: '',
+        phone: '',
+        hours: {},
+        social: {},
+        posts: 0,
+        questionsAnswers: 0,
+        photoCategories: []
       };
     }
 
@@ -3156,49 +3243,53 @@ async function generateFastBulkReport(businessName, location, industry, website)
     }
 
     // Compile essential data for scoring
+    const outscraperData = partialData.outscraper || {};
+    const citationsData = partialData.citations || { found: [], checked: [], total: 0, stats: { found: 0, missing: 0, percentage: 0, score: 0 } };
+    const websiteData = partialData.websiteAnalysis || {};
+
     const compiledData = {
       business: {
-        name: partialData.outscraper?.name || businessName,
-        address: partialData.outscraper?.address || '',
-        phone: partialData.outscraper?.phone || '',
-        website: partialData.outscraper?.website || website,
-        categories: partialData.outscraper?.categories || [],
-        hours: partialData.outscraper?.hours || {}
+        name: outscraperData.name || businessName,
+        address: outscraperData.address || '',
+        phone: outscraperData.phone || '',
+        website: outscraperData.website || website || '',
+        categories: Array.isArray(outscraperData.categories) ? outscraperData.categories : [],
+        hours: outscraperData.hours || {}
       },
 
       // Reviews & engagement
       reviews: {
-        total: partialData.outscraper?.reviews || 0,
-        rating: partialData.outscraper?.rating || 0,
+        total: parseInt(outscraperData.reviews) || 0,
+        rating: parseFloat(outscraperData.rating) || 0,
         recentReviews: [] // Skip content analysis for speed
       },
 
       // Photos
       photos: {
-        total: partialData.outscraper?.photos || 0,
-        categories: partialData.outscraper?.photoCategories || []
+        total: parseInt(outscraperData.photos_count || outscraperData.photos) || 0,
+        categories: Array.isArray(outscraperData.photoCategories) ? outscraperData.photoCategories : []
       },
 
       // Social & engagement features
-      social: partialData.outscraper?.social || {},
+      social: outscraperData.social || {},
       posts: {
-        total: partialData.outscraper?.posts || 0,
+        total: parseInt(outscraperData.posts) || 0,
         recent: [] // Skip post analysis for speed
       },
       questionsAnswers: {
-        total: partialData.outscraper?.questionsAnswers || 0,
+        total: parseInt(outscraperData.questionsAnswers) || 0,
         answered: 0 // Skip Q&A analysis for speed
       },
 
       // Citations
-      citations: partialData.citations,
+      citations: citationsData,
 
       // Website essentials
       website: {
-        hasGBPEmbed: partialData.websiteAnalysis?.hasGBPEmbed || false,
-        hasLocalizedPage: partialData.websiteAnalysis?.hasLocalizedPage || false,
-        services: partialData.websiteAnalysis?.services || [],
-        screenshot: partialData.websiteAnalysis?.screenshot || null
+        hasGBPEmbed: websiteData.hasGBPEmbed || false,
+        hasLocalizedPage: websiteData.hasLocalizedPage || false,
+        services: Array.isArray(websiteData.services) ? websiteData.services : [],
+        screenshot: websiteData.screenshot || null
       },
 
       // Error tracking
@@ -3220,16 +3311,16 @@ async function generateFastBulkReport(businessName, location, industry, website)
 
       // Core data for ranking comparison
       coreMetrics: {
-        totalReviews: compiledData.reviews.total,
-        averageRating: compiledData.reviews.rating,
-        totalPhotos: compiledData.photos.total,
-        subcategories: compiledData.business.categories.length,
-        socialLinks: Object.keys(compiledData.social).length,
-        questionsAnswers: compiledData.questionsAnswers.total,
-        posts: compiledData.posts.total,
-        citationsFound: compiledData.citations.stats.found,
-        hasGBPEmbed: compiledData.website.hasGBPEmbed,
-        hasLocalizedPage: compiledData.website.hasLocalizedPage
+        totalReviews: compiledData.reviews?.total || 0,
+        averageRating: compiledData.reviews?.rating || 0,
+        totalPhotos: compiledData.photos?.total || 0,
+        subcategories: compiledData.business?.categories?.length || 0,
+        socialLinks: compiledData.social ? Object.keys(compiledData.social).length : 0,
+        questionsAnswers: compiledData.questionsAnswers?.total || 0,
+        posts: compiledData.posts?.total || 0,
+        citationsFound: compiledData.citations?.stats?.found || 0,
+        hasGBPEmbed: compiledData.website?.hasGBPEmbed || false,
+        hasLocalizedPage: compiledData.website?.hasLocalizedPage || false
       },
 
       // Scoring
@@ -3251,6 +3342,13 @@ async function generateFastBulkReport(businessName, location, industry, website)
 
   } catch (error) {
     console.error('❌ Fast bulk report error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Partial data state:', JSON.stringify({
+      hasOutscraper: !!partialData.outscraper,
+      hasCitations: !!partialData.citations,
+      hasWebsiteAnalysis: !!partialData.websiteAnalysis,
+      errorsCollected: errors
+    }, null, 2));
     throw new Error(`Fast report generation failed: ${error.message}`);
   }
 }
@@ -4474,6 +4572,25 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
 
     console.log(`\n⚡ Fast bulk scan complete! Analyzed ${auditResults.length} businesses in fast mode`);
 
+    // Send email notification to user
+    try {
+      await sendBulkAuditCompleteEmail({
+        userEmail: req.user.email,
+        userName: req.user.firstName || req.user.email.split('@')[0],
+        userId: req.user.id,
+        industry: industry,
+        location: location,
+        businessesScanned: auditResults.length,
+        averageScore: Math.round(auditResults.reduce((sum, r) => sum + r.score, 0) / auditResults.length),
+        creditsUsed: creditsUsed,
+        completedAt: new Date().toLocaleString()
+      });
+      console.log(`📧 Bulk audit completion email sent to ${req.user.email}`);
+    } catch (emailError) {
+      console.error('⚠️ Failed to send bulk audit completion email:', emailError);
+      // Don't fail the request if email fails, just log it
+    }
+
     res.json(fastBulkReport);
 
   } catch (error) {
@@ -5060,13 +5177,13 @@ app.post('/api/test/feedback', authenticateToken, async (req, res) => {
 app.post('/api/test/new-user', authenticateToken, async (req, res) => {
   try {
     const { email, firstName, lastName } = req.body;
-    
+
     if (!email || !firstName || !lastName) {
       return res.status(400).json({ error: 'Email, firstName, and lastName are required' });
     }
-    
+
     console.log('📧 TEST: Sending new user webhook');
-    
+
     // Send the new user notification
     await sendNewUserNotification({
       userId: 'test-user-' + Date.now(),
@@ -5077,7 +5194,7 @@ app.post('/api/test/new-user', authenticateToken, async (req, res) => {
       plan: 'test',
       initialCredits: 0
     });
-    
+
     res.json({
       success: true,
       message: 'Test new user alert sent',
@@ -5090,6 +5207,46 @@ app.post('/api/test/new-user', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Test new user error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/test/bulk-audit-complete', authenticateToken, async (req, res) => {
+  try {
+    const { industry, location, businessesScanned = 10 } = req.body;
+
+    if (!industry || !location) {
+      return res.status(400).json({ error: 'Industry and location are required' });
+    }
+
+    console.log('📧 TEST: Sending bulk audit completion webhook');
+
+    // Send the bulk audit completion email
+    await sendBulkAuditCompleteEmail({
+      userEmail: req.user.email,
+      userName: req.user.firstName || req.user.email.split('@')[0],
+      userId: req.user.id,
+      industry,
+      location,
+      businessesScanned,
+      averageScore: 67,
+      creditsUsed: businessesScanned,
+      completedAt: new Date().toLocaleString()
+    });
+
+    res.json({
+      success: true,
+      message: 'Test bulk audit completion email sent',
+      testData: {
+        userEmail: req.user.email,
+        industry,
+        location,
+        businessesScanned,
+        webhookUrl: process.env.BULK_AUDIT_WEBHOOK_URL || process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL || 'NO WEBHOOK URL CONFIGURED'
+      }
+    });
+  } catch (error) {
+    console.error('Test bulk audit email error:', error);
     res.status(500).json({ error: error.message });
   }
 });

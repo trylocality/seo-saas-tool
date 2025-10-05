@@ -670,20 +670,7 @@ class DatabaseAdapter {
       )
     `);
 
-    // Create indexes for performance
-    await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_expires ON screenshot_cache(expires_at)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_users_verification_token ON users(email_verification_token)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(password_reset_token)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_payments_session_id ON payments(stripe_session_id)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at DESC)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_reports_was_paid ON reports(was_paid)');
-    await this.query('CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)');
-    
-    // Add new columns if they don't exist (for existing databases)
+    // Add new columns if they don't exist (for existing databases) - MUST happen before creating indexes on these columns
     const columnsToAdd = [
       { name: 'email_verified', definition: 'INTEGER DEFAULT 0' },
       { name: 'email_verification_token', definition: 'TEXT DEFAULT NULL' },
@@ -737,7 +724,31 @@ class DatabaseAdapter {
     } catch (e) {
       console.log(`⚠️ Reports detailed_citation_analysis column setup skipped: ${e.message}`);
     }
-    
+
+    // Create indexes for performance - MUST happen after columns are added
+    // Wrap each in try-catch to prevent one failure from stopping all index creation
+    const indexes = [
+      { name: 'idx_screenshot_cache_expires', table: 'screenshot_cache', column: 'expires_at' },
+      { name: 'idx_reports_user_id', table: 'reports', column: 'user_id' },
+      { name: 'idx_payments_user_id', table: 'payments', column: 'user_id' },
+      { name: 'idx_users_email', table: 'users', column: 'email' },
+      { name: 'idx_users_verification_token', table: 'users', column: 'email_verification_token' },
+      { name: 'idx_users_reset_token', table: 'users', column: 'password_reset_token' },
+      { name: 'idx_payments_session_id', table: 'payments', column: 'stripe_session_id' },
+      { name: 'idx_payments_created_at', table: 'payments', column: 'created_at DESC' },
+      { name: 'idx_reports_created_at', table: 'reports', column: 'created_at DESC' },
+      { name: 'idx_reports_was_paid', table: 'reports', column: 'was_paid' },
+      { name: 'idx_feedback_user_id', table: 'feedback', column: 'user_id' }
+    ];
+
+    for (const index of indexes) {
+      try {
+        await this.query(`CREATE INDEX IF NOT EXISTS ${index.name} ON ${index.table}(${index.column})`);
+      } catch (e) {
+        console.warn(`⚠️ Could not create index ${index.name}:`, e.message);
+      }
+    }
+
     console.log('✅ SQLite tables created/verified');
   }
 }

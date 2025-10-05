@@ -140,3 +140,77 @@ To receive cancellation notifications via webhook:
 - Test cancellation flow from billing history
 - Check server console for cancellation logs
 - Verify user is reverted to free tier
+
+## Bulk Audit Completion Email Notifications
+
+The application now sends email notifications to users when their bulk audits are complete.
+
+### How it works:
+1. **Automatic Trigger**: Email is sent immediately after a bulk audit finishes processing
+2. **User Notification**: Users receive a summary of their completed bulk audit
+3. **Console Logging**: All notifications are logged to server console
+4. **Optional Webhook**: Can be configured to send emails via webhook services
+
+### Current Setup:
+- **Endpoint**: `/api/generate-fast-bulk-scan`
+- **Email Function**: `sendBulkAuditCompleteEmail()`
+- **Trigger**: Automatically called after bulk audit completes
+- **Test Endpoint**: `POST /api/test/bulk-audit-complete`
+
+### Email Content Includes:
+- User's name
+- Industry and location scanned
+- Number of businesses analyzed
+- Average SEO score
+- Credits used
+- Completion timestamp
+- Link to view the report in dashboard
+
+### Webhook Configuration (Optional):
+To enable email delivery via webhook:
+1. Add to .env file:
+   ```
+   BULK_AUDIT_WEBHOOK_URL=https://hooks.zapier.com/hooks/catch/your-webhook-id
+   ```
+2. The system will automatically use this webhook to send emails
+3. Fallback webhooks: `EMAIL_WEBHOOK_URL` → `FEEDBACK_WEBHOOK_URL`
+
+### Example Zapier Setup:
+1. Go to zapier.com
+2. Create new Zap: "Webhooks by Zapier" → "Gmail" or "Email by Zapier"
+3. Set trigger to "Catch Hook"
+4. Copy webhook URL to .env file
+5. Configure email action:
+   - To: `{{userEmail}}`
+   - Subject: `{{subject}}`
+   - Body: `{{html}}` (for HTML) or `{{text}}` (for plain text)
+6. Add filter: Only continue if `emailType` = `bulk_audit_complete`
+7. Test and activate
+
+### Testing:
+- Use test endpoint: `POST /api/test/bulk-audit-complete`
+- Required fields: `industry`, `location`
+- Optional field: `businessesScanned` (defaults to 10)
+- Check server console for email notifications
+- Example test request:
+  ```json
+  {
+    "industry": "restaurants",
+    "location": "Chicago, IL",
+    "businessesScanned": 15
+  }
+  ```
+
+### Data Structure:
+The webhook receives:
+```json
+{
+  "to": "user@example.com",
+  "subject": "✅ Your Bulk Audit is Complete - 10 Businesses Analyzed",
+  "html": "HTML email content",
+  "text": "Plain text email content",
+  "type": "bulk_audit_complete",
+  "emailType": "bulk_audit_complete",
+  "timestamp": "2025-10-05T12:34:56.789Z"
+}
+```
