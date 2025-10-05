@@ -14,7 +14,7 @@
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; color: #333; margin-bottom: 30px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .dashboard-header { text-align: center; margin-bottom: 20px; background: transparent; padding: 0; }
-        .dashboard-logo-header { text-align: center; margin-bottom: 10px; background: transparent; padding: 0; display: flex; justify-content: center; }
+        .dashboard-logo-header { text-align: left; margin-bottom: 10px; background: transparent; padding: 0; display: flex; justify-content: flex-start; }
         
         /* Email Verification Banner - Yellow Warning Style */
         .email-verification-banner {
@@ -2021,10 +2021,6 @@
 
         <!-- Enhanced Dashboard -->
         <div id="dashboardSection" class="card hidden" style="max-width: 1100px;">
-            <div class="dashboard-logo-header">
-                <img src="locality-logo.png" alt="Locality" class="logo">
-            </div>
-            
             <!-- Email Verification Banner -->
             <div id="emailVerificationBanner" class="email-verification-banner hidden">
                 <div class="verification-content">
@@ -2037,13 +2033,14 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="dashboard-header">
-                <div style="text-align: left;">
-                    <h1 style="font-size: 2.5rem; color: #0e192b; margin-bottom: 10px; text-align: left;">Welcome, <span id="userName"></span></h1>
-                    <p style="color: #666; font-size: 1.1rem; text-align: left;">Your path to ranking higher starts here</p>
+                <!-- Logo on left -->
+                <div class="dashboard-logo-header" style="margin-bottom: 0;">
+                    <img src="locality-logo.png" alt="Locality" class="logo">
                 </div>
-                <!-- Account Menu -->
+
+                <!-- Account Menu on right -->
                 <div class="account-menu">
                     <div class="menu-trigger" id="menuTrigger" onclick="toggleAccountMenu()">
                         <div class="user-info">
@@ -2110,12 +2107,18 @@
                             <div class="menu-divider"></div>
 
                             <button class="menu-item" onclick="handleLogout()" style="color: #dc2626;">
-                                <div class="menu-item-icon">🚪</div>
+                                <div class="menu-item-icon"></div>
                                 <div class="menu-item-text">Logout</div>
                             </button>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Welcome Message -->
+            <div style="text-align: left; margin-bottom: 30px;">
+                <h1 style="font-size: 2.5rem; color: #0e192b; margin-bottom: 10px; text-align: left;">Welcome, <span id="userName"></span></h1>
+                <p style="color: #666; font-size: 1.1rem; text-align: left;">Your path to ranking higher starts here</p>
             </div>
 
             <!-- Main Generate Button -->
