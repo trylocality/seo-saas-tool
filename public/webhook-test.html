@@ -72,7 +72,7 @@
         <p>Test different webhook functionalities to verify email notifications are working.</p>
         
         <div class="test-section">
-            <h3>📧 Email Verification Test</h3>
+            <h3> Email Verification Test</h3>
             <input type="email" id="verifyEmail" placeholder="test@example.com" value="test@example.com">
             <input type="text" id="verifyFirstName" placeholder="First Name" value="Test User">
             <button class="test-button" onclick="testEmailVerification()">Test Email Verification</button>
@@ -88,7 +88,7 @@
         </div>
         
         <div class="test-section">
-            <h3>💬 Feedback Submission Test</h3>
+            <h3> Feedback Submission Test</h3>
             <input type="number" id="feedbackRating" placeholder="5" value="5" min="1" max="5">
             <input type="text" id="feedbackMessage" placeholder="Test feedback message" value="This is a test feedback message">
             <button class="test-button" onclick="testFeedback()">Test Feedback</button>
@@ -105,7 +105,7 @@
         </div>
         
         <div class="test-section">
-            <h3>📊 Current Configuration</h3>
+            <h3> Current Configuration</h3>
             <button class="test-button" onclick="checkConfig()">Check Webhook Config</button>
             <div id="configResult" class="result"></div>
         </div>
@@ -131,14 +131,14 @@
                 
                 if (response.ok) {
                     resultDiv.className = 'result success';
-                    resultDiv.textContent = `✅ Success: ${data.message}\n\nWebhook URL: ${data.testData.webhookUrl}\nToken: ${data.testData.token}`;
+                    resultDiv.textContent = ` Success: ${data.message}\n\nWebhook URL: ${data.testData.webhookUrl}\nToken: ${data.testData.token}`;
                 } else {
                     resultDiv.className = 'result error';
-                    resultDiv.textContent = `❌ Error: ${data.error}`;
+                    resultDiv.textContent = ` Error: ${data.error}`;
                 }
             } catch (error) {
                 resultDiv.className = 'result error';
-                resultDiv.textContent = `❌ Network Error: ${error.message}`;
+                resultDiv.textContent = ` Network Error: ${error.message}`;
             }
         }
         
@@ -161,14 +161,14 @@
                 
                 if (response.ok) {
                     resultDiv.className = 'result success';
-                    resultDiv.textContent = `✅ Success: ${data.message}\n\nWebhook URL: ${data.testData.webhookUrl}\nToken: ${data.testData.token}`;
+                    resultDiv.textContent = ` Success: ${data.message}\n\nWebhook URL: ${data.testData.webhookUrl}\nToken: ${data.testData.token}`;
                 } else {
                     resultDiv.className = 'result error';
-                    resultDiv.textContent = `❌ Error: ${data.error}`;
+                    resultDiv.textContent = ` Error: ${data.error}`;
                 }
             } catch (error) {
                 resultDiv.className = 'result error';
-                resultDiv.textContent = `❌ Network Error: ${error.message}`;
+                resultDiv.textContent = ` Network Error: ${error.message}`;
             }
         }
         
@@ -191,14 +191,14 @@
                 
                 if (response.ok) {
                     resultDiv.className = 'result success';
-                    resultDiv.textContent = `✅ Success: ${data.message}\n\nWebhook URL: ${data.testData.webhookUrl}`;
+                    resultDiv.textContent = ` Success: ${data.message}\n\nWebhook URL: ${data.testData.webhookUrl}`;
                 } else {
                     resultDiv.className = 'result error';
-                    resultDiv.textContent = `❌ Error: ${data.error}`;
+                    resultDiv.textContent = ` Error: ${data.error}`;
                 }
             } catch (error) {
                 resultDiv.className = 'result error';
-                resultDiv.textContent = `❌ Network Error: ${error.message}`;
+                resultDiv.textContent = ` Network Error: ${error.message}`;
             }
         }
         
@@ -222,14 +222,14 @@
                 
                 if (response.ok) {
                     resultDiv.className = 'result success';
-                    resultDiv.textContent = `✅ Success: ${data.message}\n\nWebhook URL: ${data.testData.webhookUrl}`;
+                    resultDiv.textContent = ` Success: ${data.message}\n\nWebhook URL: ${data.testData.webhookUrl}`;
                 } else {
                     resultDiv.className = 'result error';
-                    resultDiv.textContent = `❌ Error: ${data.error}`;
+                    resultDiv.textContent = ` Error: ${data.error}`;
                 }
             } catch (error) {
                 resultDiv.className = 'result error';
-                resultDiv.textContent = `❌ Network Error: ${error.message}`;
+                resultDiv.textContent = ` Network Error: ${error.message}`;
             }
         }
         

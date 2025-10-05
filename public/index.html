@@ -2064,7 +2064,7 @@
                         <!-- Credits Display -->
                         <div class="credits-display">
                             <div class="credits-left">
-                                <div class="credits-icon">📊</div>
+                                <div class="credits-icon"></div>
                                 <div class="credits-text">
                                     <h4>Audits Remaining</h4>
                                 </div>
@@ -2075,35 +2075,35 @@
                         <!-- Menu Items -->
                         <div class="menu-items">
                             <button class="menu-item purchase-item" onclick="handlePurchaseCredits()">
-                                <div class="menu-item-icon">💳</div>
+                                <div class="menu-item-icon"></div>
                                 <div class="menu-item-text">Purchase More Audits</div>
                             </button>
 
                             <div class="menu-divider"></div>
 
                             <button class="menu-item" onclick="handleAccountSettings()">
-                                <div class="menu-item-icon">⚙️</div>
+                                <div class="menu-item-icon"></div>
                                 <div class="menu-item-text">Account Settings</div>
                             </button>
 
                             <button class="menu-item pro-feature" id="whiteLabelMenuItem" onclick="handleWhiteLabelSettings()">
-                                <div class="menu-item-icon">🎨</div>
+                                <div class="menu-item-icon"></div>
                                 <div class="menu-item-text">Brand Customization</div>
                                 <div class="menu-item-badge">Pro</div>
                             </button>
 
                             <button class="menu-item" onclick="handleBillingHistory()">
-                                <div class="menu-item-icon">📋</div>
+                                <div class="menu-item-icon"></div>
                                 <div class="menu-item-text">Billing History</div>
                             </button>
 
                             <button class="menu-item" onclick="handleSupportHelp()">
-                                <div class="menu-item-icon">💬</div>
+                                <div class="menu-item-icon"></div>
                                 <div class="menu-item-text">Support & Help</div>
                             </button>
 
                             <button class="menu-item" onclick="handleDFYServices()">
-                                <div class="menu-item-icon">🚀</div>
+                                <div class="menu-item-icon"></div>
                                 <div class="menu-item-text">DFY SEO Services</div>
                             </button>
 
@@ -2130,7 +2130,7 @@
                     transform: scale(1);
                     transition: all 0.3s ease;
                 " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                    🔍 Generate New Audit
+                     Generate New Audit
                 </button>
 
                 <button class="btn" onclick="window.location.href='competitive-analysis.html'" style="
@@ -2144,7 +2144,7 @@
                     transition: all 0.3s ease;
                     margin-top: 20px;
                 " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                    ⚡ Bulk Audit
+                     Bulk Audit
                 </button>
                 <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
                     Comprehensive 12-factor analysis with AI-powered suggestions
@@ -2176,7 +2176,7 @@
                     <label for="location">Location <span class="required">*</span></label>
                     <input type="text" id="location" required placeholder="123 Main St, Miami, FL">
                     <small style="color: #666; font-size: 0.85rem; margin-top: 5px; display: block;">
-                        💡 You can use city/state (Miami, FL), county/state (Utah County, UT), or full address
+                         You can use city/state (Miami, FL), county/state (Utah County, UT), or full address
                     </small>
                 </div>
                 <div class="form-group">
@@ -2622,7 +2622,7 @@
                                 style="padding: 12px 24px; border: 2px solid #17a2b8; background: white; color: #17a2b8; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; width: 100%;"
                                 onmouseover="this.style.background='#17a2b8'; this.style.color='white'; this.style.transform='translateY(-1px)'"
                                 onmouseout="this.style.background='white'; this.style.color='#17a2b8'; this.style.transform='translateY(0)'">
-                                💳 MANAGE PLAN & CREDITS
+                                 MANAGE PLAN & CREDITS
                             </button>
                         </div>
                     </div>
@@ -2647,7 +2647,7 @@
     <div id="billingHistoryModal" class="modal hidden">
         <div class="modal-content" style="max-width: 800px; width: 95%; margin: 2% auto; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
-                <h2>📋 Billing History</h2>
+                <h2> Billing History</h2>
                 <span class="close-modal" onclick="closeBillingHistoryModal()">&times;</span>
             </div>
             <div style="padding: 30px;">
@@ -2660,7 +2660,7 @@
                     
                     <!-- Empty state -->
                     <div id="billingHistoryEmpty" class="hidden" style="text-align: center; padding: 40px;">
-                        <div style="font-size: 3rem; margin-bottom: 15px;">💳</div>
+                        <div style="font-size: 3rem; margin-bottom: 15px;"></div>
                         <h3 style="color: #0e192b; margin-bottom: 10px;">No Purchases Yet</h3>
                         <p style="color: #666; margin-bottom: 20px;">Your billing history will appear here after your first purchase.</p>
                         <button onclick="closeBillingHistoryModal(); showPricingModal();" 
@@ -2671,7 +2671,7 @@
                     
                     <!-- Error state -->
                     <div id="billingHistoryError" class="hidden" style="text-align: center; padding: 40px;">
-                        <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                        <div style="font-size: 2rem; margin-bottom: 10px;"></div>
                         <h3 style="color: #dc3545; margin-bottom: 10px;">Unable to Load Billing History</h3>
                         <p style="color: #666; margin-bottom: 20px;">Please try again or contact support if the problem persists.</p>
                         <button onclick="loadBillingHistory()" 
@@ -2716,7 +2716,7 @@
                         </div>
                         
                         <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #17a2b8;">
-                            <h4 style="color: #0e192b; margin-bottom: 10px;">💡 Need Help?</h4>
+                            <h4 style="color: #0e192b; margin-bottom: 10px;"> Need Help?</h4>
                             <p style="color: #666; margin: 0; font-size: 0.9rem;">
                                 For billing questions or refund requests, contact us at 
                                 <a href="mailto:trylocality@gmail.com" style="color: #17a2b8; text-decoration: none;">trylocality@gmail.com</a>
@@ -2761,7 +2761,7 @@
                     
                     <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; padding: 15px; margin: 20px 0;">
                         <p style="color: #856404; margin: 0; font-size: 0.9rem;">
-                            <strong>⚠️ Important:</strong> Canceling will immediately end your subscription. You will lose access to all premium features and any remaining credits.
+                            <strong> Important:</strong> Canceling will immediately end your subscription. You will lose access to all premium features and any remaining credits.
                         </p>
                     </div>
                     
@@ -2985,7 +2985,7 @@
 
        window.addEventListener('DOMContentLoaded', async () => {
     try {
-        console.log('🚀 Locality App starting...');
+        console.log(' Locality App starting...');
         
         // Check for payment success
         const urlParams = new URLSearchParams(window.location.search);
@@ -2994,11 +2994,11 @@
             if (window.opener && !window.opener.closed) {
                 try {
                     window.opener.postMessage('payment_success', '*');
-                    console.log('✅ Payment success message sent to original tab');
+                    console.log(' Payment success message sent to original tab');
                     window.close();
                     return; // Exit early since we're closing this tab
                 } catch (error) {
-                    console.error('❌ Failed to communicate with original tab:', error);
+                    console.error(' Failed to communicate with original tab:', error);
                     // Fall back to normal success handling if communication fails
                 }
             }
@@ -3042,18 +3042,18 @@
         }
         
         // Check if user is already logged in
-        console.log('🔍 Page load - Auth token exists:', !!authToken);
+        console.log(' Page load - Auth token exists:', !!authToken);
         if (authToken) {
-            console.log('🔍 Checking authentication...');
+            console.log(' Checking authentication...');
             try {
                 await checkAuth();
                 showDashboard(); // Explicitly show dashboard on initial load
             } catch (authError) {
-                console.error('❌ Auth check failed, showing login:', authError);
+                console.error(' Auth check failed, showing login:', authError);
                 showLogin();
             }
         } else {
-            console.log('🔍 No auth token, showing login...');
+            console.log(' No auth token, showing login...');
             showLogin();
         }
         
@@ -3066,7 +3066,7 @@
                 });
             
             if (visibleSections.length === 0) {
-                console.warn('⚠️ No sections visible after initialization, forcing login display');
+                console.warn(' No sections visible after initialization, forcing login display');
                 showLogin();
             }
         }, 2000);
@@ -3076,7 +3076,7 @@
             console.log('📨 Received message:', event.data, 'from:', event.origin);
             
             if (event.data === 'payment_success') {
-                console.log('✅ Payment success message received from Stripe tab');
+                console.log(' Payment success message received from Stripe tab');
                 showToast('Payment successful! Your credits have been added.', 'success');
                 
                 // Refresh user data to show new credits
@@ -3098,18 +3098,18 @@
                         }, 500);
                     }
                 } else {
-                    console.warn('⚠️ No auth token available for refresh');
+                    console.warn(' No auth token available for refresh');
                 }
             }
         });
         
     } catch (error) {
-        console.error('❌ Critical initialization error:', error);
+        console.error(' Critical initialization error:', error);
         // Try to at least show login screen
         try {
             showLogin();
         } catch (loginError) {
-            console.error('❌ Failed to show login:', loginError);
+            console.error(' Failed to show login:', loginError);
             document.body.innerHTML = '<div style="padding: 20px; text-align: center;"><h1>Something went wrong</h1><p>Please refresh the page or contact support.</p></div>';
         }
     }
@@ -3186,7 +3186,7 @@
         // DEPRECATED: This function was causing fake data to persist
         // Use displayReport() with real data instead
         function showReportWithSampleData() {
-            console.warn('⚠️ showReportWithSampleData() is deprecated - redirecting to dashboard');
+            console.warn(' showReportWithSampleData() is deprecated - redirecting to dashboard');
             showDashboard();
         }
 
@@ -3197,9 +3197,9 @@
             const loginSection = document.getElementById('loginSection');
             if (loginSection) {
                 loginSection.classList.remove('hidden');
-                console.log('✅ Login section displayed');
+                console.log(' Login section displayed');
             } else {
-                console.error('❌ Login section not found!');
+                console.error(' Login section not found!');
             }
         }
 
@@ -3226,12 +3226,12 @@
             const dashboardSection = document.getElementById('dashboardSection');
             if (dashboardSection) {
                 dashboardSection.classList.remove('hidden');
-                console.log('✅ Dashboard section displayed');
+                console.log(' Dashboard section displayed');
                 if (authToken) {
                     loadUserReports();
                 }
             } else {
-                console.error('❌ Dashboard section not found!');
+                console.error(' Dashboard section not found!');
                 showLogin(); // Fallback to login if dashboard not found
             }
         }
@@ -3263,7 +3263,7 @@
         function showReport() {
             // Only show report if we have valid report data
             if (!currentReportData) {
-                console.warn('⚠️ Attempted to show report without valid data, redirecting to dashboard');
+                console.warn(' Attempted to show report without valid data, redirecting to dashboard');
                 showDashboard();
                 return;
             }
@@ -3279,7 +3279,7 @@
                 if (element) {
                     element.classList.add('hidden');
                 } else {
-                    console.warn(`⚠️ Section element not found: ${id}`);
+                    console.warn(` Section element not found: ${id}`);
                 }
             });
         }
@@ -3331,7 +3331,7 @@
         // Check if user is authenticated
         async function checkAuth() {
             try {
-                console.log('🔍 Making auth request...');
+                console.log(' Making auth request...');
                 const response = await fetch('/api/profile', {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
@@ -3343,15 +3343,15 @@
                     currentUser = data.user;
                     updateDashboard();
                     // Don't automatically redirect to dashboard - let calling function decide
-                    console.log('✅ User authenticated:', currentUser.firstName);
+                    console.log(' User authenticated:', currentUser.firstName);
                 } else {
-                    console.log('❌ Token invalid (status:', response.status, '), clearing auth state...');
+                    console.log(' Token invalid (status:', response.status, '), clearing auth state...');
                     localStorage.removeItem('authToken');
                     authToken = null;
                     showLogin();
                 }
             } catch (error) {
-                console.error('❌ Auth check failed:', error);
+                console.error(' Auth check failed:', error);
                 console.log('🔄 Clearing auth state and showing login...');
                 localStorage.removeItem('authToken');
                 authToken = null;
@@ -3473,7 +3473,7 @@
                     const data = await response.json();
                     userReports = data.reports || [];
                     displayReportsTable();
-                    console.log(`📋 Loaded ${userReports.length} reports`);
+                    console.log(` Loaded ${userReports.length} reports`);
                 } else {
                     console.error('Failed to load reports, status:', response.status);
                     userReports = [];
@@ -3524,7 +3524,7 @@
                                  score >= 80 ? 'score-good' : 
                                  score >= 60 ? 'score-fair' : 'score-poor';
                 
-                const lockIcon = !report.was_paid ? '<span class="lock-icon">🔒</span>' : '';
+                const lockIcon = !report.was_paid ? '<span class="lock-icon"></span>' : '';
                 
                 tableHTML += `
                     <tr>
@@ -3563,7 +3563,7 @@
 
         // View a stored report - fetch the full report data
         async function viewStoredReport(reportId) {
-            console.log(`📋 Loading stored report: ${reportId}`);
+            console.log(` Loading stored report: ${reportId}`);
             try {
                 showToast('Loading stored report...', 'warning');
                 
@@ -3573,16 +3573,16 @@
                     }
                 });
                 
-                console.log(`📋 Report fetch response: ${response.status} ${response.statusText}`);
+                console.log(` Report fetch response: ${response.status} ${response.statusText}`);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error(`❌ Failed to load report: ${response.status} - ${errorText}`);
+                    console.error(` Failed to load report: ${response.status} - ${errorText}`);
                     throw new Error(`Failed to load report: ${response.status}`);
                 }
                 
                 const data = await response.json();
-                console.log('📋 Report data received:', {
+                console.log(' Report data received:', {
                     success: data.success,
                     hasReport: !!data.report,
                     isLocked: data.report?.isLocked,
@@ -3641,7 +3641,7 @@
                     updateDashboard();
                     showDashboard();
                     showToast('Logged in successfully!', 'success');
-                    console.log('✅ Login successful!');
+                    console.log(' Login successful!');
                 } else {
                     errorDiv.textContent = data.error;
                     errorDiv.classList.remove('hidden');
@@ -3695,7 +3695,7 @@
                     updateDashboard();
                     showDashboard();
                     showToast('Account created successfully!', 'success');
-                    console.log('✅ Signup successful!');
+                    console.log(' Signup successful!');
                 } else {
                     errorDiv.textContent = data.error;
                     errorDiv.classList.remove('hidden');
@@ -3783,7 +3783,7 @@
                 await verifyBusinessProfile(businessName, location);
                 
             } catch (error) {
-                console.error('❌ Report generation error:', error);
+                console.error(' Report generation error:', error);
                 errorDiv.textContent = 'Failed to generate report. Please try again.';
                 errorDiv.classList.remove('hidden');
                 hideAllSections();
@@ -3824,8 +3824,8 @@
 
         // Display the report with new donut chart
         function displayReport(reportData) {
-            console.log('📊 Displaying single-page report:', reportData);
-            console.log('📊 Data structure check:', Object.keys(reportData));
+            console.log(' Displaying single-page report:', reportData);
+            console.log(' Data structure check:', Object.keys(reportData));
             
             try {
                 // More flexible data access to handle different backend structures
@@ -3835,7 +3835,7 @@
             
             // For locked/fallback reports, ensure we have minimum required data
             if (reportData.isLocked && reportData.isFallback) {
-                console.log('📊 Displaying fallback locked report with minimal data');
+                console.log(' Displaying fallback locked report with minimal data');
                 // Ensure factors are in the correct format (convert array to object if needed)
                 if (Array.isArray(auditData.factors)) {
                     const factorsObj = {};
@@ -3892,7 +3892,7 @@
             
             // Handle locked report display
             if (reportData.isLocked) {
-                console.log('🔒 Displaying LOCKED report');
+                console.log(' Displaying LOCKED report');
                 // Convert factors array to object format for locked display
                 if (Array.isArray(factors)) {
                     const factorsObj = {};
@@ -3938,12 +3938,12 @@
                 
                 // Auto-display stored detailed citation analysis if it exists
                 if (reportData.detailedCitationAnalysis) {
-                    console.log('📊 Auto-displaying stored detailed citation analysis');
+                    console.log(' Auto-displaying stored detailed citation analysis');
                     displayStoredDetailedResults(reportData.detailedCitationAnalysis);
                 }
             }
             } catch (error) {
-                console.error('❌ Error displaying report:', error);
+                console.error(' Error displaying report:', error);
                 console.error('Report data that caused error:', reportData);
                 showToast('Error displaying report. Please refresh and try again.', 'error');
                 // Still try to show the report section even if there's an error
@@ -3969,7 +3969,7 @@
 
         // Display locked report with blur effect and unlock overlay
         function displayLockedReport(factors, optimizationOpportunities) {
-            console.log('🔒 Displaying locked report with blur overlay');
+            console.log(' Displaying locked report with blur overlay');
             
             // Remove any existing unlock overlay first
             const existingOverlay = document.getElementById('unlockReportOverlay');
@@ -4049,7 +4049,7 @@
                 backdrop-filter: blur(10px);
             `;
             unlockOverlay.innerHTML = `
-                <div style="font-size: 1.8rem; margin-bottom: 10px;">🔒</div>
+                <div style="font-size: 1.8rem; margin-bottom: 10px;"></div>
                 <div style="font-size: 1.4rem; font-weight: bold; color: #0e192b; margin-bottom: 10px;">
                     ANALYSIS COMPLETE
                 </div>
@@ -4089,7 +4089,7 @@
             // Insert overlay into document body
             document.body.appendChild(unlockOverlay);
             
-            console.log('✅ Locked report displayed with blur effect and unlock overlay');
+            console.log(' Locked report displayed with blur effect and unlock overlay');
         }
 
         // Handle unlock access - either use credits or buy more
@@ -4130,7 +4130,7 @@
                 accountCredits.textContent = currentUser.creditsRemaining || 0;
             }
             
-            console.log(`💳 Credit display updated: ${currentUser.creditsRemaining} credits remaining`);
+            console.log(` Credit display updated: ${currentUser.creditsRemaining} credits remaining`);
         }
 
         // Unlock the current report using credits
@@ -4322,7 +4322,7 @@
                                         <textarea class="suggestion-textarea" id="suggestion-${factor.id}" readonly>${suggestion}</textarea>
                                         <div class="suggestion-actions">
                                             <button class="copy-suggestion-btn" onclick="copySuggestionToClipboard('${factor.id}'); event.stopPropagation();">
-                                                📋 Copy to Clipboard
+                                                 Copy to Clipboard
                                             </button>
                                         </div>
                                     </div>
@@ -4446,7 +4446,7 @@
             // Show feedback
             const button = event.target || event.srcElement;
             const originalText = button.textContent;
-            button.textContent = '✅ Copied!';
+            button.textContent = ' Copied!';
             button.style.background = '#28a745';
             
             setTimeout(() => {
@@ -4615,12 +4615,12 @@
             const button = document.getElementById('detailedAnalysisBtn');
             const loading = document.getElementById('detailedLoading');
             
-            console.log('🔍 Detailed Citation Analysis - Starting');
-            console.log('🔍 Button element:', button);
-            console.log('🔍 Loading element:', loading);
+            console.log(' Detailed Citation Analysis - Starting');
+            console.log(' Button element:', button);
+            console.log(' Loading element:', loading);
             
             if (!button) {
-                console.error('❌ Button element not found');
+                console.error(' Button element not found');
                 showToast('Error: Button element not found', 'error');
                 return;
             }
@@ -4634,7 +4634,7 @@
             
             try {
                 // Get business data from current report
-                console.log('🔍 Current report data:', currentReportData);
+                console.log(' Current report data:', currentReportData);
                 
                 // Try multiple paths to get business data
                 const businessName = currentReportData?.businessName || 
@@ -4646,7 +4646,7 @@
                                   currentReportData?.businessData?.phone ||
                                   currentReportData?.phone || '';
                 
-                console.log('🔍 Extracted business data:', { businessName, phoneNumber });
+                console.log(' Extracted business data:', { businessName, phoneNumber });
                 
                 if (!businessName) {
                     throw new Error('Business name not available. Please ensure a report is loaded.');
@@ -4654,12 +4654,12 @@
                 
                 // Make API call - get fresh token from localStorage
                 const currentAuthToken = localStorage.getItem('authToken');
-                console.log('🔍 Debug: Auth token exists:', !!currentAuthToken);
-                console.log('🔍 Debug: Current user:', currentUser);
-                console.log('🔍 Debug: Business data:', businessName, location);
+                console.log(' Debug: Auth token exists:', !!currentAuthToken);
+                console.log(' Debug: Current user:', currentUser);
+                console.log(' Debug: Business data:', businessName, location);
                 
                 if (!currentAuthToken) {
-                    console.error('❌ No auth token found in localStorage');
+                    console.error(' No auth token found in localStorage');
                     throw new Error('Not authenticated. Please log in again.');
                 }
                 
@@ -4671,8 +4671,8 @@
                     reportId
                 };
                 
-                console.log('🌐 Making API request to /api/detailed-citation-analysis');
-                console.log('🌐 Request payload:', requestPayload);
+                console.log(' Making API request to /api/detailed-citation-analysis');
+                console.log(' Request payload:', requestPayload);
                 
                 // Create AbortController for timeout
                 const controller = new AbortController();
@@ -4690,7 +4690,7 @@
                 
                 clearTimeout(timeoutId);
                 
-                console.log('🌐 Response status:', response.status, response.statusText);
+                console.log(' Response status:', response.status, response.statusText);
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ error: response.statusText }));
@@ -4698,12 +4698,12 @@
                 }
                 
                 const data = await response.json();
-                console.log('✅ Detailed analysis response received:', data);
+                console.log(' Detailed analysis response received:', data);
                 displayDetailedResults(data);
                 
             } catch (error) {
-                console.error('❌ Detailed analysis error:', error);
-                console.error('❌ Error stack:', error.stack);
+                console.error(' Detailed analysis error:', error);
+                console.error(' Error stack:', error.stack);
                 
                 // Handle different error types
                 let errorMessage = 'Unknown error occurred';
@@ -4734,7 +4734,7 @@
         
         // Display detailed citation results
         function displayDetailedResults(data) {
-            console.log('📊 Displaying detailed results:', data);
+            console.log(' Displaying detailed results:', data);
             
             // Hide the button after execution
             const button = document.getElementById('detailedAnalysisBtn');
@@ -4754,7 +4754,7 @@
         
         // Display stored detailed citation results (without duplicating original 10)
         function displayStoredDetailedResults(data) {
-            console.log('📊 Displaying stored detailed results:', data);
+            console.log(' Displaying stored detailed results:', data);
             
             // Hide the button since analysis was already run
             const button = document.getElementById('detailedAnalysisBtn');
@@ -4774,7 +4774,7 @@
         
         // Display only the detailed 40 citations with compact spacing
         function displayDetailedCitationsOnly(detailedData) {
-            console.log('📊 Displaying detailed citations only:', detailedData);
+            console.log(' Displaying detailed citations only:', detailedData);
             
             try {
                 const detailedCitations = detailedData.results || [];
@@ -4815,27 +4815,27 @@
                 const originalCitations = currentReportData.citationsAnalysis?.data?.checked?.slice(0, 10) || [];
                 addDetailedCitationSummary(originalCitations, detailedCitations);
                 
-                console.log('✅ Detailed citations only displayed with compact spacing');
+                console.log(' Detailed citations only displayed with compact spacing');
                 
             } catch (error) {
-                console.error('❌ ERROR in displayDetailedCitationsOnly:', error);
+                console.error(' ERROR in displayDetailedCitationsOnly:', error);
             }
         }
         
         // Update main citations display with detailed analysis (replaces original)
         function updateMainCitationsDisplay(detailedData) {
-            console.log('🔍 DEBUG: updateMainCitationsDisplay called with:', detailedData);
+            console.log(' DEBUG: updateMainCitationsDisplay called with:', detailedData);
             
             try {
                 const citationsSectionTitle = document.getElementById('citationsSectionTitle');
                 const citationsRow = document.getElementById('citationsRow');
                 
-                console.log('🔍 DEBUG: Found elements - title:', !!citationsSectionTitle, 'row:', !!citationsRow);
+                console.log(' DEBUG: Found elements - title:', !!citationsSectionTitle, 'row:', !!citationsRow);
                 
                 // Update the section title to "Detailed Citation Analysis"
                 if (citationsSectionTitle) {
                     citationsSectionTitle.textContent = 'Detailed Citation Analysis';
-                    console.log('✅ DEBUG: Title updated successfully');
+                    console.log(' DEBUG: Title updated successfully');
                 }
             
             // Get original 10 citations and detailed 40 citations
@@ -4881,11 +4881,11 @@
             // Add overall score, description, and order button after detailed analysis
             addDetailedCitationSummary(originalCitations, detailedCitations);
             
-            console.log('✅ Citations display updated - showing detailed analysis with all 50 citations');
+            console.log(' Citations display updated - showing detailed analysis with all 50 citations');
                 
             } catch (error) {
-                console.error('❌ ERROR in updateMainCitationsDisplay:', error);
-                console.error('❌ ERROR stack:', error.stack);
+                console.error(' ERROR in updateMainCitationsDisplay:', error);
+                console.error(' ERROR stack:', error.stack);
                 throw error; // Re-throw to let the calling function handle it
             }
         }
@@ -4899,7 +4899,7 @@
             // Find the citations section to add summary after the header
             const citationsSection = document.getElementById('citationsSection');
             if (!citationsSection) {
-                console.error('❌ Citations section not found');
+                console.error(' Citations section not found');
                 return;
             }
             
@@ -4949,7 +4949,7 @@
                     </div>
                     
                     <button class="order-citations-btn" onclick="orderCitations()" style="width: 100%; font-size: 1.1rem; padding: 15px;">
-                        📋 ORDER CITATION BUILDING SERVICE
+                         ORDER CITATION BUILDING SERVICE
                     </button>
                 </div>
             `;
@@ -4966,7 +4966,7 @@
                 }
             }
             
-            console.log(`✅ Added detailed citation summary: ${foundCount}/${totalCount} citations found`);
+            console.log(` Added detailed citation summary: ${foundCount}/${totalCount} citations found`);
         }
 
         // Order citations function
@@ -5005,7 +5005,7 @@ I'd like to discuss getting citations built for the missing directories identifi
             const reportSection = document.getElementById('reportSection');
             const hasDetailedAnalysis = reportSection && reportSection.classList.contains('detailed-analysis-active');
             
-            console.log(`📄 Generating PDF - Detailed analysis: ${hasDetailedAnalysis}`);
+            console.log(` Generating PDF - Detailed analysis: ${hasDetailedAnalysis}`);
             
             // Trigger print
             window.print();
@@ -5091,7 +5091,7 @@ I'd like to discuss getting citations built for the missing directories identifi
                 document.getElementById('billingHistoryError').classList.add('hidden');
                 document.getElementById('billingHistoryTable').classList.add('hidden');
                 
-                console.log('🔍 Loading billing history...');
+                console.log(' Loading billing history...');
                 
                 const response = await fetch('/api/billing-history', {
                     headers: {
@@ -5102,7 +5102,7 @@ I'd like to discuss getting citations built for the missing directories identifi
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    console.log(`✅ Loaded ${data.payments.length} payment records`);
+                    console.log(` Loaded ${data.payments.length} payment records`);
                     
                     // Hide loading state
                     document.getElementById('billingHistoryLoading').classList.add('hidden');
@@ -5120,7 +5120,7 @@ I'd like to discuss getting citations built for the missing directories identifi
                 }
                 
             } catch (error) {
-                console.error('❌ Billing history error:', error);
+                console.error(' Billing history error:', error);
                 
                 // Hide loading state and show error
                 document.getElementById('billingHistoryLoading').classList.add('hidden');
@@ -5150,9 +5150,9 @@ I'd like to discuss getting citations built for the missing directories identifi
                 // Status badge styling
                 let statusBadge = '';
                 if (payment.status === 'Completed') {
-                    statusBadge = `<span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">✅ ${payment.status}</span>`;
+                    statusBadge = `<span style="background: #d4edda; color: #155724; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;"> ${payment.status}</span>`;
                 } else {
-                    statusBadge = `<span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">❌ ${payment.status}</span>`;
+                    statusBadge = `<span style="background: #f8d7da; color: #721c24; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;"> ${payment.status}</span>`;
                 }
                 
                 row.innerHTML = `
@@ -5166,7 +5166,7 @@ I'd like to discuss getting citations built for the missing directories identifi
                 tbody.appendChild(row);
             });
             
-            console.log(`📊 Displayed ${payments.length} payment records in table`);
+            console.log(` Displayed ${payments.length} payment records in table`);
         }
         
         // Cancellation Modal Functions
@@ -6076,7 +6076,7 @@ I'd like to discuss getting citations built for the missing directories identifi
         
         // Function to verify business profile and show options
         async function verifyBusinessProfile(businessName, location) {
-            console.log(`🔍 Verifying profile for: ${businessName} in ${location}`);
+            console.log(` Verifying profile for: ${businessName} in ${location}`);
             
             try {
                 const response = await fetch('/api/verify-profile', {
@@ -6099,15 +6099,15 @@ I'd like to discuss getting citations built for the missing directories identifi
                     throw new Error('No business profiles found');
                 }
                 
-                console.log(`✅ Found ${data.profiles.length} profile options`);
+                console.log(` Found ${data.profiles.length} profile options`);
                 
                 if (data.profiles.length === 1) {
                     // Only one profile found - use it directly (loading screen already showing)
-                    console.log('✅ Single profile found, proceeding directly to report generation');
+                    console.log(' Single profile found, proceeding directly to report generation');
                     try {
                         await generateReportWithProfile(data.profiles[0]);
                     } catch (reportError) {
-                        console.error('❌ Report generation failed:', reportError);
+                        console.error(' Report generation failed:', reportError);
                         hideAllSections();
                         showReportForm();
                         showToast('Failed to generate report. Please try again.', 'error');
@@ -6115,20 +6115,20 @@ I'd like to discuss getting citations built for the missing directories identifi
                     }
                 } else if (data.profiles.length > 1) {
                     // Multiple profiles - show verification UI over the loading screen
-                    console.log('🔍 Multiple profiles found, showing verification UI');
+                    console.log(' Multiple profiles found, showing verification UI');
                     showProfileVerification(data.profiles, data.searchQuery);
                 } else {
                     throw new Error('No business profiles found for the provided information');
                 }
                 
             } catch (error) {
-                console.error('❌ Profile verification error:', error);
+                console.error(' Profile verification error:', error);
                 // If profile verification fails, try generating report without profile (loading already showing)
-                console.log('⚠️ Falling back to report generation without profile verification');
+                console.log(' Falling back to report generation without profile verification');
                 try {
                     await generateReportWithProfile(null);
                 } catch (reportError) {
-                    console.error('❌ Report generation also failed:', reportError);
+                    console.error(' Report generation also failed:', reportError);
                     throw error; // Throw original error
                 }
             }
@@ -6160,17 +6160,17 @@ I'd like to discuss getting citations built for the missing directories identifi
                     <div class="profile-address">${profile.address}</div>
                     <div class="profile-details">
                         <div class="profile-detail-item">
-                            <span>📞</span>
+                            <span></span>
                             <span>${profile.phone}</span>
                         </div>
                         <div class="profile-detail-item">
-                            <span>⭐</span>
+                            <span></span>
                             <span>${profile.rating}/5 (${profile.reviews} reviews)</span>
                         </div>
                         <div class="profile-detail-item">
                             <span class="profile-status ${statusClass}">${statusText}</span>
                         </div>
-                        ${profile.website ? `<div class="profile-detail-item"><span>🌐</span><span>${profile.website}</span></div>` : ''}
+                        ${profile.website ? `<div class="profile-detail-item"><span></span><span>${profile.website}</span></div>` : ''}
                     </div>
                 `;
                 
@@ -6208,7 +6208,7 @@ I'd like to discuss getting citations built for the missing directories identifi
             // Enable continue button
             document.querySelector('.verify-profile-btn').disabled = false;
             
-            console.log(`✅ Profile ${profileId} selected: ${profileOptions[profileId].name}`);
+            console.log(` Profile ${profileId} selected: ${profileOptions[profileId].name}`);
         }
         
         // Function to proceed with selected profile
@@ -6219,7 +6219,7 @@ I'd like to discuss getting citations built for the missing directories identifi
             }
             
             const selectedProfile = profileOptions[selectedProfileId];
-            console.log(`🚀 Proceeding with selected profile: ${selectedProfile.name}`);
+            console.log(` Proceeding with selected profile: ${selectedProfile.name}`);
             
             // Go back to loading screen
             showLoading();
@@ -6227,7 +6227,7 @@ I'd like to discuss getting citations built for the missing directories identifi
             try {
                 await generateReportWithProfile(selectedProfile);
             } catch (error) {
-                console.error('❌ Report generation error:', error);
+                console.error(' Report generation error:', error);
                 hideAllSections();
                 showReportForm();
                 showToast('Failed to generate report. Please try again.', 'error');
@@ -6236,7 +6236,7 @@ I'd like to discuss getting citations built for the missing directories identifi
         
         // Function to generate report with selected profile
         async function generateReportWithProfile(selectedProfile) {
-            console.log(`📊 Generating report${selectedProfile ? ` with profile: ${selectedProfile.name}` : ''}`);
+            console.log(` Generating report${selectedProfile ? ` with profile: ${selectedProfile.name}` : ''}`);
             
             const { businessName, location, industry, website } = window.pendingReportData;
             
@@ -6261,17 +6261,17 @@ I'd like to discuss getting citations built for the missing directories identifi
                     throw new Error(`Server error: ${response.status} - ${errorText}`);
                 }
 
-                console.log('📊 Response received - Status:', response.status, 'OK:', response.ok);
+                console.log(' Response received - Status:', response.status, 'OK:', response.ok);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('❌ Server returned error:', response.status, errorText);
+                    console.error(' Server returned error:', response.status, errorText);
                     throw new Error(`Server error: ${response.status} - ${errorText}`);
                 }
                 
                 const data = await response.json();
-                console.log('📊 Report data received successfully');
-                console.log('📊 DEBUGGING - Data structure check:');
+                console.log(' Report data received successfully');
+                console.log(' DEBUGGING - Data structure check:');
                 console.log('  - data exists:', !!data);
                 console.log('  - data.success:', data?.success);
                 console.log('  - data.isLocked:', data?.isLocked);  
@@ -6283,7 +6283,7 @@ I'd like to discuss getting citations built for the missing directories identifi
 
                 // Check for consistent success response format
                 if (data && data.success && data.report) {
-                    console.log('✅ Report data received and validated');
+                    console.log(' Report data received and validated');
                     console.log('  - Report type:', data.report.isLocked ? 'LOCKED/PREVIEW' : 'FULL');
                     console.log('  - Has audit data:', !!data.report.auditOverview);
                     console.log('  - Has business data:', !!data.report.business);
@@ -6301,13 +6301,13 @@ I'd like to discuss getting citations built for the missing directories identifi
                     
                     const message = data.report.isLocked ? 'Preview report generated successfully!' : 'Report generated successfully!';
                     showToast(message, 'success');
-                    console.log('✅ Report displayed successfully!');
+                    console.log(' Report displayed successfully!');
                 } else {
                     throw new Error('Invalid report data received');
                 }
                 
             } catch (error) {
-                console.error('❌ Report generation error:', error);
+                console.error(' Report generation error:', error);
                 hideAllSections();
                 showReportForm();
                 showToast('Failed to generate report. Please try again.', 'error');

@@ -181,7 +181,7 @@
 
                 <div style="text-align: center; margin-top: 30px;">
                     <button type="submit" class="btn" style="font-size: 1.2rem; padding: 15px 40px;" id="submitBtn">
-                        ⚡ START FAST ANALYSIS (<span id="creditCost">10</span> Credits)
+                         START FAST ANALYSIS (<span id="creditCost">10</span> Credits)
                     </button>
                     <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
                         Fast mode: 3-5 minutes to complete (skips AI suggestions for speed)
@@ -206,7 +206,7 @@
                         <li>✓ Citation checking (top 5 directories)</li>
                         <li>✓ Social media presence</li>
                         <li>✓ Q&As, posts, and engagement</li>
-                        <li>⚡ Optimized for speed (no AI analysis)</li>
+                        <li> Optimized for speed (no AI analysis)</li>
                     </ul>
                 </div>
             </div>
@@ -222,7 +222,7 @@
                     <div class="results-summary" id="resultsSummary">Analysis completed</div>
                 </div>
                 <div>
-                    <button class="btn" onclick="exportResults()">📊 Export to CSV</button>
+                    <button class="btn" onclick="exportResults()"> Export to CSV</button>
                 </div>
             </div>
 
@@ -496,12 +496,12 @@
                 const metrics = result.coreMetrics;
                 const coreMetricsHtml = `
                     <div style="font-size: 0.8rem; color: #666;">
-                        <div>📸 ${metrics.totalPhotos} photos</div>
+                        <div> ${metrics.totalPhotos} photos</div>
                         <div>🏷️ ${metrics.subcategories} categories</div>
                         <div>📱 ${metrics.socialLinks} social</div>
                         <div>❓ ${metrics.questionsAnswers} Q&As</div>
                         <div>📝 ${metrics.posts} posts</div>
-                        <div>📋 ${metrics.citationsFound}/5 citations</div>
+                        <div> ${metrics.citationsFound}/5 citations</div>
                     </div>
                 `;
 
