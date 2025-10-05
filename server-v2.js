@@ -2251,17 +2251,25 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
     // 2. Category Suggestions (if needed)
     if (scoreData.scores.categories < 8) {
       const categoryPrompt = `
+      CRITICAL: You MUST only suggest categories that exist in Google's official Business Profile category list (approximately 4,000+ real categories).
+      DO NOT invent or create categories. ONLY use exact category names from Google's actual category database.
+
       Suggest Google Business Profile categories for:
       Business: ${businessName}
       Industry: ${industry}
       Services: ${websiteServices.join(', ') || 'General services'}
-      
-      Provide 6-8 relevant categories from Google's official category list.
-      Include one primary category and 5-7 secondary categories.
-      Return as a simple list, one per line, no numbering.
-      Focus on categories that actually exist in Google Business Profile.
+
+      Requirements:
+      - Provide 6-8 categories that ACTUALLY EXIST in Google Business Profile
+      - Include one primary category (most specific match) and 5-7 secondary categories
+      - Use exact category names as they appear in Google Business Profile (check your knowledge of the real category list)
+      - Return as a simple list, one per line, no numbering
+      - Verify each category exists before suggesting it
+      - Do NOT make up creative category names - they must be real Google categories
+
+      Example real categories: "Restaurant", "Italian restaurant", "Pizza restaurant", "Hair salon", "Plumber", "Auto repair shop"
       `;
-      
+
       suggestions.categories = await callOpenAI(categoryPrompt, 'categories');
     }
     
