@@ -3088,6 +3088,11 @@ async function checkCitationsFast(businessName, location) {
 async function generateFastBulkReport(businessName, location, industry, website) {
   console.log(`⚡ Generating FAST report for: ${businessName} in ${location}`);
 
+  // Validate inputs
+  if (!businessName || !location || !industry) {
+    throw new Error(`Missing required parameters: businessName=${businessName}, location=${location}, industry=${industry}`);
+  }
+
   const errors = [];
   let partialData = {};
 
@@ -3096,9 +3101,20 @@ async function generateFastBulkReport(businessName, location, industry, website)
     console.log('📍 Step 1: Getting business data...');
     try {
       partialData.outscraper = await getOutscraperData(businessName, location);
+      if (!partialData.outscraper) {
+        throw new Error('Outscraper returned no data');
+      }
     } catch (error) {
+      console.error(`⚠️ Outscraper error for ${businessName}:`, error.message);
       errors.push(`Business data: ${error.message}`);
-      partialData.outscraper = { photos: 0, reviews: 0, categories: [] };
+      partialData.outscraper = {
+        name: businessName,
+        photos: 0,
+        reviews: 0,
+        rating: 0,
+        categories: [],
+        website: website || null
+      };
     }
 
     // Step 2: Fast parallel citation check (top 5 directories)

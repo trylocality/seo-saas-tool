@@ -487,11 +487,11 @@ class DatabaseAdapter {
 
   async runPostgreSQLMigrations() {
     console.log('🔄 Running PostgreSQL migrations...');
-    
+
     // Migration 1: Add was_paid column to reports table if it doesn't exist
     try {
       await this.query(`
-        ALTER TABLE reports 
+        ALTER TABLE reports
         ADD COLUMN IF NOT EXISTS was_paid BOOLEAN DEFAULT FALSE
       `);
       console.log('✅ Migration: was_paid column added to reports table');
@@ -502,7 +502,78 @@ class DatabaseAdapter {
         console.log(`⚠️ Migration warning (was_paid): ${error.message}`);
       }
     }
-    
+
+    // Migration 2: Create screenshot_cache table if it doesn't exist
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS screenshot_cache (
+          id SERIAL PRIMARY KEY,
+          cache_key TEXT UNIQUE NOT NULL,
+          filepath TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP NOT NULL
+        )
+      `);
+      console.log('✅ Migration: screenshot_cache table created');
+    } catch (error) {
+      console.log(`⚠️ Migration warning (screenshot_cache): ${error.message}`);
+    }
+
+    // Migration 3: Create api_cache table if it doesn't exist
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS api_cache (
+          id SERIAL PRIMARY KEY,
+          cache_key TEXT UNIQUE NOT NULL,
+          data JSONB NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          expires_at TIMESTAMP NOT NULL
+        )
+      `);
+      console.log('✅ Migration: api_cache table created');
+    } catch (error) {
+      console.log(`⚠️ Migration warning (api_cache): ${error.message}`);
+    }
+
+    // Migration 4: Create appsumo_codes table if it doesn't exist
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS appsumo_codes (
+          id SERIAL PRIMARY KEY,
+          code TEXT UNIQUE NOT NULL,
+          plan_id TEXT NOT NULL,
+          plan_name TEXT NOT NULL,
+          monthly_credits INTEGER NOT NULL,
+          is_redeemed BOOLEAN DEFAULT FALSE,
+          redeemed_by_user_id INTEGER REFERENCES users(id),
+          redeemed_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Migration: appsumo_codes table created');
+    } catch (error) {
+      console.log(`⚠️ Migration warning (appsumo_codes): ${error.message}`);
+    }
+
+    // Migration 5: Add AppSumo columns to users table
+    const appsumoColumns = [
+      { name: 'appsumo_code', type: 'TEXT DEFAULT NULL' },
+      { name: 'appsumo_plan_id', type: 'TEXT DEFAULT NULL' },
+      { name: 'is_lifetime', type: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'lifetime_monthly_credits', type: 'INTEGER DEFAULT NULL' },
+      { name: 'last_credit_renewal', type: 'TIMESTAMP DEFAULT NULL' }
+    ];
+
+    for (const col of appsumoColumns) {
+      try {
+        await this.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+        console.log(`✅ Migration: Added ${col.name} column to users table`);
+      } catch (error) {
+        console.log(`⚠️ Migration warning (${col.name}): ${error.message}`);
+      }
+    }
+
     // Future migrations can be added here
     console.log('✅ All PostgreSQL migrations completed');
   }
