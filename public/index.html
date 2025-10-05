@@ -1237,28 +1237,28 @@
                 display: flex !important;
                 justify-content: space-between !important;
                 align-items: flex-start !important;
-                padding: 15px 0 !important;
-                margin-bottom: 15px !important;
-                border-bottom: 2px solid #e9ecef !important;
+                padding: 8px 0 !important;
+                margin-bottom: 8px !important;
+                border-bottom: 1px solid #e9ecef !important;
                 flex-direction: row !important;
                 text-align: left !important;
             }
-            
+
             .business-details {
-                font-size: 12px !important;
+                font-size: 10px !important;
                 color: #495057 !important;
-                line-height: 1.4 !important;
+                line-height: 1.3 !important;
             }
-            
+
             .logo-container {
                 margin-top: 0 !important;
                 flex-shrink: 0 !important;
             }
-            
+
             .logo {
-                height: 60px !important;
+                height: 45px !important;
                 width: auto !important;
-                max-width: 200px !important;
+                max-width: 150px !important;
             }
             
             /* Page 1: Fit 12 audit points + score */
@@ -1336,14 +1336,16 @@
             }
             
             /* Sections - more compact for print */
-            .print-page-1 .section {
-                margin: 10px 0;
-                padding: 8px;
+            .print-page-1 .section,
+            .section {
+                margin: 6px 0 !important;
+                padding: 4px !important;
             }
-            
-            .print-page-1 .section-title {
-                font-size: 14px;
-                margin-bottom: 8px;
+
+            .print-page-1 .section-title,
+            .section-title {
+                font-size: 12px !important;
+                margin-bottom: 4px !important;
             }
             
             /* Simplified business header on page 1 */
@@ -1368,9 +1370,14 @@
             
             /* Score section - compact for print with working colors */
             .score-donut-container {
-                width: 100px;
-                height: 100px;
-                margin: 15px auto;
+                width: 80px !important;
+                height: 80px !important;
+                margin: 8px auto !important;
+            }
+
+            .score-donut-container h3 {
+                font-size: 12px !important;
+                margin-bottom: 6px !important;
             }
             
             .donut-fill {
@@ -1400,28 +1407,117 @@
             }
             
             .score-number {
-                font-size: 24px;
+                font-size: 18px !important;
             }
-            
+
             .score-percentage {
-                font-size: 10px;
+                font-size: 8px !important;
             }
-            
+
             .score-message {
-                font-size: 12px;
-                margin: 10px auto;
+                font-size: 9px !important;
+                margin: 4px auto !important;
                 max-width: 400px;
                 text-align: center;
+                line-height: 1.2 !important;
             }
             
-            /* Factors grid - 2 columns for print to fit better and save space */
+            /* New Grouped Factors Section - Compact for Print */
+            .factors-section {
+                padding: 0 !important;
+                margin: 8px 0 !important;
+            }
+
+            .factors-section h2 {
+                display: none !important; /* Hide the main title to save space */
+            }
+
+            .factor-group {
+                margin-bottom: 8px !important;
+                page-break-inside: avoid;
+            }
+
+            .group-header {
+                display: flex !important;
+                align-items: center !important;
+                gap: 4px !important;
+                margin-bottom: 4px !important;
+                padding-bottom: 2px !important;
+                border-bottom: 1px solid !important;
+            }
+
+            .group-icon {
+                width: 12px !important;
+                height: 12px !important;
+                font-size: 8px !important;
+                line-height: 12px !important;
+            }
+
+            .group-title {
+                font-size: 10px !important;
+                font-weight: 700 !important;
+            }
+
+            .group-count {
+                font-size: 7px !important;
+                padding: 2px 4px !important;
+                margin-left: auto !important;
+            }
+
+            .factors-grid {
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 3px !important;
+            }
+
+            .factor-card {
+                padding: 3px 4px !important;
+                margin: 0 !important;
+                border-radius: 2px !important;
+                background: #f8f9fa !important;
+                border-left: 2px solid !important;
+                page-break-inside: avoid !important;
+            }
+
+            .factor-card.missing { border-left-color: #dc3545 !important; }
+            .factor-card.needs-improvement { border-left-color: #ffc107 !important; }
+            .factor-card.good { border-left-color: #28a745 !important; }
+
+            .factor-header {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: flex-start !important;
+                margin-bottom: 2px !important;
+            }
+
+            .factor-name {
+                font-size: 8px !important;
+                font-weight: 600 !important;
+                color: #0e192b !important;
+                line-height: 1.1 !important;
+            }
+
+            .factor-message {
+                font-size: 6px !important;
+                color: #666 !important;
+                line-height: 1.1 !important;
+                margin: 0 !important;
+            }
+
+            /* Hide expanded content and arrows in print */
+            .factor-expanded-content,
+            .factor-expand-arrow {
+                display: none !important;
+            }
+
+            /* Legacy factors grid - 2 columns for print to fit better and save space */
             .factors-compact-grid {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
                 gap: 4px;
                 margin-top: 8px;
             }
-            
+
             .factor-item-compact {
                 padding: 4px 6px;
                 margin-bottom: 0;
@@ -1432,41 +1528,23 @@
                 font-size: 8px;
                 page-break-inside: avoid;
             }
-            
+
             .factor-item-compact.status-good { border-left-color: #28a745; }
             .factor-item-compact.status-needs-improvement { border-left-color: #ffc107; }
             .factor-item-compact.status-missing { border-left-color: #dc3545; }
             .factor-item-compact.status-uncertain { border-left-color: #6c757d; }
-            
+
             .factor-header-compact {
                 margin-bottom: 1px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
             }
-            
-            .factor-name {
-                font-size: 9px;
-                font-weight: 600;
-                color: #0e192b !important;
-            }
-            
+
             .factor-status-badge {
                 font-size: 6px;
                 padding: 1px 3px;
                 border-radius: 3px;
-            }
-            
-            .factor-message {
-                font-size: 7px;
-                color: #666 !important;
-                line-height: 1.1;
-                margin-top: 2px;
-            }
-            
-            /* Hide expanded content in print */
-            .factor-expanded-content {
-                display: none !important;
             }
             
             .section-title {
@@ -1487,22 +1565,24 @@
             }
             
             /* Citations section - more compact */
-            .print-page-1 .citations-row {
-                display: grid;
-                grid-template-columns: repeat(7, 1fr);
-                gap: 4px;
-                padding: 8px;
+            .print-page-1 .citations-row,
+            .citations-row {
+                display: grid !important;
+                grid-template-columns: repeat(7, 1fr) !important;
+                gap: 2px !important;
+                padding: 4px !important;
                 background: #f8f9fa !important;
-                border-radius: 4px;
-                margin-bottom: 10px;
+                border-radius: 3px !important;
+                margin-bottom: 6px !important;
             }
-            
-            .print-page-1 .citation-item-simple {
-                text-align: center;
-                padding: 4px 2px;
+
+            .print-page-1 .citation-item-simple,
+            .citation-item-simple {
+                text-align: center !important;
+                padding: 2px 1px !important;
                 background: white !important;
-                border-radius: 3px;
-                border: 1px solid #e9ecef;
+                border-radius: 2px !important;
+                border: 1px solid #e9ecef !important;
             }
             
             .citation-item-simple.found { 
@@ -1527,11 +1607,22 @@
                 font-weight: bold;
             }
             
-            .print-page-1 .citation-name-simple {
-                font-size: 7px;
-                font-weight: 600;
+            .print-page-1 .citation-name-simple,
+            .citation-name-simple {
+                font-size: 6px !important;
+                font-weight: 600 !important;
                 color: #495057 !important;
-                line-height: 1;
+                line-height: 1.1 !important;
+            }
+
+            .citation-logo {
+                width: 16px !important;
+                height: 16px !important;
+                margin: 0 auto 2px !important;
+            }
+
+            .citation-icon {
+                font-size: 10px !important;
             }
             
             /* Action plan for print - more compact */
