@@ -1206,8 +1206,8 @@
             
             /* Page 1: Score and Factors */
             .print-page-1 {
-                page-break-after: always;
-                min-height: 95vh;
+                page-break-after: auto;
+                min-height: auto;
             }
             
             /* Sections - more compact for print */
@@ -1351,11 +1351,9 @@
                 font-weight: 600;
             }
             
-            /* Page 2: Action Plan and Upsell */
+            /* Page 2: Action Plan and Upsell - HIDDEN IN PRINT */
             .print-page-2 {
-                page-break-before: always;
-                min-height: 95vh;
-                padding-top: 20px;
+                display: none !important;
             }
             
             .print-page-2 .section {
