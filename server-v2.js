@@ -4469,18 +4469,71 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
 
       } catch (businessError) {
         console.error(`❌ Fast scan failed for ${business.name}:`, businessError.message);
+        console.error(`❌ Error stack:`, businessError.stack);
         errors.push({
           business: business.name,
           rank: business.rank,
-          error: businessError.message
+          error: businessError.message,
+          details: businessError.stack
         });
+
+        // Create a minimal fallback report for failed businesses
+        auditResults.push({
+          success: false,
+          type: 'fast_bulk',
+          businessName: business.name,
+          location: location,
+          industry: industry,
+          website: business.website || null,
+          ranking: {
+            position: business.rank,
+            searchTerm: `${industry} ${location}`,
+            url: business.website
+          },
+          score: 0,
+          maxScore: 100,
+          coreMetrics: {
+            totalReviews: 0,
+            averageRating: 0,
+            totalPhotos: 0,
+            subcategories: 0,
+            socialLinks: 0,
+            questionsAnswers: 0,
+            posts: 0,
+            citationsFound: 0,
+            hasGBPEmbed: false,
+            hasLocalizedPage: false
+          },
+          data: {
+            business: {
+              name: business.name,
+              address: '',
+              phone: '',
+              website: business.website || '',
+              categories: [],
+              hours: {}
+            },
+            reviews: { total: 0, rating: 0, recentReviews: [] },
+            photos: { total: 0, categories: [] },
+            social: {},
+            posts: { total: 0, recent: [] },
+            questionsAnswers: { total: 0, answered: 0 },
+            citations: { found: [], checked: [], total: 0, stats: { found: 0, missing: 0, percentage: 0, score: 0 } },
+            website: { hasGBPEmbed: false, hasLocalizedPage: false, services: [], screenshot: null },
+            errors: [businessError.message]
+          },
+          errors: [businessError.message],
+          processingTime: new Date().toISOString()
+        });
+        creditsUsed++; // Still charge for failed attempts
       }
     }
 
     if (auditResults.length === 0) {
       return res.status(500).json({
         error: 'Fast bulk scan failed - no businesses could be processed',
-        errors: errors
+        errors: errors,
+        details: 'All business scans failed. Check server logs for details.'
       });
     }
 

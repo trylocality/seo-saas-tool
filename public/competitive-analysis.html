@@ -439,7 +439,23 @@
             } catch (error) {
                 clearInterval(progressInterval);
                 console.error('Analysis error:', error);
-                showToast(`Analysis failed: ${error.message}`, 'error');
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    response: error.response
+                });
+
+                // Show more detailed error message
+                const errorMessage = error.message || 'Unknown error occurred';
+                showToast(`Analysis failed: ${errorMessage}`, 'error');
+
+                // Also log to page for visibility
+                const errorDiv = document.createElement('div');
+                errorDiv.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #dc3545; color: white; padding: 15px; border-radius: 8px; max-width: 400px; z-index: 10000; font-size: 12px;';
+                errorDiv.innerHTML = `<strong>Error Details:</strong><br>${errorMessage}<br><small>Check browser console for more info</small>`;
+                document.body.appendChild(errorDiv);
+                setTimeout(() => errorDiv.remove(), 10000);
+
                 showSection('setupSection');
             }
         }
