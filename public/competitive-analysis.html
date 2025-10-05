@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Competitive Analysis - Locality</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Source+Sans+Pro:wght@400;600&family=Montserrat:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Lato', 'Source Sans Pro', sans-serif; background: linear-gradient(135deg, #1a2332 0%, #0e192b 100%); min-height: 100vh; }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .card { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 30px; margin-bottom: 20px; }
+
+        /* Header */
+        .header { text-align: center; margin-bottom: 30px; background: transparent; padding: 0; }
+        .logo { height: 240px; width: auto; max-width: 800px; display: block; margin: 0 auto; }
+
+        /* Back Button */
+        .btn { background: linear-gradient(135deg, #1a2332 0%, #0e192b 100%); color: white; padding: 12px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s; text-decoration: none; display: inline-block; }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-secondary { background: #6c757d; }
+
+        /* Form Styles */
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px; }
+        .required { color: #dc3545; }
+
+        /* Analysis Form */
+        .analysis-form { max-width: 600px; margin: 0 auto; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        /* Loading Styles */
+        .loading-container { text-align: center; padding: 60px 20px; }
+        .spinner { width: 60px; height: 60px; border: 4px solid #f3f3f3; border-top: 4px solid #0e192b; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .progress-text { color: #666; font-size: 1.1rem; margin-bottom: 10px; }
+        .progress-subtext { color: #888; font-size: 0.9rem; }
+
+        /* Results Table */
+        .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .results-title { color: #0e192b; font-size: 2rem; font-weight: 700; margin: 0; }
+        .results-summary { color: #666; font-size: 1rem; }
+
+        .competitive-table { width: 100%; border-collapse: collapse; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .competitive-table th { background: #f8f9fa; padding: 15px 12px; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; font-size: 0.9rem; }
+        .competitive-table td { padding: 12px; border-bottom: 1px solid #f8f9fa; vertical-align: middle; font-size: 0.9rem; }
+        .competitive-table tr:hover { background: #f8f9fa; }
+
+        /* Business Info Column */
+        .business-info { min-width: 250px; }
+        .business-name { font-weight: 600; color: #0e192b; font-size: 1rem; margin-bottom: 4px; }
+        .business-address { color: #666; font-size: 0.85rem; margin-bottom: 2px; }
+        .business-phone { color: #666; font-size: 0.85rem; }
+
+        /* Ranking Position */
+        .rank-position { text-align: center; font-size: 1.5rem; font-weight: 700; color: #0e192b; min-width: 60px; }
+        .rank-1 { color: #f39c12; }
+        .rank-2 { color: #95a5a6; }
+        .rank-3 { color: #cd7f32; }
+
+        /* Score Display */
+        .score-cell { text-align: center; min-width: 80px; }
+        .score-badge { display: inline-block; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.9rem; min-width: 50px; text-align: center; }
+        .score-excellent { background: #d4edda; color: #155724; }
+        .score-good { background: #d1ecf1; color: #0c5460; }
+        .score-fair { background: #fff3cd; color: #856404; }
+        .score-poor { background: #f8d7da; color: #721c24; }
+
+        /* Opportunity Indicators */
+        .opportunity-cell { text-align: center; min-width: 100px; }
+        .opportunity-high { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); color: white; padding: 6px 12px; border-radius: 15px; font-weight: 600; font-size: 0.8rem; }
+        .opportunity-medium { background: linear-gradient(135deg, #ffa726 0%, #ff9800 100%); color: white; padding: 6px 12px; border-radius: 15px; font-weight: 600; font-size: 0.8rem; }
+        .opportunity-low { background: linear-gradient(135deg, #66bb6a 0%, #4caf50 100%); color: white; padding: 6px 12px; border-radius: 15px; font-weight: 600; font-size: 0.8rem; }
+        .opportunity-none { background: #e9ecef; color: #6c757d; padding: 6px 12px; border-radius: 15px; font-weight: 600; font-size: 0.8rem; }
+
+        /* Missing Factors */
+        .missing-factors { font-size: 0.8rem; color: #666; max-width: 200px; }
+        .factor-tag { display: inline-block; background: #dc3545; color: white; padding: 2px 6px; border-radius: 10px; margin: 1px; font-size: 0.7rem; }
+
+        /* Reviews & Ratings */
+        .review-info { text-align: center; min-width: 100px; }
+        .rating-stars { color: #ffc107; margin-bottom: 2px; }
+        .review-count { color: #666; font-size: 0.8rem; }
+
+        /* Action Buttons */
+        .action-cell { text-align: center; min-width: 120px; }
+        .action-btn { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; margin: 2px; }
+        .action-btn:hover { transform: translateY(-1px); }
+
+        /* Filters */
+        .filters-bar { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .filter-group { display: flex; flex-direction: column; }
+        .filter-group label { font-size: 0.85rem; font-weight: 600; color: #495057; margin-bottom: 5px; }
+        .filter-group select { padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9rem; }
+
+        /* Legend */
+        .legend { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .legend-title { font-weight: 600; color: #0e192b; margin-bottom: 15px; }
+        .legend-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .legend-item { display: flex; align-items: center; gap: 10px; }
+        .legend-sample { padding: 4px 8px; border-radius: 10px; font-size: 0.8rem; font-weight: 600; min-width: 80px; text-align: center; }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .competitive-table { font-size: 0.8rem; }
+            .competitive-table th, .competitive-table td { padding: 10px 8px; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .results-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .filters-bar { flex-direction: column; align-items: stretch; }
+            .competitive-table { font-size: 0.75rem; }
+            .business-info { min-width: 200px; }
+        }
+
+        /* Hidden class */
+        .hidden { display: none; }
+
+        /* Toast notifications */
+        .toast { position: fixed; top: 20px; right: 20px; padding: 15px 20px; border-radius: 8px; color: white; font-weight: 600; z-index: 1000; transform: translateX(100%); transition: transform 0.3s ease; }
+        .toast.show { transform: translateX(0); }
+        .toast-success { background: #28a745; }
+        .toast-error { background: #dc3545; }
+        .toast-warning { background: #ffc107; color: #212529; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <img src="locality-logo.png" alt="Locality" class="logo">
+        </div>
+
+        <!-- Analysis Setup Form -->
+        <div id="setupSection" class="card">
+            <button class="btn btn-secondary" onclick="goBack()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← BACK TO DASHBOARD</button>
+
+            <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Fast Competitive Analysis</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 40px; font-size: 1.1rem;">
+                Quickly analyze up to 25 local businesses in your industry to identify ranking opportunities
+            </p>
+
+            <form id="analysisForm" class="analysis-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="industry">Industry/Service <span class="required">*</span></label>
+                        <input type="text" id="industry" required placeholder="e.g., Carpet Cleaners, Plumbers, Dentists">
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Location <span class="required">*</span></label>
+                        <input type="text" id="location" required placeholder="e.g., Las Vegas, NV">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="count">Number of Businesses</label>
+                        <select id="count">
+                            <option value="5">Top 5 (5 Credits)</option>
+                            <option value="10" selected>Top 10 (10 Credits)</option>
+                            <option value="15">Top 15 (15 Credits)</option>
+                            <option value="20">Top 20 (20 Credits)</option>
+                            <option value="25">Top 25 (25 Credits)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="startFrom">Starting Position</label>
+                        <select id="startFrom">
+                            <option value="1">From #1</option>
+                            <option value="6">From #6</option>
+                            <option value="11">From #11</option>
+                            <option value="16">From #16</option>
+                            <option value="21">From #21</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button type="submit" class="btn" style="font-size: 1.2rem; padding: 15px 40px;" id="submitBtn">
+                        ⚡ START FAST ANALYSIS (<span id="creditCost">10</span> Credits)
+                    </button>
+                    <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
+                        Fast mode: 3-5 minutes to complete (skips AI suggestions for speed)
+                    </p>
+                </div>
+            </form>
+        </div>
+
+        <!-- Loading Section -->
+        <div id="loadingSection" class="card hidden">
+            <div class="loading-container">
+                <div class="spinner"></div>
+                <div class="progress-text" id="progressText">Initializing fast competitive analysis...</div>
+                <div class="progress-subtext" id="progressSubtext">Analyzing businesses for ranking opportunities</div>
+
+                <div style="margin-top: 30px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h4 style="color: #0e192b; margin-bottom: 15px;">Fast scan includes:</h4>
+                    <ul style="color: #666; line-height: 1.6;">
+                        <li>✓ Google Business Profile data</li>
+                        <li>✓ Review quantity and ratings</li>
+                        <li>✓ Photo counts and categories</li>
+                        <li>✓ Citation checking (top 5 directories)</li>
+                        <li>✓ Social media presence</li>
+                        <li>✓ Q&As, posts, and engagement</li>
+                        <li>⚡ Optimized for speed (no AI analysis)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="card hidden">
+            <button class="btn btn-secondary" onclick="goBack()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← BACK TO DASHBOARD</button>
+
+            <div class="results-header">
+                <div>
+                    <h2 class="results-title" id="resultsTitle">Fast Competitive Analysis Results</h2>
+                    <div class="results-summary" id="resultsSummary">Analysis completed</div>
+                </div>
+                <div>
+                    <button class="btn" onclick="exportResults()">📊 Export to CSV</button>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-title">Understanding Your Opportunities</div>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <div class="legend-sample opportunity-high">HIGH</div>
+                        <span>Easy wins - significant ranking gaps with quick fixes</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-sample opportunity-medium">MEDIUM</div>
+                        <span>Good potential - moderate effort, solid results</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-sample opportunity-low">LOW</div>
+                        <span>Limited gains - strong competitors, minor improvements</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-sample opportunity-none">NONE</div>
+                        <span>Well-optimized or extremely competitive</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label>Opportunity Level</label>
+                    <select id="opportunityFilter" onchange="filterResults()">
+                        <option value="all">All Opportunities</option>
+                        <option value="high">High Only</option>
+                        <option value="medium-high">Medium & High</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Score Range</label>
+                    <select id="scoreFilter" onchange="filterResults()">
+                        <option value="all">All Scores</option>
+                        <option value="under60">Under 60</option>
+                        <option value="60-80">60-80</option>
+                        <option value="over80">Over 80</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Ranking Position</label>
+                    <select id="rankFilter" onchange="filterResults()">
+                        <option value="all">All Positions</option>
+                        <option value="top10">Top 10</option>
+                        <option value="11-20">11-20</option>
+                        <option value="21plus">21+</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Results Table -->
+            <div style="overflow-x: auto;">
+                <table class="competitive-table" id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Business Information</th>
+                            <th>Reviews</th>
+                            <th>Core Metrics</th>
+                            <th>Audit Score</th>
+                            <th>Opportunity</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        <!-- Results will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Summary Stats -->
+            <div id="summaryStats" style="margin-top: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <!-- Stats will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentResults = [];
+        let filteredResults = [];
+        let authToken = localStorage.getItem('authToken');
+
+        // Update credit cost when count changes
+        document.getElementById('count').addEventListener('change', function() {
+            const count = this.value;
+            document.getElementById('creditCost').textContent = count;
+        });
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Navigation functions
+        function goBack() {
+            window.location.href = '/';
+        }
+
+        function showSection(sectionId) {
+            const sections = ['setupSection', 'loadingSection', 'resultsSection'];
+            sections.forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(sectionId).classList.remove('hidden');
+        }
+
+        // Form submission
+        document.getElementById('analysisForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const industry = document.getElementById('industry').value;
+            const location = document.getElementById('location').value;
+            const count = parseInt(document.getElementById('count').value);
+            const startFrom = parseInt(document.getElementById('startFrom').value);
+
+            if (!industry || !location) {
+                showToast('Please fill in all required fields', 'error');
+                return;
+            }
+
+            if (!authToken) {
+                showToast('Please log in to run analysis', 'error');
+                setTimeout(() => window.location.href = '/', 2000);
+                return;
+            }
+
+            startAnalysis(industry, location, count, startFrom);
+        });
+
+        // Start analysis
+        async function startAnalysis(industry, location, count, startFrom) {
+            showSection('loadingSection');
+
+            // Update progress text
+            const progressSteps = [
+                "Finding businesses in the area...",
+                "Collecting Google Business Profile data...",
+                "Running parallel citation checks...",
+                "Analyzing photos, reviews, and engagement...",
+                "Taking website screenshots...",
+                "Calculating competitive scores...",
+                "Identifying ranking opportunities...",
+                "Finalizing fast analysis..."
+            ];
+
+            let currentStep = 0;
+            const progressInterval = setInterval(() => {
+                if (currentStep < progressSteps.length) {
+                    document.getElementById('progressText').textContent = progressSteps[currentStep];
+                    currentStep++;
+                }
+            }, 3000);
+
+            try {
+                // Call our fast bulk scan API
+                const response = await fetch('/api/generate-fast-bulk-scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        industry,
+                        location,
+                        count,
+                        startFrom
+                    })
+                });
+
+                clearInterval(progressInterval);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentResults = data.businesses.map(business => ({
+                        rank: business.ranking.position,
+                        name: business.businessName,
+                        address: business.data.business.address,
+                        phone: business.data.business.phone,
+                        website: business.data.business.website,
+                        rating: business.data.reviews.rating,
+                        reviews: business.data.reviews.total,
+                        score: business.score,
+                        coreMetrics: business.coreMetrics,
+                        opportunity: calculateOpportunity(business.score, business.ranking.position),
+                        data: business.data
+                    }));
+
+                    showResults(industry, location, data);
+                } else {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+
+            } catch (error) {
+                clearInterval(progressInterval);
+                console.error('Analysis error:', error);
+                showToast(`Analysis failed: ${error.message}`, 'error');
+                showSection('setupSection');
+            }
+        }
+
+        // Calculate opportunity level based on score and ranking
+        function calculateOpportunity(score, rank) {
+            if (score < 60 && rank > 10) return 'high';
+            if (score < 70 && rank > 5) return 'medium';
+            if (score < 80) return 'low';
+            return 'none';
+        }
+
+        // Show results
+        function showResults(industry, location, data) {
+            showSection('resultsSection');
+
+            // Update title and summary
+            document.getElementById('resultsTitle').textContent = `${industry} in ${location}`;
+            document.getElementById('resultsSummary').textContent =
+                `Found ${data.searchCriteria.totalScanned} businesses • ${data.scanSummary ? `Avg Score: ${data.scanSummary.averageScore}` : ''} • Fast scan mode`;
+
+            // Set filtered results to all results initially
+            filteredResults = [...currentResults];
+
+            // Populate table and stats
+            populateResultsTable();
+            populateSummaryStats(data);
+
+            showToast('Fast competitive analysis completed!', 'success');
+        }
+
+        // Populate results table
+        function populateResultsTable() {
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = '';
+
+            filteredResults.forEach(result => {
+                const row = document.createElement('tr');
+
+                // Rank with special styling for top 3
+                const rankClass = result.rank <= 3 ? `rank-${result.rank}` : '';
+
+                // Score classification
+                let scoreClass = 'score-poor';
+                if (result.score >= 80) scoreClass = 'score-excellent';
+                else if (result.score >= 70) scoreClass = 'score-good';
+                else if (result.score >= 60) scoreClass = 'score-fair';
+
+                // Opportunity styling
+                const opportunityClass = `opportunity-${result.opportunity}`;
+                const opportunityText = result.opportunity.toUpperCase();
+
+                // Core metrics display
+                const metrics = result.coreMetrics;
+                const coreMetricsHtml = `
+                    <div style="font-size: 0.8rem; color: #666;">
+                        <div>📸 ${metrics.totalPhotos} photos</div>
+                        <div>🏷️ ${metrics.subcategories} categories</div>
+                        <div>📱 ${metrics.socialLinks} social</div>
+                        <div>❓ ${metrics.questionsAnswers} Q&As</div>
+                        <div>📝 ${metrics.posts} posts</div>
+                        <div>📋 ${metrics.citationsFound}/5 citations</div>
+                    </div>
+                `;
+
+                row.innerHTML = `
+                    <td class="rank-position ${rankClass}">${result.rank}</td>
+                    <td class="business-info">
+                        <div class="business-name">${result.name}</div>
+                        <div class="business-address">${result.address || 'Address not available'}</div>
+                        <div class="business-phone">${result.phone || 'Phone not available'}</div>
+                        ${result.website ? `<div style="font-size: 0.8rem; color: #17a2b8;">${result.website}</div>` : ''}
+                    </td>
+                    <td class="review-info">
+                        <div class="rating-stars">${'★'.repeat(Math.floor(result.rating))}${'☆'.repeat(5-Math.floor(result.rating))}</div>
+                        <div style="font-weight: 600; color: #0e192b;">${result.rating}</div>
+                        <div class="review-count">${result.reviews} reviews</div>
+                    </td>
+                    <td>${coreMetricsHtml}</td>
+                    <td class="score-cell">
+                        <div class="score-badge ${scoreClass}">${result.score}/100</div>
+                    </td>
+                    <td class="opportunity-cell">
+                        <div class="${opportunityClass}">${opportunityText}</div>
+                    </td>
+                    <td class="action-cell">
+                        <button class="action-btn" onclick="viewFullAudit('${result.name}')">Full Audit</button>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+            });
+        }
+
+        // Populate summary stats
+        function populateSummaryStats(data) {
+            const statsContainer = document.getElementById('summaryStats');
+            const scanSummary = data.scanSummary;
+
+            if (scanSummary) {
+                statsContainer.innerHTML = `
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #dc3545;">${currentResults.filter(r => r.opportunity === 'high').length}</div>
+                        <div style="color: #666;">High Opportunities</div>
+                    </div>
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #0e192b;">${scanSummary.averageScore}</div>
+                        <div style="color: #666;">Average Score</div>
+                    </div>
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #28a745;">${scanSummary.averageReviews}</div>
+                        <div style="color: #666;">Avg Reviews</div>
+                    </div>
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #17a2b8;">${data.searchCriteria.totalScanned}</div>
+                        <div style="color: #666;">Total Analyzed</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Filter results
+        function filterResults() {
+            const opportunityFilter = document.getElementById('opportunityFilter').value;
+            const scoreFilter = document.getElementById('scoreFilter').value;
+            const rankFilter = document.getElementById('rankFilter').value;
+
+            filteredResults = currentResults.filter(result => {
+                // Opportunity filter
+                if (opportunityFilter !== 'all') {
+                    if (opportunityFilter === 'high' && result.opportunity !== 'high') return false;
+                    if (opportunityFilter === 'medium-high' && !['medium', 'high'].includes(result.opportunity)) return false;
+                }
+
+                // Score filter
+                if (scoreFilter !== 'all') {
+                    if (scoreFilter === 'under60' && result.score >= 60) return false;
+                    if (scoreFilter === '60-80' && (result.score < 60 || result.score > 80)) return false;
+                    if (scoreFilter === 'over80' && result.score <= 80) return false;
+                }
+
+                // Rank filter
+                if (rankFilter !== 'all') {
+                    if (rankFilter === 'top10' && result.rank > 10) return false;
+                    if (rankFilter === '11-20' && (result.rank < 11 || result.rank > 20)) return false;
+                    if (rankFilter === '21plus' && result.rank < 21) return false;
+                }
+
+                return true;
+            });
+
+            populateResultsTable();
+        }
+
+        // Action handlers
+        function viewFullAudit(businessName) {
+            showToast(`Generating full audit for ${businessName}...`, 'info');
+            // In real implementation, this would redirect to full audit with prefilled data
+            setTimeout(() => {
+                window.location.href = `/?business=${encodeURIComponent(businessName)}`;
+            }, 1000);
+        }
+
+        function exportResults() {
+            if (filteredResults.length === 0) {
+                showToast('No results to export', 'warning');
+                return;
+            }
+
+            // Create CSV content
+            const headers = ['Rank', 'Business Name', 'Address', 'Phone', 'Website', 'Rating', 'Reviews', 'Score', 'Photos', 'Categories', 'Social', 'QAs', 'Posts', 'Citations', 'Opportunity'];
+            const csvContent = [
+                headers.join(','),
+                ...filteredResults.map(result => [
+                    result.rank,
+                    `"${result.name}"`,
+                    `"${result.address || ''}"`,
+                    `"${result.phone || ''}"`,
+                    `"${result.website || ''}"`,
+                    result.rating,
+                    result.reviews,
+                    result.score,
+                    result.coreMetrics.totalPhotos,
+                    result.coreMetrics.subcategories,
+                    result.coreMetrics.socialLinks,
+                    result.coreMetrics.questionsAnswers,
+                    result.coreMetrics.posts,
+                    result.coreMetrics.citationsFound,
+                    result.opportunity
+                ].join(','))
+            ].join('\n');
+
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `competitive-analysis-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            showToast('Results exported to CSV!', 'success');
+        }
+
+        // Check authentication on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!authToken) {
+                showToast('Please log in to access competitive analysis', 'error');
+                setTimeout(() => window.location.href = '/', 3000);
+            }
+        });
+    </script>
+</body>
+</html>
