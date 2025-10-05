@@ -2903,6 +2903,623 @@ function generateCitationRecommendations(citationsData) {
       'Excellent citation coverage across all major directories'
   };
 }
+
+// ==========================================
+// FAST BULK AUDIT FUNCTIONS (OPTIMIZED)
+// ==========================================
+
+// Fast parallel citation checker - top 5 directories only
+async function checkCitationsFast(businessName, location) {
+  try {
+    console.log(`🔍 Fast citation check: ${businessName} in ${location}`);
+
+    if (!SERPAPI_KEY) {
+      throw new Error('SerpAPI key not configured');
+    }
+
+    // Top 5 most important directories
+    const directories = [
+      { name: 'Yelp', domain: 'yelp.com' },
+      { name: 'Yellow Pages', domain: 'yellowpages.com' },
+      { name: 'Better Business Bureau', domain: 'bbb.org' },
+      { name: 'Facebook Business', domain: 'facebook.com' },
+      { name: 'Foursquare', domain: 'foursquare.com' }
+    ];
+
+    // Run all citation checks in parallel
+    const citationPromises = directories.map(async (directory) => {
+      try {
+        const searchQuery = `site:${directory.domain} "${businessName}" ${location}`;
+
+        const response = await axios.get('https://serpapi.com/search.json', {
+          params: {
+            engine: 'google',
+            q: searchQuery,
+            api_key: SERPAPI_KEY,
+            num: 3
+          },
+          timeout: 8000 // Shorter timeout for speed
+        });
+
+        const hasResults = response.data.organic_results && response.data.organic_results.length > 0;
+
+        return {
+          directory: directory.name,
+          domain: directory.domain,
+          found: hasResults,
+          url: hasResults ? response.data.organic_results[0]?.link : null
+        };
+
+      } catch (dirError) {
+        console.error(`❌ Fast citation check failed for ${directory.name}:`, dirError.message);
+        return {
+          directory: directory.name,
+          domain: directory.domain,
+          found: false,
+          error: dirError.message
+        };
+      }
+    });
+
+    // Wait for all checks to complete
+    const checked = await Promise.all(citationPromises);
+    const found = checked.filter(check => check.found);
+
+    console.log(`📊 Fast citations: ${found.length}/${directories.length}`);
+
+    return {
+      found: found,
+      checked: checked,
+      total: directories.length,
+      stats: {
+        found: found.length,
+        missing: directories.length - found.length,
+        percentage: Math.round((found.length / directories.length) * 100),
+        score: found.length * 2 // 2 points per citation
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ Fast citation check error:', error.message);
+    throw new Error(`Fast citation check failed: ${error.message}`);
+  }
+}
+
+// Fast bulk report generation - essential data only
+async function generateFastBulkReport(businessName, location, industry, website) {
+  console.log(`⚡ Generating FAST report for: ${businessName} in ${location}`);
+
+  const errors = [];
+  let partialData = {};
+
+  try {
+    // Step 1: Get primary business data from Outscraper (keeps all the ranking factors)
+    console.log('📍 Step 1: Getting business data...');
+    try {
+      partialData.outscraper = await getOutscraperData(businessName, location);
+    } catch (error) {
+      errors.push(`Business data: ${error.message}`);
+      partialData.outscraper = { photos: 0, reviews: 0, categories: [] };
+    }
+
+    // Step 2: Fast parallel citation check (top 5 directories)
+    console.log('🔍 Step 2: Fast citation check...');
+    try {
+      partialData.citations = await checkCitationsFast(businessName, location);
+    } catch (error) {
+      errors.push(`Citations: ${error.message}`);
+      partialData.citations = {
+        found: [],
+        checked: [],
+        total: 5,
+        stats: { found: 0, missing: 5, percentage: 0, score: 0 }
+      };
+    }
+
+    // Step 3: Screenshot for product tiles (single screenshot only)
+    console.log('📸 Step 3: Screenshot analysis...');
+    try {
+      const website = partialData.outscraper?.website || null;
+      if (website) {
+        partialData.websiteAnalysis = await analyzeWebsite(website, location);
+      } else {
+        partialData.websiteAnalysis = {
+          hasGBPEmbed: false,
+          hasLocalizedPage: false,
+          services: [],
+          screenshot: null
+        };
+      }
+    } catch (error) {
+      errors.push(`Screenshot: ${error.message}`);
+      partialData.websiteAnalysis = {
+        hasGBPEmbed: false,
+        hasLocalizedPage: false,
+        services: [],
+        screenshot: null
+      };
+    }
+
+    // Compile essential data for scoring
+    const compiledData = {
+      business: {
+        name: partialData.outscraper?.name || businessName,
+        address: partialData.outscraper?.address || '',
+        phone: partialData.outscraper?.phone || '',
+        website: partialData.outscraper?.website || website,
+        categories: partialData.outscraper?.categories || [],
+        hours: partialData.outscraper?.hours || {}
+      },
+
+      // Reviews & engagement
+      reviews: {
+        total: partialData.outscraper?.reviews || 0,
+        rating: partialData.outscraper?.rating || 0,
+        recentReviews: [] // Skip content analysis for speed
+      },
+
+      // Photos
+      photos: {
+        total: partialData.outscraper?.photos || 0,
+        categories: partialData.outscraper?.photoCategories || []
+      },
+
+      // Social & engagement features
+      social: partialData.outscraper?.social || {},
+      posts: {
+        total: partialData.outscraper?.posts || 0,
+        recent: [] // Skip post analysis for speed
+      },
+      questionsAnswers: {
+        total: partialData.outscraper?.questionsAnswers || 0,
+        answered: 0 // Skip Q&A analysis for speed
+      },
+
+      // Citations
+      citations: partialData.citations,
+
+      // Website essentials
+      website: {
+        hasGBPEmbed: partialData.websiteAnalysis?.hasGBPEmbed || false,
+        hasLocalizedPage: partialData.websiteAnalysis?.hasLocalizedPage || false,
+        services: partialData.websiteAnalysis?.services || [],
+        screenshot: partialData.websiteAnalysis?.screenshot || null
+      },
+
+      // Error tracking
+      errors: errors
+    };
+
+    // Calculate score with available data
+    console.log('📊 Step 4: Calculating fast score...');
+    const scoreData = calculateScore(compiledData);
+
+    const report = {
+      success: true,
+      type: 'fast_bulk',
+      businessName: businessName,
+      location: location,
+      industry: industry,
+      website: website,
+      generatedDate: new Date().toLocaleDateString(),
+
+      // Core data for ranking comparison
+      coreMetrics: {
+        totalReviews: compiledData.reviews.total,
+        averageRating: compiledData.reviews.rating,
+        totalPhotos: compiledData.photos.total,
+        subcategories: compiledData.business.categories.length,
+        socialLinks: Object.keys(compiledData.social).length,
+        questionsAnswers: compiledData.questionsAnswers.total,
+        posts: compiledData.posts.total,
+        citationsFound: compiledData.citations.stats.found,
+        hasGBPEmbed: compiledData.website.hasGBPEmbed,
+        hasLocalizedPage: compiledData.website.hasLocalizedPage
+      },
+
+      // Scoring
+      score: scoreData.totalScore,
+      maxScore: scoreData.maxScore,
+      scoreBreakdown: scoreData.breakdown,
+
+      // Compiled data (reduced)
+      data: compiledData,
+
+      // Processing info
+      processingTime: new Date().toISOString(),
+      errors: errors
+    };
+
+    console.log(`⚡ Fast report complete: ${businessName} - Score: ${scoreData.totalScore}/${scoreData.maxScore}`);
+
+    return report;
+
+  } catch (error) {
+    console.error('❌ Fast bulk report error:', error);
+    throw new Error(`Fast report generation failed: ${error.message}`);
+  }
+}
+
+// Get ranked list of businesses for an industry/location
+async function getBusinessRankings(industry, location, count, startFrom) {
+  try {
+    console.log(`🔍 Getting business rankings for: ${industry} in ${location}`);
+
+    if (!SERPAPI_KEY) {
+      throw new Error('SerpAPI key not configured');
+    }
+
+    const searchQuery = `${industry} ${location}`;
+
+    const response = await axios.get('https://serpapi.com/search.json', {
+      params: {
+        engine: 'google_local',
+        q: searchQuery,
+        api_key: SERPAPI_KEY,
+        num: Math.min(startFrom + count, 100) // Get enough results
+      },
+      timeout: 30000
+    });
+
+    if (!response.data.local_results || response.data.local_results.length === 0) {
+      throw new Error('No businesses found for this search');
+    }
+
+    const allBusinesses = response.data.local_results;
+
+    // Extract businesses from startFrom to startFrom + count
+    const selectedBusinesses = allBusinesses
+      .slice(startFrom - 1, startFrom - 1 + count)
+      .map((business, index) => ({
+        rank: startFrom + index,
+        name: business.title,
+        location: `${business.address}, ${location}`,
+        website: business.website || null,
+        phone: business.phone || null,
+        rating: business.rating || 0,
+        reviews: business.reviews || 0,
+        place_id: business.place_id,
+        address: business.address
+      }));
+
+    console.log(`✅ Retrieved ${selectedBusinesses.length} businesses (ranks ${startFrom}-${startFrom + selectedBusinesses.length - 1})`);
+
+    return selectedBusinesses;
+
+  } catch (error) {
+    console.error('❌ Error getting business rankings:', error.message);
+    throw error;
+  }
+}
+
+// Generate competitive analysis
+function generateCompetitiveAnalysis(auditResults, industry, location) {
+  const scores = auditResults.map(r => r.score);
+  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const maxScore = Math.max(...scores);
+  const minScore = Math.min(...scores);
+
+  // Find correlations between ranking and score
+  const topRanked = auditResults.filter(r => r.ranking && r.ranking.position <= 5);
+  const avgTopScore = topRanked.length > 0
+    ? topRanked.reduce((sum, r) => sum + r.score, 0) / topRanked.length
+    : 0;
+
+  // Identify common strengths and weaknesses
+  const commonStrengths = analyzeCommonFactors(auditResults, 'strengths');
+  const commonWeaknesses = analyzeCommonFactors(auditResults, 'weaknesses');
+
+  return {
+    summary: {
+      title: `${industry} Competitive Analysis - ${location}`,
+      averageScore: Math.round(avgScore),
+      highestScore: maxScore,
+      lowestScore: minScore,
+      topRankedAverage: Math.round(avgTopScore),
+      scoreRange: maxScore - minScore,
+      totalAnalyzed: auditResults.length
+    },
+    rankings: {
+      byScore: auditResults
+        .sort((a, b) => b.score - a.score)
+        .map((r, index) => ({
+          scoreRank: index + 1,
+          googleRank: r.ranking ? r.ranking.position : null,
+          businessName: r.businessName,
+          score: r.score,
+          rankDifference: r.ranking ? (r.ranking.position - (index + 1)) : null // How Google rank differs from SEO score rank
+        })),
+      insights: generateRankingInsights(auditResults)
+    },
+    commonStrengths: commonStrengths,
+    commonWeaknesses: commonWeaknesses,
+    marketGaps: identifyMarketGaps(auditResults)
+  };
+}
+
+// Calculate industry benchmarks
+function calculateIndustryBenchmarks(auditResults) {
+  const factors = [
+    'claimed', 'description', 'categories', 'productTiles',
+    'photos', 'posts', 'qa', 'social',
+    'reviews', 'citations', 'gbpEmbed', 'landingPage'
+  ];
+
+  const benchmarks = {};
+
+  factors.forEach(factor => {
+    const scores = auditResults.map(r => {
+      const factorData = r.scoreBreakdown && r.scoreBreakdown.factors ?
+        r.scoreBreakdown.factors.find(f => f.id === factor) : null;
+      return factorData ? factorData.score : 0;
+    });
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const max = Math.max(...scores);
+
+    benchmarks[factor] = {
+      name: formatFactorName(factor),
+      average: Math.round(avg * 10) / 10,
+      best: max,
+      percentAchieving: Math.round((scores.filter(s => s === max).length / scores.length) * 100)
+    };
+  });
+
+  return benchmarks;
+}
+
+// Identify opportunities in the market
+function identifyOpportunities(auditResults) {
+  const opportunities = [];
+
+  // Find businesses with high rankings but low scores (vulnerable competitors)
+  const vulnerableCompetitors = auditResults.filter(r => {
+    const rank = r.ranking ? r.ranking.position : 999;
+    return rank <= 10 && r.score < 60;
+  });
+
+  if (vulnerableCompetitors.length > 0) {
+    opportunities.push({
+      type: 'VULNERABLE_COMPETITORS',
+      priority: 'HIGH',
+      message: `${vulnerableCompetitors.length} top-ranked businesses have low SEO scores (under 60)`,
+      businesses: vulnerableCompetitors.map(r => ({
+        name: r.businessName,
+        rank: r.ranking ? r.ranking.position : null,
+        score: r.score
+      })),
+      actionable: 'These businesses are vulnerable to optimization - focus on outscoring them'
+    });
+  }
+
+  // Find common gaps across all competitors
+  const gapAnalysis = findCommonGaps(auditResults);
+
+  if (gapAnalysis.length > 0) {
+    opportunities.push({
+      type: 'INDUSTRY_GAPS',
+      priority: 'MEDIUM',
+      message: 'Industry-wide optimization gaps identified',
+      gaps: gapAnalysis,
+      actionable: 'Excel in these areas where most competitors are weak'
+    });
+  }
+
+  // Find ranking opportunities (large score vs rank discrepancies)
+  const underperformers = auditResults.filter(r => {
+    if (!r.ranking) return false;
+    const scoreRank = auditResults.filter(x => x.score > r.score).length + 1;
+    return r.ranking.position - scoreRank > 5; // Ranking 5+ positions worse than their score suggests
+  });
+
+  if (underperformers.length > 0) {
+    opportunities.push({
+      type: 'RANKING_OPPORTUNITIES',
+      priority: 'HIGH',
+      message: `${underperformers.length} businesses ranking below their optimization level`,
+      businesses: underperformers.map(r => ({
+        name: r.businessName,
+        rank: r.ranking ? r.ranking.position : null,
+        score: r.score
+      })),
+      actionable: 'These positions are achievable with proper optimization'
+    });
+  }
+
+  return opportunities;
+}
+
+// Helper function to analyze common factors
+function analyzeCommonFactors(auditResults, type) {
+  const factors = {};
+
+  auditResults.forEach(result => {
+    if (!result.scoreBreakdown || !result.scoreBreakdown.factors) return;
+
+    result.scoreBreakdown.factors.forEach(factor => {
+      if (!factors[factor.id]) {
+        factors[factor.id] = { scores: [], statuses: [] };
+      }
+      factors[factor.id].scores.push(factor.score);
+      factors[factor.id].statuses.push(factor.status);
+    });
+  });
+
+  const analysis = [];
+
+  Object.entries(factors).forEach(([factorId, data]) => {
+    const avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+    const goodCount = data.statuses.filter(s => s === 'GOOD').length;
+    const totalCount = data.statuses.length;
+    const goodPercentage = (goodCount / totalCount) * 100;
+
+    if (type === 'strengths' && goodPercentage >= 60) {
+      analysis.push({
+        factor: formatFactorName(factorId),
+        percentage: Math.round(goodPercentage),
+        avgScore: Math.round(avgScore * 10) / 10,
+        message: `${Math.round(goodPercentage)}% of businesses excel in this area`
+      });
+    } else if (type === 'weaknesses' && goodPercentage <= 30) {
+      analysis.push({
+        factor: formatFactorName(factorId),
+        percentage: Math.round(goodPercentage),
+        avgScore: Math.round(avgScore * 10) / 10,
+        message: `Only ${Math.round(goodPercentage)}% of businesses handle this well`
+      });
+    }
+  });
+
+  return analysis.sort((a, b) => type === 'strengths' ? b.percentage - a.percentage : a.percentage - b.percentage);
+}
+
+// Generate ranking insights
+function generateRankingInsights(auditResults) {
+  const insights = [];
+
+  // Check correlation between scores and rankings
+  const correlation = calculateRankScoreCorrelation(auditResults);
+
+  if (correlation < -0.3) {
+    insights.push({
+      type: 'STRONG_CORRELATION',
+      message: 'Higher SEO scores strongly correlate with better rankings in this market'
+    });
+  } else {
+    insights.push({
+      type: 'WEAK_CORRELATION',
+      message: 'Other factors beyond SEO optimization may influence rankings here'
+    });
+  }
+
+  // Find outliers
+  const outliers = findRankingOutliers(auditResults);
+  if (outliers.overperformers.length > 0) {
+    insights.push({
+      type: 'OVERPERFORMERS',
+      message: `${outliers.overperformers.length} businesses ranking better than their SEO score suggests`,
+      businesses: outliers.overperformers
+    });
+  }
+
+  return insights;
+}
+
+// Calculate correlation between rank and score
+function calculateRankScoreCorrelation(auditResults) {
+  const validResults = auditResults.filter(r => r.ranking && r.ranking.position);
+  if (validResults.length === 0) return 0;
+
+  const n = validResults.length;
+  const ranks = validResults.map(r => r.ranking.position);
+  const scores = validResults.map(r => r.score);
+
+  const avgRank = ranks.reduce((a, b) => a + b, 0) / n;
+  const avgScore = scores.reduce((a, b) => a + b, 0) / n;
+
+  let numerator = 0;
+  let denomRank = 0;
+  let denomScore = 0;
+
+  for (let i = 0; i < n; i++) {
+    const rankDiff = ranks[i] - avgRank;
+    const scoreDiff = scores[i] - avgScore;
+    numerator += rankDiff * scoreDiff;
+    denomRank += rankDiff * rankDiff;
+    denomScore += scoreDiff * scoreDiff;
+  }
+
+  return numerator / Math.sqrt(denomRank * denomScore);
+}
+
+// Find ranking outliers
+function findRankingOutliers(auditResults) {
+  const validResults = auditResults.filter(r => r.ranking && r.ranking.position);
+
+  const scoreRanks = validResults
+    .map((r, i) => ({ ...r, scoreRank: i + 1 }))
+    .sort((a, b) => b.score - a.score)
+    .map((r, i) => ({ ...r, scoreRank: i + 1 }));
+
+  const overperformers = scoreRanks
+    .filter(r => r.scoreRank - r.ranking.position > 5)
+    .map(r => ({ name: r.businessName, rank: r.ranking.position, score: r.score }));
+
+  const underperformers = scoreRanks
+    .filter(r => r.ranking.position - r.scoreRank > 5)
+    .map(r => ({ name: r.businessName, rank: r.ranking.position, score: r.score }));
+
+  return { overperformers, underperformers };
+}
+
+// Identify market gaps
+function identifyMarketGaps(auditResults) {
+  const gaps = [];
+
+  // Check what percentage lacks each feature
+  const featureAdoption = {};
+
+  auditResults.forEach(result => {
+    if (!result.scoreBreakdown || !result.scoreBreakdown.factors) return;
+
+    result.scoreBreakdown.factors.forEach(factor => {
+      if (!featureAdoption[factor.id]) {
+        featureAdoption[factor.id] = { total: 0, good: 0 };
+      }
+      featureAdoption[factor.id].total++;
+      if (factor.status === 'GOOD') {
+        featureAdoption[factor.id].good++;
+      }
+    });
+  });
+
+  Object.entries(featureAdoption).forEach(([factorId, data]) => {
+    const adoptionRate = (data.good / data.total) * 100;
+    if (adoptionRate < 40) {
+      gaps.push({
+        factor: formatFactorName(factorId),
+        adoptionRate: Math.round(adoptionRate),
+        opportunity: `${Math.round(100 - adoptionRate)}% of competitors are missing this`
+      });
+    }
+  });
+
+  return gaps.sort((a, b) => a.adoptionRate - b.adoptionRate);
+}
+
+// Find common gaps across reports
+function findCommonGaps(auditResults) {
+  const gapCounts = {};
+
+  auditResults.forEach(result => {
+    if (!result.scoreBreakdown || !result.scoreBreakdown.factors) return;
+
+    result.scoreBreakdown.factors.forEach(factor => {
+      if (factor.status !== 'GOOD') {
+        if (!gapCounts[factor.id]) {
+          gapCounts[factor.id] = 0;
+        }
+        gapCounts[factor.id]++;
+      }
+    });
+  });
+
+  const totalReports = auditResults.length;
+  const commonGaps = [];
+
+  Object.entries(gapCounts).forEach(([factorId, count]) => {
+    const percentage = (count / totalReports) * 100;
+    if (percentage >= 70) {
+      commonGaps.push({
+        factor: formatFactorName(factorId),
+        percentage: Math.round(percentage),
+        message: `${Math.round(percentage)}% of businesses are missing this`
+      });
+    }
+  });
+
+  return commonGaps.sort((a, b) => b.percentage - a.percentage);
+}
+
 // ==========================================
 // API ROUTES
 // ==========================================
@@ -3490,6 +4107,185 @@ app.post('/api/generate-report', reportLimiter, authenticateToken, async (req, r
     console.error('❌ Report generation error:', error);
     res.status(500).json({ 
       error: 'Failed to generate report. Please try again.'
+    });
+  }
+});
+
+// Fast Bulk Scan endpoint - optimized for speed
+app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => {
+  try {
+    const { industry, location, count, startFrom } = req.body;
+
+    // Validation
+    if (!industry || !location || !count) {
+      return res.status(400).json({ error: 'Industry, location, and count are required' });
+    }
+
+    if (count < 1 || count > 25) {
+      return res.status(400).json({ error: 'Count must be between 1 and 25' });
+    }
+
+    const actualStartFrom = startFrom || 1;
+    const creditsNeeded = count;
+
+    if (req.user.credits_remaining < creditsNeeded) {
+      return res.status(402).json({
+        error: `Insufficient credits. This fast bulk scan requires ${creditsNeeded} credits. You have ${req.user.credits_remaining}.`
+      });
+    }
+
+    console.log(`⚡ Starting FAST bulk scan: ${industry} in ${location}, ${count} businesses starting from #${actualStartFrom}`);
+
+    // Get ranked list of businesses
+    const businessList = await getBusinessRankings(industry, location, count, actualStartFrom);
+
+    if (!businessList || businessList.length === 0) {
+      return res.status(404).json({ error: 'No businesses found for this industry/location' });
+    }
+
+    console.log(`📋 Found ${businessList.length} businesses for fast scan`);
+
+    // Run fast audits with progress tracking
+    const auditResults = [];
+    const errors = [];
+    let creditsUsed = 0;
+
+    for (let i = 0; i < businessList.length; i++) {
+      const business = businessList[i];
+      console.log(`\n⚡ Fast scanning ${i + 1}/${businessList.length}: ${business.name} (Rank #${business.rank})`);
+
+      try {
+        // Generate FAST report for this business
+        const report = await generateFastBulkReport(
+          business.name,
+          business.location || location,
+          industry,
+          business.website
+        );
+
+        // Add ranking information
+        report.ranking = {
+          position: business.rank,
+          searchTerm: `${industry} ${location}`,
+          url: business.website
+        };
+
+        auditResults.push(report);
+        creditsUsed++;
+        console.log(`✅ Fast scan complete: ${business.name} - Score: ${report.score}/${report.maxScore}`);
+
+      } catch (businessError) {
+        console.error(`❌ Fast scan failed for ${business.name}:`, businessError.message);
+        errors.push({
+          business: business.name,
+          rank: business.rank,
+          error: businessError.message
+        });
+      }
+    }
+
+    if (auditResults.length === 0) {
+      return res.status(500).json({
+        error: 'Fast bulk scan failed - no businesses could be processed',
+        errors: errors
+      });
+    }
+
+    console.log(`📊 Generating fast competitive analysis for ${auditResults.length} businesses...`);
+
+    // Generate lightweight competitive analysis
+    const competitiveAnalysis = generateCompetitiveAnalysis(auditResults, industry, location);
+    const industryBenchmarks = calculateIndustryBenchmarks(auditResults);
+    const opportunityMatrix = identifyOpportunities(auditResults);
+
+    // Create fast bulk scan report
+    const fastBulkReport = {
+      success: true,
+      type: 'fast_bulk_scan',
+      searchCriteria: {
+        industry: industry,
+        location: location,
+        totalScanned: auditResults.length,
+        startingPosition: actualStartFrom,
+        endingPosition: actualStartFrom + auditResults.length - 1
+      },
+      generatedDate: new Date().toLocaleDateString(),
+
+      // Executive Summary
+      executiveSummary: competitiveAnalysis.summary,
+
+      // Individual Business Reports (fast version)
+      businesses: auditResults,
+
+      // Competitive Analysis
+      competitiveAnalysis: competitiveAnalysis,
+
+      // Industry Benchmarks
+      industryBenchmarks: industryBenchmarks,
+
+      // Opportunity Analysis
+      opportunityMatrix: opportunityMatrix,
+
+      // Fast scan metrics summary
+      scanSummary: {
+        averageScore: Math.round(auditResults.reduce((sum, r) => sum + r.score, 0) / auditResults.length),
+        averageReviews: Math.round(auditResults.reduce((sum, r) => sum + r.coreMetrics.totalReviews, 0) / auditResults.length),
+        averagePhotos: Math.round(auditResults.reduce((sum, r) => sum + r.coreMetrics.totalPhotos, 0) / auditResults.length),
+        avgCitations: Math.round(auditResults.reduce((sum, r) => sum + r.coreMetrics.citationsFound, 0) / auditResults.length),
+        businessesWithGBP: auditResults.filter(r => r.coreMetrics.hasGBPEmbed).length,
+        businessesWithSocial: auditResults.filter(r => r.coreMetrics.socialLinks > 0).length
+      },
+
+      // Errors (if any)
+      errors: errors,
+
+      // Credits used
+      creditsUsed: creditsUsed,
+
+      // Performance info
+      processedIn: 'fast_mode',
+      skippedAnalysis: ['ai_suggestions', 'content_analysis', 'detailed_reviews']
+    };
+
+    // Save fast bulk scan report
+    const reportDataStr = JSON.stringify(fastBulkReport);
+    try {
+      await db.query(
+        'INSERT INTO reports (user_id, business_name, city, industry, website, report_data) VALUES ($1, $2, $3, $4, $5, $6)',
+        [
+          req.user.id,
+          `Fast Bulk: ${industry}`,
+          location,
+          industry,
+          null,
+          reportDataStr
+        ]
+      );
+      console.log(`💾 Fast bulk scan saved to database`);
+    } catch (dbError) {
+      console.error('Error saving fast bulk scan:', dbError);
+    }
+
+    // Deduct credits
+    try {
+      await db.query(
+        'UPDATE users SET credits_remaining = credits_remaining - $1 WHERE id = $2',
+        [creditsUsed, req.user.id]
+      );
+      console.log(`💳 ${creditsUsed} credits deducted for fast scan`);
+    } catch (creditError) {
+      console.error('Error updating credits:', creditError);
+    }
+
+    console.log(`\n⚡ Fast bulk scan complete! Analyzed ${auditResults.length} businesses in fast mode`);
+
+    res.json(fastBulkReport);
+
+  } catch (error) {
+    console.error('❌ Fast bulk scan error:', error);
+    res.status(500).json({
+      error: 'Fast bulk scan failed',
+      details: error.message
     });
   }
 });
