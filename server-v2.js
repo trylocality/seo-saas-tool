@@ -4,6 +4,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const DatabaseAdapter = require('./database-adapter');
 const path = require('path');
 const axios = require('axios');
@@ -90,7 +91,63 @@ const db = new DatabaseAdapter();
 // MIDDLEWARE
 // ==========================================
 
-app.use(cors());
+// CORS configuration - only allow your domains
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : [
+      'https://app.trylocality.com',
+      'https://seo-saas-tool.onrender.com',
+      'http://localhost:3000'
+    ];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log(`❌ CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Rate limiting configuration
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 login attempts per 15 minutes
+  skipSuccessfulRequests: true,
+  message: 'Too many login attempts, please try again in 15 minutes.',
+});
+
+const resetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 password reset requests per hour
+  message: 'Too many password reset requests, please try again later.',
+});
+
+const reportLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // Max 10 reports per minute per IP
+  message: 'Generating reports too quickly, please slow down.',
+});
+
+// Apply general rate limiting to all API routes
+app.use('/api/', apiLimiter);
+
 app.use('/api/stripe-webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 // Serve static files with cache control
@@ -113,6 +170,50 @@ app.use(express.static('public', {
 app.get('/verify-email', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'verify-email.html'));
 });
+
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
+
+// Password strength validation
+function validatePassword(password) {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  if (password.length < minLength) {
+    return { valid: false, error: 'Password must be at least 8 characters long' };
+  }
+  if (!hasUpperCase || !hasLowerCase) {
+    return { valid: false, error: 'Password must contain both uppercase and lowercase letters' };
+  }
+  if (!hasNumbers) {
+    return { valid: false, error: 'Password must contain at least one number' };
+  }
+  if (!hasSpecialChar) {
+    return { valid: false, error: 'Password must contain at least one special character (!@#$%^&*...)' };
+  }
+
+  return { valid: true };
+}
+
+// HTML sanitization function for XSS protection
+function escapeHtml(unsafe) {
+  if (!unsafe) return '';
+  return unsafe
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// ==========================================
+// AUTH MIDDLEWARE
+// ==========================================
 
 // Auth middleware
 const authenticateToken = async (req, res, next) => {
@@ -2827,7 +2928,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // Authentication routes
-app.post('/api/signup', async (req, res) => {
+app.post('/api/signup', authLimiter, async (req, res) => {
   try {
     const { email, password, firstName, lastName } = req.body;
     
@@ -2840,8 +2941,10 @@ app.post('/api/signup', async (req, res) => {
       return res.status(400).json({ error: 'Please enter a valid email address' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.error });
     }
     
     // Check if user already exists
@@ -2956,7 +3059,7 @@ app.get('/api/verify-email', async (req, res) => {
   }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     
@@ -2999,7 +3102,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // Password reset request endpoint
-app.post('/api/forgot-password', async (req, res) => {
+app.post('/api/forgot-password', resetLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     
@@ -3056,9 +3159,11 @@ app.post('/api/reset-password', async (req, res) => {
     if (!token || !newPassword) {
       return res.status(400).json({ error: 'Token and new password are required' });
     }
-    
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+
+    // Validate password strength
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.error });
     }
     
     // Find user with valid reset token
@@ -3256,7 +3361,7 @@ async function generateFallbackLockedReport(businessName, location, industry, we
   return fallbackReport;
 }
 
-app.post('/api/generate-report', authenticateToken, async (req, res) => {
+app.post('/api/generate-report', reportLimiter, authenticateToken, async (req, res) => {
   try {
     console.log(`📊 Report request from user ${req.user.email}`);
     console.log('🔍 DEBUG: Request body:', req.body);
