@@ -3326,8 +3326,43 @@ async function generateFastBulkReport(businessName, location, industry, website)
       maxScore: scoreData.maxScore,
       scoreBreakdown: scoreData.breakdown,
 
-      // Compiled data (reduced)
-      data: compiledData,
+      // Transform data to match frontend expectations
+      data: {
+        business: {
+          name: compiledData.outscraper?.name || businessName,
+          address: compiledData.outscraper?.address || '',
+          phone: compiledData.outscraper?.phone || '',
+          website: compiledData.outscraper?.website || website || '',
+          categories: compiledData.outscraper?.categories || [],
+          hours: compiledData.outscraper?.hours || {}
+        },
+        reviews: {
+          total: compiledData.reviewsAnalysis?.totalReviews || 0,
+          rating: compiledData.reviewsAnalysis?.averageRating || 0,
+          recentReviews: compiledData.reviewsAnalysis?.recentReviews || []
+        },
+        photos: {
+          total: compiledData.outscraper?.photos_count || 0,
+          categories: []
+        },
+        social: compiledData.outscraper?.social || {},
+        posts: {
+          total: compiledData.aiAnalysis?.posts?.count || 0,
+          recent: []
+        },
+        questionsAnswers: {
+          total: compiledData.qaAnalysis?.questionCount || 0,
+          answered: 0
+        },
+        citations: compiledData.citations || { found: [], checked: [], total: 0, stats: { found: 0, missing: 0, percentage: 0, score: 0 } },
+        website: {
+          hasGBPEmbed: compiledData.websiteAnalysis?.hasGBPEmbed || false,
+          hasLocalizedPage: compiledData.websiteAnalysis?.hasLocalizedPage || false,
+          services: compiledData.websiteAnalysis?.services || [],
+          screenshot: null
+        },
+        errors: errors
+      },
 
       // Processing info
       processingTime: new Date().toISOString(),
@@ -3384,7 +3419,7 @@ async function getBusinessRankings(industry, location, count, startFrom) {
       .map((business, index) => ({
         rank: startFrom + index,
         name: business.title,
-        location: `${business.address}, ${location}`,
+        location: business.address ? `${business.address}, ${location}` : location,
         website: business.website || null,
         phone: business.phone || null,
         rating: business.rating || 0,
