@@ -5112,20 +5112,32 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
       
       // Check if this report was originally paid for (handle missing was_paid column)
       const wasPaid = report.was_paid !== undefined ? report.was_paid : false;
-      
+
       // Calculate optimization opportunities if the report is locked
       let optimizationOpportunities = 0;
-      if (!wasPaid && reportData.auditOverview && reportData.auditOverview.factors) {
-        optimizationOpportunities = reportData.auditOverview.factors.filter(factor => 
+
+      // Check if this is a bulk audit report (different structure)
+      const isBulkReport = reportData.type === 'fast_bulk_scan';
+
+      if (!wasPaid && !isBulkReport && reportData.auditOverview && reportData.auditOverview.factors) {
+        // Regular audit reports
+        optimizationOpportunities = reportData.auditOverview.factors.filter(factor =>
           factor.status === 'MISSING' || factor.status === 'NEEDS IMPROVEMENT'
         ).length;
+      } else if (!wasPaid && isBulkReport && reportData.opportunityMatrix) {
+        // Bulk audit reports - count high opportunity businesses
+        optimizationOpportunities = reportData.opportunityMatrix.highOpportunity?.length || 0;
       }
-      
+
+      // Bulk reports are always "paid" (they cost credits to run)
+      // Only lock regular single-business audits that weren't paid for
+      const shouldLock = !isBulkReport && !wasPaid;
+
       // Add locked status based on original payment, not current credits
       const responseReport = {
         ...reportData,
-        isLocked: !wasPaid,
-        optimizationOpportunities: wasPaid ? 0 : optimizationOpportunities
+        isLocked: shouldLock,
+        optimizationOpportunities: shouldLock ? optimizationOpportunities : 0
       };
       
       // Include stored detailed citation analysis if it exists
@@ -5138,8 +5150,9 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
         }
       }
       
-      console.log(`✅ Successfully loaded report ${reportId} (${wasPaid ? 'PAID' : 'LOCKED'})`);
-      
+      const reportType = isBulkReport ? 'BULK AUDIT' : (wasPaid ? 'PAID' : 'LOCKED');
+      console.log(`✅ Successfully loaded report ${reportId} (${reportType})`);
+
       res.json({
         success: true,
         report: responseReport

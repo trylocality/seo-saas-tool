@@ -312,6 +312,24 @@
         let filteredResults = [];
         let authToken = localStorage.getItem('authToken');
 
+        // Check for stored bulk report data from dashboard
+        window.addEventListener('DOMContentLoaded', function() {
+            const storedReportData = localStorage.getItem('bulkReportData');
+            if (storedReportData) {
+                try {
+                    const reportData = JSON.parse(storedReportData);
+                    console.log('📊 Loading stored bulk report from dashboard');
+                    localStorage.removeItem('bulkReportData'); // Clear after loading
+
+                    // Display the stored report
+                    displayStoredBulkReport(reportData);
+                } catch (error) {
+                    console.error('Error loading stored bulk report:', error);
+                    showToast('Error loading report', 'error');
+                }
+            }
+        });
+
         // Update credit cost when count changes
         document.getElementById('count').addEventListener('change', function() {
             const count = this.value;
@@ -466,6 +484,31 @@
             if (score < 70 && rank > 5) return 'medium';
             if (score < 80) return 'low';
             return 'none';
+        }
+
+        // Display a stored bulk report from the database
+        function displayStoredBulkReport(reportData) {
+            console.log('📊 Displaying stored bulk report:', reportData);
+
+            // Map the stored businesses data to currentResults format
+            currentResults = reportData.businesses.map(business => ({
+                rank: business.ranking.position,
+                name: business.businessName,
+                address: business.data.business.address,
+                phone: business.data.business.phone,
+                website: business.data.business.website,
+                rating: business.data.reviews.rating,
+                reviews: business.data.reviews.total,
+                score: business.score,
+                coreMetrics: business.coreMetrics,
+                opportunity: calculateOpportunity(business.score, business.ranking.position),
+                data: business.data
+            }));
+
+            // Display using the existing showResults function
+            const industry = reportData.searchCriteria.industry;
+            const location = reportData.searchCriteria.location;
+            showResults(industry, location, reportData);
         }
 
         // Show results

@@ -3860,6 +3860,15 @@
                 });
                 
                 if (data.success && data.report) {
+                    // Check if this is a bulk audit report
+                    if (data.report.type === 'fast_bulk_scan') {
+                        // Redirect to competitive analysis page with the report data
+                        console.log(' Bulk audit detected - redirecting to competitive analysis page');
+                        localStorage.setItem('bulkReportData', JSON.stringify(data.report));
+                        window.location.href = 'competitive-analysis.html';
+                        return;
+                    }
+
                     // Set the current report data before displaying, including report ID for unlocking
                     currentReportData = {
                         ...data.report,
@@ -3868,7 +3877,7 @@
                     // Display the stored report using the existing display function
                     displayReport(currentReportData);
                     showReport(); // This will now have valid currentReportData
-                    
+
                     const message = data.report.isLocked ? 'Locked report preview loaded!' : 'Report loaded successfully!';
                     showToast(message, 'success');
                 } else {
