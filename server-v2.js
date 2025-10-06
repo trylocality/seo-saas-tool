@@ -940,7 +940,7 @@ async function getOutscraperData(businessName, location) {
               google_id: business.google_id || business.place_id,
               reviews_link: business.reviews_link || '',
               social: {},
-              posts: 0,
+              posts: Array.isArray(business.posts) ? business.posts.length : 0,
               questionsAnswers: 0,
               photoCategories: []
             };
@@ -995,7 +995,7 @@ async function getOutscraperData(businessName, location) {
         google_id: business.google_id || business.place_id,
         reviews_link: business.reviews_link || '',
         social: {},
-        posts: 0,
+        posts: Array.isArray(business.posts) ? business.posts.length : 0,
         questionsAnswers: 0,
         photoCategories: []
       };
@@ -3247,52 +3247,50 @@ async function generateFastBulkReport(businessName, location, industry, website)
     const citationsData = partialData.citations || { found: [], checked: [], total: 0, stats: { found: 0, missing: 0, percentage: 0, score: 0 } };
     const websiteData = partialData.websiteAnalysis || {};
 
+    // Create fallback AI analysis for bulk audits (no screenshot analysis)
+    const fallbackAIAnalysis = {
+      productTiles: { hasAny: false, count: 0, types: [] },
+      posts: { hasRecent: outscraperData.posts > 0, count: outscraperData.posts || 0 },
+      social: { count: outscraperData.social ? Object.keys(outscraperData.social).length : 0 }
+    };
+
+    // Create fallback Q&A analysis
+    const fallbackQAAnalysis = {
+      hasQA: (outscraperData.questionsAnswers || 0) > 0,
+      questionCount: outscraperData.questionsAnswers || 0,
+      note: 'Q&A count from business data'
+    };
+
+    // Create fallback reviews analysis
+    const fallbackReviewsAnalysis = {
+      totalReviews: outscraperData.reviews || 0,
+      averageRating: outscraperData.rating || 0,
+      recentReviews: [],
+      averageResponseTime: null,
+      ownerResponseRate: 0,
+      topKeywords: []
+    };
+
+    // Structure data to match what calculateScore expects (same as regular audit)
     const compiledData = {
-      business: {
-        name: outscraperData.name || businessName,
-        address: outscraperData.address || '',
-        phone: outscraperData.phone || '',
-        website: outscraperData.website || website || '',
-        categories: Array.isArray(outscraperData.categories) ? outscraperData.categories : [],
-        hours: outscraperData.hours || {}
+      businessInfo: {
+        businessName: businessName,
+        location: location,
+        industry: industry,
+        website: website
       },
-
-      // Reviews & engagement
-      reviews: {
-        total: parseInt(outscraperData.reviews) || 0,
-        rating: parseFloat(outscraperData.rating) || 0,
-        recentReviews: [] // Skip content analysis for speed
-      },
-
-      // Photos
-      photos: {
-        total: parseInt(outscraperData.photos_count || outscraperData.photos) || 0,
-        categories: Array.isArray(outscraperData.photoCategories) ? outscraperData.photoCategories : []
-      },
-
-      // Social & engagement features
-      social: outscraperData.social || {},
-      posts: {
-        total: parseInt(outscraperData.posts) || 0,
-        recent: [] // Skip post analysis for speed
-      },
-      questionsAnswers: {
-        total: parseInt(outscraperData.questionsAnswers) || 0,
-        answered: 0 // Skip Q&A analysis for speed
-      },
-
-      // Citations
+      outscraper: outscraperData,
+      aiAnalysis: fallbackAIAnalysis,
       citations: citationsData,
-
-      // Website essentials
-      website: {
+      websiteAnalysis: {
         hasGBPEmbed: websiteData.hasGBPEmbed || false,
         hasLocalizedPage: websiteData.hasLocalizedPage || false,
         services: Array.isArray(websiteData.services) ? websiteData.services : [],
         screenshot: websiteData.screenshot || null
       },
-
-      // Error tracking
+      reviewsAnalysis: fallbackReviewsAnalysis,
+      qaAnalysis: fallbackQAAnalysis,
+      screenshot: null, // No screenshot for bulk audits
       errors: errors
     };
 
@@ -3311,16 +3309,16 @@ async function generateFastBulkReport(businessName, location, industry, website)
 
       // Core data for ranking comparison
       coreMetrics: {
-        totalReviews: compiledData.reviews?.total || 0,
-        averageRating: compiledData.reviews?.rating || 0,
-        totalPhotos: compiledData.photos?.total || 0,
-        subcategories: compiledData.business?.categories?.length || 0,
-        socialLinks: compiledData.social ? Object.keys(compiledData.social).length : 0,
-        questionsAnswers: compiledData.questionsAnswers?.total || 0,
-        posts: compiledData.posts?.total || 0,
+        totalReviews: compiledData.reviewsAnalysis?.totalReviews || 0,
+        averageRating: compiledData.reviewsAnalysis?.averageRating || 0,
+        totalPhotos: compiledData.outscraper?.photos_count || 0,
+        subcategories: compiledData.outscraper?.categories?.length || 0,
+        socialLinks: compiledData.outscraper?.social ? Object.keys(compiledData.outscraper.social).length : 0,
+        questionsAnswers: compiledData.qaAnalysis?.questionCount || 0,
+        posts: compiledData.aiAnalysis?.posts?.count || 0,
         citationsFound: compiledData.citations?.stats?.found || 0,
-        hasGBPEmbed: compiledData.website?.hasGBPEmbed || false,
-        hasLocalizedPage: compiledData.website?.hasLocalizedPage || false
+        hasGBPEmbed: compiledData.websiteAnalysis?.hasGBPEmbed || false,
+        hasLocalizedPage: compiledData.websiteAnalysis?.hasLocalizedPage || false
       },
 
       // Scoring
