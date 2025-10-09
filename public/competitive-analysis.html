@@ -249,25 +249,17 @@
                 </div>
             </div>
 
+            <!-- Compare Button (shown when 2 selected) -->
+            <div id="compareBar" style="display: none; background: #17a2b8; color: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                <span id="compareText">Select 2 businesses to compare</span>
+                <button id="compareBtn" onclick="compareBusinesses()"
+                        style="margin-left: 15px; padding: 8px 20px; background: white; color: #17a2b8; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; display: none;">
+                    COMPARE SELECTED
+                </button>
+            </div>
+
             <!-- Filters -->
             <div class="filters-bar">
-                <div class="filter-group">
-                    <label>Opportunity Level</label>
-                    <select id="opportunityFilter" onchange="filterResults()">
-                        <option value="all">All Opportunities</option>
-                        <option value="high">High Only</option>
-                        <option value="medium-high">Medium & High</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>Score Range</label>
-                    <select id="scoreFilter" onchange="filterResults()">
-                        <option value="all">All Scores</option>
-                        <option value="under60">Under 60</option>
-                        <option value="60-80">60-80</option>
-                        <option value="over80">Over 80</option>
-                    </select>
-                </div>
                 <div class="filter-group">
                     <label>Ranking Position</label>
                     <select id="rankFilter" onchange="filterResults()">
@@ -277,6 +269,15 @@
                         <option value="21plus">21+</option>
                     </select>
                 </div>
+                <div class="filter-group">
+                    <label>8 Factors Score</label>
+                    <select id="factorsFilter" onchange="filterResults()">
+                        <option value="all">All Scores</option>
+                        <option value="6-8">6-8 Factors</option>
+                        <option value="4-5">4-5 Factors</option>
+                        <option value="0-3">0-3 Factors</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Results Table -->
@@ -284,13 +285,10 @@
                 <table class="competitive-table" id="resultsTable">
                     <thead>
                         <tr>
-                            <th>Rank</th>
-                            <th>Business Information</th>
-                            <th>Reviews</th>
-                            <th>Core Metrics</th>
-                            <th>Audit Score</th>
-                            <th>Opportunity</th>
-                            <th>Actions</th>
+                            <th style="width: 80px;">Rank</th>
+                            <th style="width: 250px;">Business Information</th>
+                            <th style="width: 500px;">8 Key Factors</th>
+                            <th style="width: 150px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="resultsTableBody">
@@ -306,11 +304,31 @@
         </div>
     </div>
 
+    <!-- Comparison Modal -->
+    <div id="comparisonModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 1200px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>🔍 Business Comparison</h2>
+                <span class="close-modal" onclick="closeComparisonModal()">&times;</span>
+            </div>
+            <div id="comparisonContent" style="padding: 30px;">
+                <div id="comparisonLoading" style="text-align: center; padding: 40px;">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 20px; color: #666;">Analyzing differences and generating insights...</p>
+                </div>
+                <div id="comparisonResults" style="display: none;">
+                    <!-- Comparison results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global variables
         let currentResults = [];
         let filteredResults = [];
         let authToken = localStorage.getItem('authToken');
+        let selectedBusinesses = [];
 
         // Check for stored bulk report data from dashboard
         window.addEventListener('DOMContentLoaded', function() {
@@ -447,7 +465,7 @@
                         coreMetrics: business.coreMetrics,
                         opportunity: calculateOpportunity(business.score, business.ranking.position),
                         data: business.data
-                    }));
+                    })).sort((a, b) => a.rank - b.rank);
 
                     showResults(industry, location, data);
                 } else {
@@ -490,7 +508,7 @@
         function displayStoredBulkReport(reportData) {
             console.log('📊 Displaying stored bulk report:', reportData);
 
-            // Map the stored businesses data to currentResults format
+            // Map the stored businesses data to currentResults format, sorted by ranking
             currentResults = reportData.businesses.map(business => ({
                 rank: business.ranking.position,
                 name: business.businessName,
@@ -503,7 +521,7 @@
                 coreMetrics: business.coreMetrics,
                 opportunity: calculateOpportunity(business.score, business.ranking.position),
                 data: business.data
-            }));
+            })).sort((a, b) => a.rank - b.rank);
 
             // Display using the existing showResults function
             const industry = reportData.searchCriteria.industry;
@@ -520,8 +538,8 @@
             document.getElementById('resultsSummary').textContent =
                 `Found ${data.searchCriteria.totalScanned} businesses • ${data.scanSummary ? `Avg Score: ${data.scanSummary.averageScore}` : ''} • Fast scan mode`;
 
-            // Set filtered results to all results initially
-            filteredResults = [...currentResults];
+            // Set filtered results to all results initially, sorted by ranking
+            filteredResults = [...currentResults].sort((a, b) => a.rank - b.rank);
 
             // Populate table and stats
             populateResultsTable();
@@ -551,41 +569,57 @@
                 const opportunityClass = `opportunity-${result.opportunity}`;
                 const opportunityText = result.opportunity.toUpperCase();
 
-                // Core metrics display
+                // Calculate score out of 8
                 const metrics = result.coreMetrics;
-                const coreMetricsHtml = `
-                    <div style="font-size: 0.8rem; color: #666;">
-                        <div> ${metrics.totalPhotos} photos</div>
-                        <div>🏷️ ${metrics.subcategories} categories</div>
-                        <div>📱 ${metrics.socialLinks} social</div>
-                        <div>❓ ${metrics.questionsAnswers} Q&As</div>
-                        <div>📝 ${metrics.posts} posts</div>
-                        <div> ${metrics.citationsFound}/5 citations</div>
+                const checkmark = '✅';
+                const xmark = '❌';
+
+                const factorsScore = [
+                    metrics.meetsDescriptionReq,
+                    metrics.meetsCategoriesReq,
+                    metrics.meetsPhotosReq,
+                    metrics.meetsReviewsReq,
+                    metrics.meetsProductTilesReq,
+                    metrics.meetsPostsReq,
+                    metrics.meetsSocialReq,
+                    metrics.meetsQAReq
+                ].filter(Boolean).length;
+
+                // 8 Factors display in 2x4 grid with score
+                const eightFactorsHtml = `
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="text-align: center; min-width: 60px;">
+                            <div style="font-size: 2rem; font-weight: 700; color: ${factorsScore >= 6 ? '#28a745' : factorsScore >= 4 ? '#ffc107' : '#dc3545'};">${factorsScore}</div>
+                            <div style="font-size: 0.7rem; color: #666;">/ 8</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 15px; flex: 1; font-size: 0.8rem; line-height: 1.3;">
+                            <div>${metrics.meetsDescriptionReq ? checkmark : xmark} Description</div>
+                            <div>${metrics.meetsProductTilesReq ? checkmark : xmark} Products</div>
+                            <div>${metrics.meetsCategoriesReq ? checkmark : xmark} Categories</div>
+                            <div>${metrics.meetsPostsReq ? checkmark : xmark} Recent Posts</div>
+                            <div>${metrics.meetsPhotosReq ? checkmark : xmark} Photos (${metrics.photosCount || 0})</div>
+                            <div>${metrics.meetsSocialReq ? checkmark : xmark} Social Links</div>
+                            <div>${metrics.meetsReviewsReq ? checkmark : xmark} Reviews (${metrics.reviewsCount || 0})</div>
+                            <div>${metrics.meetsQAReq ? checkmark : xmark} Q&A</div>
+                        </div>
                     </div>
                 `;
 
                 row.innerHTML = `
-                    <td class="rank-position ${rankClass}">${result.rank}</td>
+                    <td class="rank-position ${rankClass}">
+                        <input type="checkbox" class="compare-checkbox" data-business-index="${filteredResults.indexOf(result)}"
+                               style="margin-right: 8px; cursor: pointer;" onchange="handleCompareSelection(this)">
+                        #${result.rank}
+                    </td>
                     <td class="business-info">
                         <div class="business-name">${result.name}</div>
-                        <div class="business-address">${result.address || 'Address not available'}</div>
-                        <div class="business-phone">${result.phone || 'Phone not available'}</div>
-                        ${result.website ? `<div style="font-size: 0.8rem; color: #17a2b8;">${result.website}</div>` : ''}
+                        <div class="business-address" style="font-size: 0.85rem; color: #666;">${result.address || 'Address not available'}</div>
+                        <div class="business-phone" style="font-size: 0.85rem; color: #666;">${result.phone || 'Phone not available'}</div>
+                        ${result.website ? `<div style="font-size: 0.8rem; color: #17a2b8; margin-top: 4px;">${result.website}</div>` : ''}
                     </td>
-                    <td class="review-info">
-                        <div class="rating-stars">${'★'.repeat(Math.floor(result.rating))}${'☆'.repeat(5-Math.floor(result.rating))}</div>
-                        <div style="font-weight: 600; color: #0e192b;">${result.rating}</div>
-                        <div class="review-count">${result.reviews} reviews</div>
-                    </td>
-                    <td>${coreMetricsHtml}</td>
-                    <td class="score-cell">
-                        <div class="score-badge ${scoreClass}">${result.score}/100</div>
-                    </td>
-                    <td class="opportunity-cell">
-                        <div class="${opportunityClass}">${opportunityText}</div>
-                    </td>
+                    <td style="padding: 15px;">${eightFactorsHtml}</td>
                     <td class="action-cell">
-                        <button class="action-btn" onclick="viewFullAudit('${result.name}')">Full Audit</button>
+                        <button class="action-btn" onclick="viewFullAudit('${result.name}')" style="width: 100%;">View Details</button>
                     </td>
                 `;
 
@@ -622,22 +656,18 @@
 
         // Filter results
         function filterResults() {
-            const opportunityFilter = document.getElementById('opportunityFilter').value;
-            const scoreFilter = document.getElementById('scoreFilter').value;
             const rankFilter = document.getElementById('rankFilter').value;
+            const factorsFilter = document.getElementById('factorsFilter').value;
 
             filteredResults = currentResults.filter(result => {
-                // Opportunity filter
-                if (opportunityFilter !== 'all') {
-                    if (opportunityFilter === 'high' && result.opportunity !== 'high') return false;
-                    if (opportunityFilter === 'medium-high' && !['medium', 'high'].includes(result.opportunity)) return false;
-                }
+                // Calculate 8 factors score for this business
+                const factorsScore = get8FactorsScore(result);
 
-                // Score filter
-                if (scoreFilter !== 'all') {
-                    if (scoreFilter === 'under60' && result.score >= 60) return false;
-                    if (scoreFilter === '60-80' && (result.score < 60 || result.score > 80)) return false;
-                    if (scoreFilter === 'over80' && result.score <= 80) return false;
+                // 8 Factors filter
+                if (factorsFilter !== 'all') {
+                    if (factorsFilter === '6-8' && factorsScore < 6) return false;
+                    if (factorsFilter === '4-5' && (factorsScore < 4 || factorsScore > 5)) return false;
+                    if (factorsFilter === '0-3' && factorsScore > 3) return false;
                 }
 
                 // Rank filter
@@ -649,6 +679,9 @@
 
                 return true;
             });
+
+            // Sort by ranking position
+            filteredResults.sort((a, b) => a.rank - b.rank);
 
             populateResultsTable();
         }
@@ -668,27 +701,33 @@
                 return;
             }
 
-            // Create CSV content
-            const headers = ['Rank', 'Business Name', 'Address', 'Phone', 'Website', 'Rating', 'Reviews', 'Score', 'Photos', 'Categories', 'Social', 'QAs', 'Posts', 'Citations', 'Opportunity'];
+            // Create CSV content with 8 Key Factors
+            const headers = ['Rank', 'Business Name', 'Address', 'Phone', 'Website', 'Rating', 'Reviews', 'Score',
+                             'Description✓', 'Categories✓', 'Photos✓', 'Reviews✓', 'Products✓', 'Posts✓', 'Social✓', 'Q&A✓', 'Opportunity'];
             const csvContent = [
                 headers.join(','),
-                ...filteredResults.map(result => [
-                    result.rank,
-                    `"${result.name}"`,
-                    `"${result.address || ''}"`,
-                    `"${result.phone || ''}"`,
-                    `"${result.website || ''}"`,
-                    result.rating,
-                    result.reviews,
-                    result.score,
-                    result.coreMetrics.totalPhotos,
-                    result.coreMetrics.subcategories,
-                    result.coreMetrics.socialLinks,
-                    result.coreMetrics.questionsAnswers,
-                    result.coreMetrics.posts,
-                    result.coreMetrics.citationsFound,
-                    result.opportunity
-                ].join(','))
+                ...filteredResults.map(result => {
+                    const m = result.coreMetrics;
+                    return [
+                        result.rank,
+                        `"${result.name}"`,
+                        `"${result.address || ''}"`,
+                        `"${result.phone || ''}"`,
+                        `"${result.website || ''}"`,
+                        result.rating,
+                        result.reviews,
+                        result.score,
+                        m.meetsDescriptionReq ? 'YES' : 'NO',
+                        m.meetsCategoriesReq ? 'YES' : 'NO',
+                        m.meetsPhotosReq ? 'YES' : 'NO',
+                        m.meetsReviewsReq ? 'YES' : 'NO',
+                        m.meetsProductTilesReq ? 'YES' : 'NO',
+                        m.meetsPostsReq ? 'YES' : 'NO',
+                        m.meetsSocialReq ? 'YES' : 'NO',
+                        m.meetsQAReq ? 'YES' : 'NO',
+                        result.opportunity
+                    ].join(',');
+                })
             ].join('\n');
 
             // Download CSV
@@ -701,6 +740,161 @@
             window.URL.revokeObjectURL(url);
 
             showToast('Results exported to CSV!', 'success');
+        }
+
+        // Handle comparison checkbox selection
+        function handleCompareSelection(checkbox) {
+            const businessIndex = parseInt(checkbox.dataset.businessIndex);
+            const business = filteredResults[businessIndex];
+
+            if (checkbox.checked) {
+                if (selectedBusinesses.length < 2) {
+                    selectedBusinesses.push(business);
+                } else {
+                    checkbox.checked = false;
+                    showToast('You can only compare 2 businesses at a time', 'warning');
+                    return;
+                }
+            } else {
+                selectedBusinesses = selectedBusinesses.filter(b => b.name !== business.name);
+            }
+
+            updateCompareBar();
+        }
+
+        function updateCompareBar() {
+            const compareBar = document.getElementById('compareBar');
+            const compareText = document.getElementById('compareText');
+            const compareBtn = document.getElementById('compareBtn');
+
+            if (selectedBusinesses.length === 0) {
+                compareBar.style.display = 'none';
+            } else if (selectedBusinesses.length === 1) {
+                compareBar.style.display = 'block';
+                compareText.textContent = `1 business selected. Select 1 more to compare.`;
+                compareBtn.style.display = 'none';
+            } else if (selectedBusinesses.length === 2) {
+                compareBar.style.display = 'block';
+                compareText.textContent = `Comparing: ${selectedBusinesses[0].name} vs ${selectedBusinesses[1].name}`;
+                compareBtn.style.display = 'inline-block';
+            }
+        }
+
+        async function compareBusinesses() {
+            if (selectedBusinesses.length !== 2) {
+                showToast('Please select exactly 2 businesses to compare', 'warning');
+                return;
+            }
+
+            // Show modal
+            document.getElementById('comparisonModal').classList.remove('hidden');
+            document.getElementById('comparisonLoading').style.display = 'block';
+            document.getElementById('comparisonResults').style.display = 'none';
+
+            try {
+                // Call backend to get AI comparison
+                const response = await fetch('/api/compare-businesses', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        business1: selectedBusinesses[0],
+                        business2: selectedBusinesses[1]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Comparison failed');
+                }
+
+                const comparison = await response.json();
+                displayComparison(comparison);
+
+            } catch (error) {
+                console.error('Comparison error:', error);
+                showToast('Failed to generate comparison', 'error');
+                closeComparisonModal();
+            }
+        }
+
+        function displayComparison(comparison) {
+            const resultsDiv = document.getElementById('comparisonResults');
+            const b1 = selectedBusinesses[0];
+            const b2 = selectedBusinesses[1];
+
+            // Determine which is higher/lower ranked
+            const higherRanked = b1.rank < b2.rank ? b1 : b2;
+            const lowerRanked = b1.rank < b2.rank ? b2 : b1;
+
+            resultsDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+                    <!-- Business 1 -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                        <h3 style="color: #0e192b; margin-bottom: 15px;">🏆 ${higherRanked.name}</h3>
+                        <div style="margin-bottom: 10px;"><strong>Rank:</strong> #${higherRanked.rank}</div>
+                        <div style="margin-bottom: 10px;"><strong>8 Factors Score:</strong> ${get8FactorsScore(higherRanked)}/8</div>
+                        ${renderFactorsList(higherRanked.coreMetrics)}
+                    </div>
+
+                    <!-- Business 2 -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                        <h3 style="color: #0e192b; margin-bottom: 15px;">${lowerRanked.name}</h3>
+                        <div style="margin-bottom: 10px;"><strong>Rank:</strong> #${lowerRanked.rank}</div>
+                        <div style="margin-bottom: 10px;"><strong>8 Factors Score:</strong> ${get8FactorsScore(lowerRanked)}/8</div>
+                        ${renderFactorsList(lowerRanked.coreMetrics)}
+                    </div>
+                </div>
+
+                <div style="background: #e7f3ff; border-left: 4px solid #17a2b8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="color: #0e192b; margin-bottom: 15px;">🤖 AI Analysis</h3>
+                    <div style="white-space: pre-wrap; line-height: 1.6;">${comparison.aiAnalysis || 'Generating insights...'}</div>
+                </div>
+
+                <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px;">
+                    <h3 style="color: #856404; margin-bottom: 15px;">💡 Recommendations for ${lowerRanked.name}</h3>
+                    <div style="white-space: pre-wrap; line-height: 1.6;">${comparison.recommendations || 'Analyzing improvement opportunities...'}</div>
+                </div>
+            `;
+
+            document.getElementById('comparisonLoading').style.display = 'none';
+            resultsDiv.style.display = 'block';
+        }
+
+        function get8FactorsScore(business) {
+            const m = business.coreMetrics;
+            return [
+                m.meetsDescriptionReq,
+                m.meetsCategoriesReq,
+                m.meetsPhotosReq,
+                m.meetsReviewsReq,
+                m.meetsProductTilesReq,
+                m.meetsPostsReq,
+                m.meetsSocialReq,
+                m.meetsQAReq
+            ].filter(Boolean).length;
+        }
+
+        function renderFactorsList(metrics) {
+            const checkmark = '✅';
+            const xmark = '❌';
+            return `
+                <div style="font-size: 0.9rem; line-height: 1.8;">
+                    <div>${metrics.meetsDescriptionReq ? checkmark : xmark} Description (150+ chars)</div>
+                    <div>${metrics.meetsCategoriesReq ? checkmark : xmark} Categories (3+)</div>
+                    <div>${metrics.meetsPhotosReq ? checkmark : xmark} Photos (10+)</div>
+                    <div>${metrics.meetsReviewsReq ? checkmark : xmark} Reviews (15+, 4.0+ rating)</div>
+                    <div>${metrics.meetsProductTilesReq ? checkmark : xmark} Product/Service Tiles (2+)</div>
+                    <div>${metrics.meetsPostsReq ? checkmark : xmark} Recent Posts (within 15 days)</div>
+                    <div>${metrics.meetsSocialReq ? checkmark : xmark} Social Links (2+)</div>
+                    <div>${metrics.meetsQAReq ? checkmark : xmark} Q&A (2+ answered)</div>
+                </div>
+            `;
+        }
+
+        function closeComparisonModal() {
+            document.getElementById('comparisonModal').classList.add('hidden');
         }
 
         // Check authentication on page load

@@ -1147,35 +1147,87 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
     const base64Image = imageBuffer.toString('base64');
     
     const analysisPrompt = `
-    Analyze this Google Business Profile screenshot for "${businessName}".
-    
-    Look for these specific elements:
-    1. POSTS/UPDATES: Recent posts, updates, or announcements in the "Posts" or "Updates" section
-    2. PRODUCT TILES: Product/service tiles or listings in a dedicated products section
-    3. Q&A SECTION: Questions and answers from customers
-    4. SOCIAL MEDIA: Social media profile links or icons
-    
-    Respond ONLY with valid JSON:
+    Analyze this Google Business Profile screenshot for "${businessName}" and extract these 8 key factors.
+    Look very carefully at ALL visible sections of the profile.
+
+    IMPORTANT: Look for these specific elements:
+
+    1. BUSINESS DESCRIPTION: The "About" or "From the business" section
+       - Check if description exists and estimate character length
+       - Determine if it's 150+ characters
+
+    2. CATEGORIES: Business categories/types listed
+       - Count how many categories/subcategories are shown
+       - Look for primary category + additional categories
+
+    3. PHOTOS: Photo count (usually shown as a number)
+       - Look for photo gallery section with count displayed
+
+    4. REVIEWS: Review count and average rating
+       - Find the star rating and number of reviews
+       - Usually shown prominently near business name
+
+    5. PRODUCT/SERVICE TILES: Products or Services section
+       - Look for dedicated "Products" or "Services" section with tiles/cards
+       - Count individual product/service listings
+
+    6. GOOGLE POSTS: Recent posts in the "Posts" or "Updates" section
+       - Check if any posts are visible
+       - Try to determine if most recent post is within last 15 days
+       - Look for date indicators like "1d ago", "5d ago", "2w ago"
+
+    7. SOCIAL LINKS: Social media profile links
+       - Look for social media icons (Facebook, Instagram, Twitter, LinkedIn, etc.)
+       - Usually in business info section
+
+    8. Q&A SECTION: Questions and Answers
+       - Look for "Questions & answers" section
+       - Count visible questions if possible
+
+    Respond ONLY with valid JSON in this EXACT format:
     {
-      "posts": {
-        "hasRecent": false,
-        "count": 0
+      "description": {
+        "exists": false,
+        "estimatedLength": 0,
+        "meets150Chars": false
+      },
+      "categories": {
+        "count": 0,
+        "meets3Plus": false,
+        "visible": []
+      },
+      "photos": {
+        "count": 0,
+        "meets10Plus": false
+      },
+      "reviews": {
+        "count": 0,
+        "rating": 0.0,
+        "meets15Plus": false,
+        "meetsRating4Plus": false
       },
       "productTiles": {
+        "count": 0,
+        "meets2Plus": false
+      },
+      "posts": {
         "hasAny": false,
-        "count": 0
+        "count": 0,
+        "mostRecentDaysAgo": null,
+        "meetsLast15Days": false
+      },
+      "socialLinks": {
+        "count": 0,
+        "meets2Plus": false,
+        "platforms": []
       },
       "qa": {
-        "hasAny": false,
-        "count": 0
-      },
-      "social": {
-        "hasAny": false,
-        "count": 0
+        "count": 0,
+        "meets2Plus": false
       }
     }
     `;
-    
+
     const openaiResponse = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o',
       messages: [{
@@ -1191,17 +1243,17 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
           }
         }]
       }],
-      max_tokens: 500
+      max_tokens: 800
     }, {
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json'
       }
     });
-    
+
     const aiResponse = openaiResponse.data.choices[0].message.content;
     let cleanedResponse = aiResponse.trim();
-    
+
     // Clean markdown formatting
     if (cleanedResponse.startsWith('```json')) {
       cleanedResponse = cleanedResponse.replace(/^```json\s*/, '');
@@ -1209,11 +1261,20 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
     if (cleanedResponse.endsWith('```')) {
       cleanedResponse = cleanedResponse.replace(/\s*```$/, '');
     }
-    
+
     const analysis = JSON.parse(cleanedResponse);
-    
-    console.log(`✅ AI Analysis: Posts: ${analysis.posts.hasRecent}, Product Tiles: ${analysis.productTiles.hasAny}, Q&A: ${analysis.qa.hasAny}, Social: ${analysis.social.hasAny}`);
-    
+
+    console.log(`✅ AI Analysis Complete:`, {
+      description: analysis.description?.meets150Chars,
+      categories: `${analysis.categories?.count} (3+: ${analysis.categories?.meets3Plus})`,
+      photos: `${analysis.photos?.count} (10+: ${analysis.photos?.meets10Plus})`,
+      reviews: `${analysis.reviews?.count} reviews, ${analysis.reviews?.rating}⭐`,
+      products: `${analysis.productTiles?.count} (2+: ${analysis.productTiles?.meets2Plus})`,
+      posts: `${analysis.posts?.count} (last 15d: ${analysis.posts?.meetsLast15Days})`,
+      social: `${analysis.socialLinks?.count} (2+: ${analysis.socialLinks?.meets2Plus})`,
+      qa: `${analysis.qa?.count} (2+: ${analysis.qa?.meets2Plus})`
+    });
+
     return analysis;
     
   } catch (error) {
@@ -3204,67 +3265,98 @@ async function generateFastBulkReport(businessName, location, industry, website)
       };
     }
 
-    // Step 2: Fast parallel citation check (top 5 directories)
-    console.log('🔍 Step 2: Fast citation check...');
-    try {
-      partialData.citations = await checkCitationsFast(businessName, location);
-    } catch (error) {
-      errors.push(`Citations: ${error.message}`);
-      partialData.citations = {
-        found: [],
-        checked: [],
-        total: 5,
-        stats: { found: 0, missing: 5, percentage: 0, score: 0 }
-      };
-    }
+    // Step 2: Run all analysis in parallel for speed optimization (GBP screenshot only)
+    console.log('🚀 Step 2: Running parallel analysis (GBP screenshot)...');
 
-    // Step 3: Screenshot for product tiles (single screenshot only)
-    console.log('📸 Step 3: Screenshot analysis...');
-    try {
-      const website = partialData.outscraper?.website || null;
-      if (website) {
-        partialData.websiteAnalysis = await analyzeWebsite(website, location);
+    const parallelAnalysis = await Promise.allSettled([
+      // GBP screenshot capture
+      takeBusinessProfileScreenshot(businessName, location),
+    ]);
+
+    // Extract results with fallbacks
+    partialData.gbpScreenshot = parallelAnalysis[0].status === 'fulfilled'
+      ? parallelAnalysis[0].value
+      : null;
+
+    // Log any failures
+    parallelAnalysis.forEach((result, index) => {
+      const stepNames = ['GBP Screenshot'];
+      if (result.status === 'rejected') {
+        errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
+        console.error(`❌ ${stepNames[index]} failed:`, result.reason?.message);
       } else {
-        partialData.websiteAnalysis = {
-          hasGBPEmbed: false,
-          hasLocalizedPage: false,
-          services: [],
-          screenshot: null
-        };
+        console.log(`✅ ${stepNames[index]} succeeded`);
+      }
+    });
+
+    // Step 3: AI analysis of GBP screenshot (if available)
+    console.log('🤖 Step 3: AI analyzing GBP screenshot...');
+    try {
+      if (partialData.gbpScreenshot && partialData.gbpScreenshot.filepath) {
+        partialData.aiAnalysis = await analyzeScreenshotWithAI(partialData.gbpScreenshot.filepath, businessName);
+        console.log(`✅ AI screenshot analysis completed`);
+      } else {
+        console.log(`⚠️ No GBP screenshot available, using fallback data`);
+        partialData.aiAnalysis = null;
       }
     } catch (error) {
-      errors.push(`Screenshot: ${error.message}`);
-      partialData.websiteAnalysis = {
-        hasGBPEmbed: false,
-        hasLocalizedPage: false,
-        services: [],
-        screenshot: null
-      };
+      errors.push(`AI Analysis: ${error.message}`);
+      console.error(`⚠️ AI Analysis error:`, error.message);
+      partialData.aiAnalysis = null;
     }
 
     // Compile essential data for scoring
     const outscraperData = partialData.outscraper || {};
-    const citationsData = partialData.citations || { found: [], checked: [], total: 0, stats: { found: 0, missing: 0, percentage: 0, score: 0 } };
-    const websiteData = partialData.websiteAnalysis || {};
+    const aiData = partialData.aiAnalysis || null;
 
-    // Create fallback AI analysis for bulk audits (no screenshot analysis)
-    const fallbackAIAnalysis = {
-      productTiles: { hasAny: false, count: 0, types: [] },
-      posts: { hasRecent: outscraperData.posts > 0, count: outscraperData.posts || 0 },
-      social: { count: outscraperData.social ? Object.keys(outscraperData.social).length : 0 }
+    // Determine which data source to use for the 8 factors
+    // Priority: AI screenshot analysis > Outscraper data
+    const eightFactors = {
+      description: aiData?.description || {
+        exists: !!(outscraperData.description && outscraperData.description.length > 0),
+        estimatedLength: outscraperData.description?.length || 0,
+        meets150Chars: (outscraperData.description?.length || 0) >= 150
+      },
+      categories: aiData?.categories || {
+        count: outscraperData.categories?.length || 0,
+        meets3Plus: (outscraperData.categories?.length || 0) >= 3,
+        visible: outscraperData.categories || []
+      },
+      photos: aiData?.photos || {
+        count: outscraperData.photos_count || 0,
+        meets10Plus: (outscraperData.photos_count || 0) >= 10
+      },
+      reviews: aiData?.reviews || {
+        count: outscraperData.reviews || 0,
+        rating: outscraperData.rating || 0,
+        meets15Plus: (outscraperData.reviews || 0) >= 15,
+        meetsRating4Plus: (outscraperData.rating || 0) >= 4.0
+      },
+      productTiles: aiData?.productTiles || {
+        count: 0,
+        meets2Plus: false
+      },
+      posts: aiData?.posts || {
+        hasAny: (outscraperData.posts || 0) > 0,
+        count: outscraperData.posts || 0,
+        mostRecentDaysAgo: null,
+        meetsLast15Days: false
+      },
+      socialLinks: aiData?.socialLinks || {
+        count: outscraperData.social ? Object.keys(outscraperData.social).length : 0,
+        meets2Plus: (outscraperData.social ? Object.keys(outscraperData.social).length : 0) >= 2,
+        platforms: []
+      },
+      qa: aiData?.qa || {
+        count: outscraperData.questionsAnswers || 0,
+        meets2Plus: (outscraperData.questionsAnswers || 0) >= 2
+      }
     };
 
-    // Create fallback Q&A analysis
-    const fallbackQAAnalysis = {
-      hasQA: (outscraperData.questionsAnswers || 0) > 0,
-      questionCount: outscraperData.questionsAnswers || 0,
-      note: 'Q&A count from business data'
-    };
-
-    // Create fallback reviews analysis
-    const fallbackReviewsAnalysis = {
-      totalReviews: outscraperData.reviews || 0,
-      averageRating: outscraperData.rating || 0,
+    // Create reviews analysis
+    const reviewsAnalysis = {
+      totalReviews: eightFactors.reviews.count,
+      averageRating: eightFactors.reviews.rating,
       recentReviews: [],
       averageResponseTime: null,
       ownerResponseRate: 0,
@@ -3280,17 +3372,34 @@ async function generateFastBulkReport(businessName, location, industry, website)
         website: website
       },
       outscraper: outscraperData,
-      aiAnalysis: fallbackAIAnalysis,
-      citations: citationsData,
-      websiteAnalysis: {
-        hasGBPEmbed: websiteData.hasGBPEmbed || false,
-        hasLocalizedPage: websiteData.hasLocalizedPage || false,
-        services: Array.isArray(websiteData.services) ? websiteData.services : [],
-        screenshot: websiteData.screenshot || null
+      aiAnalysis: {
+        productTiles: {
+          hasAny: eightFactors.productTiles.meets2Plus,
+          count: eightFactors.productTiles.count
+        },
+        posts: {
+          hasRecent: eightFactors.posts.meetsLast15Days,
+          count: eightFactors.posts.count
+        },
+        social: {
+          count: eightFactors.socialLinks.count
+        }
       },
-      reviewsAnalysis: fallbackReviewsAnalysis,
-      qaAnalysis: fallbackQAAnalysis,
-      screenshot: null, // No screenshot for bulk audits
+      citations: { found: [], checked: [], total: 0, stats: { found: 0, missing: 0, percentage: 0, score: 0 } },
+      websiteAnalysis: {
+        hasGBPEmbed: false,
+        hasLocalizedPage: false,
+        services: [],
+        screenshot: null
+      },
+      reviewsAnalysis: reviewsAnalysis,
+      qaAnalysis: {
+        hasQA: eightFactors.qa.meets2Plus,
+        questionCount: eightFactors.qa.count,
+        note: aiData ? 'From AI screenshot analysis' : 'From business data'
+      },
+      screenshot: partialData.gbpScreenshot?.filepath || null,
+      eightFactors: eightFactors, // Add the 8 factors for detailed analysis
       errors: errors
     };
 
@@ -3307,18 +3416,51 @@ async function generateFastBulkReport(businessName, location, industry, website)
       website: website,
       generatedDate: new Date().toLocaleDateString(),
 
-      // Core data for ranking comparison
+      // Core data for ranking comparison - 8 FACTORS
       coreMetrics: {
-        totalReviews: compiledData.reviewsAnalysis?.totalReviews || 0,
-        averageRating: compiledData.reviewsAnalysis?.averageRating || 0,
-        totalPhotos: compiledData.outscraper?.photos_count || 0,
-        subcategories: compiledData.outscraper?.categories?.length || 0,
-        socialLinks: compiledData.outscraper?.social ? Object.keys(compiledData.outscraper.social).length : 0,
-        questionsAnswers: compiledData.qaAnalysis?.questionCount || 0,
-        posts: compiledData.aiAnalysis?.posts?.count || 0,
-        citationsFound: compiledData.citations?.stats?.found || 0,
-        hasGBPEmbed: compiledData.websiteAnalysis?.hasGBPEmbed || false,
-        hasLocalizedPage: compiledData.websiteAnalysis?.hasLocalizedPage || false
+        // Factor 1: Description (150+ chars)
+        hasDescription: eightFactors.description.exists,
+        descriptionLength: eightFactors.description.estimatedLength,
+        meetsDescriptionReq: eightFactors.description.meets150Chars,
+
+        // Factor 2: Categories (3+)
+        categoriesCount: eightFactors.categories.count,
+        meetsCategoriesReq: eightFactors.categories.meets3Plus,
+
+        // Factor 3: Photos (10+)
+        photosCount: eightFactors.photos.count,
+        meetsPhotosReq: eightFactors.photos.meets10Plus,
+
+        // Factor 4: Reviews (15+, 4.0+ rating)
+        reviewsCount: eightFactors.reviews.count,
+        averageRating: eightFactors.reviews.rating,
+        meetsReviewsReq: eightFactors.reviews.meets15Plus && eightFactors.reviews.meetsRating4Plus,
+
+        // Factor 5: Product/Service Tiles (2+)
+        productTilesCount: eightFactors.productTiles.count,
+        meetsProductTilesReq: eightFactors.productTiles.meets2Plus,
+
+        // Factor 6: Posts (within 15 days)
+        postsCount: eightFactors.posts.count,
+        mostRecentPostDays: eightFactors.posts.mostRecentDaysAgo,
+        meetsPostsReq: eightFactors.posts.meetsLast15Days,
+
+        // Factor 7: Social Links (2+)
+        socialLinksCount: eightFactors.socialLinks.count,
+        meetsSocialReq: eightFactors.socialLinks.meets2Plus,
+        socialPlatforms: eightFactors.socialLinks.platforms,
+
+        // Factor 8: Q&A (2+ answered)
+        qaCount: eightFactors.qa.count,
+        meetsQAReq: eightFactors.qa.meets2Plus,
+
+        // Legacy fields for backward compatibility
+        totalReviews: eightFactors.reviews.count,
+        totalPhotos: eightFactors.photos.count,
+        subcategories: eightFactors.categories.count,
+        socialLinks: eightFactors.socialLinks.count,
+        questionsAnswers: eightFactors.qa.count,
+        posts: eightFactors.posts.count
       },
 
       // Scoring
@@ -4683,6 +4825,97 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
     console.error('❌ Fast bulk scan error:', error);
     res.status(500).json({
       error: 'Fast bulk scan failed',
+      details: error.message
+    });
+  }
+});
+
+// Compare two businesses with AI analysis
+app.post('/api/compare-businesses', authenticateToken, async (req, res) => {
+  try {
+    const { business1, business2 } = req.body;
+
+    if (!business1 || !business2) {
+      return res.status(400).json({ error: 'Both businesses are required for comparison' });
+    }
+
+    console.log(`🔍 Comparing: ${business1.name} (Rank #${business1.rank}) vs ${business2.name} (Rank #${business2.rank})`);
+
+    // Determine which is higher/lower ranked
+    const higherRanked = business1.rank < business2.rank ? business1 : business2;
+    const lowerRanked = business1.rank < business2.rank ? business2 : business1;
+
+    // Prepare comparison data for AI
+    const comparisonPrompt = `You are an SEO expert analyzing two competing local businesses. Compare these two businesses and provide specific, actionable recommendations for the lower-ranked business to catch up.
+
+HIGHER RANKED BUSINESS (#${higherRanked.rank}): ${higherRanked.name}
+- Description: ${higherRanked.coreMetrics.meetsDescriptionReq ? '✅ Has 150+ char description' : '❌ Missing or short description'}
+- Categories: ${higherRanked.coreMetrics.meetsCategoriesReq ? `✅ ${higherRanked.coreMetrics.categoriesCount} categories` : `❌ Only ${higherRanked.coreMetrics.categoriesCount} categories`}
+- Photos: ${higherRanked.coreMetrics.meetsPhotosReq ? `✅ ${higherRanked.coreMetrics.photosCount} photos` : `❌ Only ${higherRanked.coreMetrics.photosCount} photos`}
+- Reviews: ${higherRanked.coreMetrics.meetsReviewsReq ? `✅ ${higherRanked.coreMetrics.reviewsCount} reviews, ${higherRanked.coreMetrics.averageRating.toFixed(1)}⭐` : `❌ ${higherRanked.coreMetrics.reviewsCount} reviews, ${higherRanked.coreMetrics.averageRating.toFixed(1)}⭐`}
+- Products/Services: ${higherRanked.coreMetrics.meetsProductTilesReq ? `✅ ${higherRanked.coreMetrics.productTilesCount} products` : `❌ ${higherRanked.coreMetrics.productTilesCount} products`}
+- Posts: ${higherRanked.coreMetrics.meetsPostsReq ? '✅ Posted within 15 days' : '❌ No recent posts'}
+- Social Links: ${higherRanked.coreMetrics.meetsSocialReq ? `✅ ${higherRanked.coreMetrics.socialLinksCount} platforms` : `❌ ${higherRanked.coreMetrics.socialLinksCount} platforms`}
+- Q&A: ${higherRanked.coreMetrics.meetsQAReq ? `✅ ${higherRanked.coreMetrics.qaCount} answered` : `❌ ${higherRanked.coreMetrics.qaCount} answered`}
+
+LOWER RANKED BUSINESS (#${lowerRanked.rank}): ${lowerRanked.name}
+- Description: ${lowerRanked.coreMetrics.meetsDescriptionReq ? '✅ Has 150+ char description' : '❌ Missing or short description'}
+- Categories: ${lowerRanked.coreMetrics.meetsCategoriesReq ? `✅ ${lowerRanked.coreMetrics.categoriesCount} categories` : `❌ Only ${lowerRanked.coreMetrics.categoriesCount} categories`}
+- Photos: ${lowerRanked.coreMetrics.meetsPhotosReq ? `✅ ${lowerRanked.coreMetrics.photosCount} photos` : `❌ Only ${lowerRanked.coreMetrics.photosCount} photos`}
+- Reviews: ${lowerRanked.coreMetrics.meetsReviewsReq ? `✅ ${lowerRanked.coreMetrics.reviewsCount} reviews, ${lowerRanked.coreMetrics.averageRating.toFixed(1)}⭐` : `❌ ${lowerRanked.coreMetrics.reviewsCount} reviews, ${lowerRanked.coreMetrics.averageRating.toFixed(1)}⭐`}
+- Products/Services: ${lowerRanked.coreMetrics.meetsProductTilesReq ? `✅ ${lowerRanked.coreMetrics.productTilesCount} products` : `❌ ${lowerRanked.coreMetrics.productTilesCount} products`}
+- Posts: ${lowerRanked.coreMetrics.meetsPostsReq ? '✅ Posted within 15 days' : '❌ No recent posts'}
+- Social Links: ${lowerRanked.coreMetrics.meetsSocialReq ? `✅ ${lowerRanked.coreMetrics.socialLinksCount} platforms` : `❌ ${lowerRanked.coreMetrics.socialLinksCount} platforms`}
+- Q&A: ${lowerRanked.coreMetrics.meetsQAReq ? `✅ ${lowerRanked.coreMetrics.qaCount} answered` : `❌ ${lowerRanked.coreMetrics.qaCount} answered`}
+
+Provide:
+1. A brief analysis (2-3 sentences) explaining WHY the higher-ranked business is ranking better
+2. Specific, prioritized recommendations (3-5 action items) for the lower-ranked business to improve their ranking
+
+Be concise and actionable.`;
+
+    const aiResponse = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: 'gpt-4o-mini',
+      messages: [{
+        role: 'user',
+        content: comparisonPrompt
+      }],
+      max_tokens: 600,
+      temperature: 0.7
+    }, {
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const analysisText = aiResponse.data.choices[0].message.content;
+
+    // Split into analysis and recommendations
+    const parts = analysisText.split(/(?:Recommendations|Action Items|To Improve):/i);
+    const aiAnalysis = parts[0].trim();
+    const recommendations = parts.length > 1 ? parts[1].trim() : analysisText;
+
+    console.log(`✅ AI comparison generated successfully`);
+
+    res.json({
+      success: true,
+      aiAnalysis: aiAnalysis,
+      recommendations: recommendations,
+      higherRanked: {
+        name: higherRanked.name,
+        rank: higherRanked.rank
+      },
+      lowerRanked: {
+        name: lowerRanked.name,
+        rank: lowerRanked.rank
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Comparison error:', error);
+    res.status(500).json({
+      error: 'Comparison failed',
       details: error.message
     });
   }
