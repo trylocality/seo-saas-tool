@@ -261,6 +261,15 @@
             <!-- Filters -->
             <div class="filters-bar">
                 <div class="filter-group">
+                    <label>🎯 Opportunity Level</label>
+                    <select id="opportunityFilter" onchange="filterResults()">
+                        <option value="all">All Opportunities</option>
+                        <option value="high">🔥 High Opportunity Only</option>
+                        <option value="medium-high">Medium & High</option>
+                        <option value="low-plus">Low & Above</option>
+                    </select>
+                </div>
+                <div class="filter-group">
                     <label>Ranking Position</label>
                     <select id="rankFilter" onchange="filterResults()">
                         <option value="all">All Positions</option>
@@ -453,7 +462,8 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    currentResults = data.businesses.map(business => ({
+                    // First, map the basic data
+                    const basicResults = data.businesses.map(business => ({
                         rank: business.ranking.position,
                         name: business.businessName,
                         address: business.data.business.address,
@@ -463,9 +473,11 @@
                         reviews: business.data.reviews.total,
                         score: business.score,
                         coreMetrics: business.coreMetrics,
-                        opportunity: calculateOpportunity(business.score, business.ranking.position),
                         data: business.data
-                    })).sort((a, b) => a.rank - b.rank);
+                    }));
+
+                    // Calculate opportunity scores based on position relative to neighbors
+                    currentResults = calculateOpportunityScores(basicResults);
 
                     showResults(industry, location, data);
                 } else {
@@ -497,19 +509,74 @@
         }
 
         // Calculate opportunity level based on score and ranking
-        function calculateOpportunity(score, rank) {
-            if (score < 60 && rank > 10) return 'high';
-            if (score < 70 && rank > 5) return 'medium';
-            if (score < 80) return 'low';
-            return 'none';
+        // Calculate opportunity scores for all businesses based on their position relative to neighbors
+        function calculateOpportunityScores(businesses) {
+            // Sort by rank to ensure correct neighbor analysis
+            const sorted = [...businesses].sort((a, b) => a.rank - b.rank);
+
+            return sorted.map((business, index) => {
+                const factorsScore = get8FactorsScore(business);
+
+                // Get neighbors (businesses directly above and below in ranking)
+                const businessAbove = index > 0 ? sorted[index - 1] : null;
+                const businessBelow = index < sorted.length - 1 ? sorted[index + 1] : null;
+
+                let opportunityScore = 0;
+                let opportunityReasons = [];
+
+                // Check if business has lower score than those below (at risk)
+                if (businessBelow) {
+                    const belowScore = get8FactorsScore(businessBelow);
+                    if (factorsScore < belowScore) {
+                        opportunityScore += 3;
+                        opportunityReasons.push(`At risk: #${businessBelow.rank} has higher score (${belowScore}/8)`);
+                    }
+                }
+
+                // Check if business has similar/higher score than those above (opportunity to climb)
+                if (businessAbove) {
+                    const aboveScore = get8FactorsScore(businessAbove);
+                    if (factorsScore >= aboveScore) {
+                        opportunityScore += 2;
+                        opportunityReasons.push(`Can climb: #${businessAbove.rank} has similar/lower score (${aboveScore}/8)`);
+                    }
+                }
+
+                // Bonus: Low absolute score = more room for improvement
+                if (factorsScore <= 4) {
+                    opportunityScore += 2;
+                    opportunityReasons.push(`Low score (${factorsScore}/8) = high improvement potential`);
+                }
+
+                // Check 2-3 positions for additional context
+                const twoBelow = index < sorted.length - 2 ? sorted[index + 2] : null;
+                if (twoBelow && factorsScore < get8FactorsScore(twoBelow)) {
+                    opportunityScore += 1;
+                    opportunityReasons.push(`Multiple competitors below with higher scores`);
+                }
+
+                // Determine opportunity level
+                let opportunityLevel = 'none';
+                if (opportunityScore >= 5) opportunityLevel = 'high';
+                else if (opportunityScore >= 3) opportunityLevel = 'medium';
+                else if (opportunityScore >= 1) opportunityLevel = 'low';
+
+                return {
+                    ...business,
+                    opportunityScore,
+                    opportunityLevel,
+                    opportunityReasons,
+                    factorsScore
+                };
+            });
         }
 
         // Display a stored bulk report from the database
         function displayStoredBulkReport(reportData) {
             console.log('📊 Displaying stored bulk report:', reportData);
 
-            // Map the stored businesses data to currentResults format, sorted by ranking
-            currentResults = reportData.businesses.map(business => ({
+            // Map the stored businesses data to currentResults format
+            const basicResults = reportData.businesses.map(business => ({
                 rank: business.ranking.position,
                 name: business.businessName,
                 address: business.data.business.address,
@@ -519,9 +586,11 @@
                 reviews: business.data.reviews.total,
                 score: business.score,
                 coreMetrics: business.coreMetrics,
-                opportunity: calculateOpportunity(business.score, business.ranking.position),
                 data: business.data
-            })).sort((a, b) => a.rank - b.rank);
+            }));
+
+            // Calculate opportunity scores based on position relative to neighbors
+            currentResults = calculateOpportunityScores(basicResults);
 
             // Display using the existing showResults function
             const industry = reportData.searchCriteria.industry;
@@ -559,15 +628,18 @@
                 // Rank with special styling for top 3
                 const rankClass = result.rank <= 3 ? `rank-${result.rank}` : '';
 
-                // Score classification
-                let scoreClass = 'score-poor';
-                if (result.score >= 80) scoreClass = 'score-excellent';
-                else if (result.score >= 70) scoreClass = 'score-good';
-                else if (result.score >= 60) scoreClass = 'score-fair';
-
-                // Opportunity styling
-                const opportunityClass = `opportunity-${result.opportunity}`;
-                const opportunityText = result.opportunity.toUpperCase();
+                // Opportunity highlighting - add background color based on level
+                let rowStyle = '';
+                let opportunityBadge = '';
+                if (result.opportunityLevel === 'high') {
+                    rowStyle = 'background-color: #fff3cd; border-left: 4px solid #ffc107;';
+                    opportunityBadge = '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; margin-left: 8px;">🎯 HIGH OPPORTUNITY</span>';
+                } else if (result.opportunityLevel === 'medium') {
+                    rowStyle = 'background-color: #e7f3ff; border-left: 4px solid #17a2b8;';
+                    opportunityBadge = '<span style="background: #17a2b8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; margin-left: 8px;">MEDIUM</span>';
+                } else if (result.opportunityLevel === 'low') {
+                    rowStyle = 'border-left: 4px solid #e0e0e0;';
+                }
 
                 // Calculate score out of 8
                 const metrics = result.coreMetrics;
@@ -605,6 +677,7 @@
                     </div>
                 `;
 
+                row.style.cssText = rowStyle;
                 row.innerHTML = `
                     <td class="rank-position ${rankClass}">
                         <input type="checkbox" class="compare-checkbox" data-business-index="${filteredResults.indexOf(result)}"
@@ -612,10 +685,17 @@
                         #${result.rank}
                     </td>
                     <td class="business-info">
-                        <div class="business-name">${result.name}</div>
+                        <div class="business-name">
+                            ${result.name}
+                            ${opportunityBadge}
+                        </div>
                         <div class="business-address" style="font-size: 0.85rem; color: #666;">${result.address || 'Address not available'}</div>
                         <div class="business-phone" style="font-size: 0.85rem; color: #666;">${result.phone || 'Phone not available'}</div>
                         ${result.website ? `<div style="font-size: 0.8rem; color: #17a2b8; margin-top: 4px;">${result.website}</div>` : ''}
+                        ${result.opportunityReasons && result.opportunityReasons.length > 0 ?
+                            `<div style="font-size: 0.75rem; color: #856404; margin-top: 6px; line-height: 1.4;">
+                                ${result.opportunityReasons.map(r => `• ${r}`).join('<br>')}
+                            </div>` : ''}
                     </td>
                     <td style="padding: 15px;">${eightFactorsHtml}</td>
                     <td class="action-cell">
@@ -633,18 +713,22 @@
             const scanSummary = data.scanSummary;
 
             if (scanSummary) {
+                const highOpportunities = currentResults.filter(r => r.opportunityLevel === 'high').length;
+                const mediumOpportunities = currentResults.filter(r => r.opportunityLevel === 'medium').length;
+                const avgFactorsScore = Math.round(currentResults.reduce((sum, r) => sum + r.factorsScore, 0) / currentResults.length);
+
                 statsContainer.innerHTML = `
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 2rem; font-weight: 700; color: #dc3545;">${currentResults.filter(r => r.opportunity === 'high').length}</div>
-                        <div style="color: #666;">High Opportunities</div>
+                    <div style="background: #fff3cd; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #ffc107;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #856404;">🎯 ${highOpportunities}</div>
+                        <div style="color: #856404; font-weight: 600;">High Opportunities</div>
+                    </div>
+                    <div style="background: #e7f3ff; padding: 20px; border-radius: 10px; text-align: center; border: 2px solid #17a2b8;">
+                        <div style="font-size: 2rem; font-weight: 700; color: #17a2b8;">${mediumOpportunities}</div>
+                        <div style="color: #17a2b8; font-weight: 600;">Medium Opportunities</div>
                     </div>
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 2rem; font-weight: 700; color: #0e192b;">${scanSummary.averageScore}</div>
-                        <div style="color: #666;">Average Score</div>
-                    </div>
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 2rem; font-weight: 700; color: #28a745;">${scanSummary.averageReviews}</div>
-                        <div style="color: #666;">Avg Reviews</div>
+                        <div style="font-size: 2rem; font-weight: 700; color: #0e192b;">${avgFactorsScore}/8</div>
+                        <div style="color: #666;">Avg 8 Factors Score</div>
                     </div>
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center;">
                         <div style="font-size: 2rem; font-weight: 700; color: #17a2b8;">${data.searchCriteria.totalScanned}</div>
@@ -656,12 +740,20 @@
 
         // Filter results
         function filterResults() {
+            const opportunityFilter = document.getElementById('opportunityFilter').value;
             const rankFilter = document.getElementById('rankFilter').value;
             const factorsFilter = document.getElementById('factorsFilter').value;
 
             filteredResults = currentResults.filter(result => {
                 // Calculate 8 factors score for this business
                 const factorsScore = get8FactorsScore(result);
+
+                // Opportunity filter
+                if (opportunityFilter !== 'all') {
+                    if (opportunityFilter === 'high' && result.opportunityLevel !== 'high') return false;
+                    if (opportunityFilter === 'medium-high' && !['medium', 'high'].includes(result.opportunityLevel)) return false;
+                    if (opportunityFilter === 'low-plus' && result.opportunityLevel === 'none') return false;
+                }
 
                 // 8 Factors filter
                 if (factorsFilter !== 'all') {
