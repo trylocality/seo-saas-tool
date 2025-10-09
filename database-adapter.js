@@ -574,6 +574,49 @@ class DatabaseAdapter {
       }
     }
 
+    // Migration 6: Fix screenshot_cache table schema (drop and recreate with correct columns)
+    try {
+      // Check if the table has the wrong schema
+      const columns = await this.query(`
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = 'screenshot_cache'
+      `);
+
+      const columnNames = columns.rows.map(row => row.column_name);
+      const hasCorrectSchema = columnNames.includes('cache_key') && columnNames.includes('filepath');
+
+      if (!hasCorrectSchema) {
+        console.log('🔧 Migration: Fixing screenshot_cache table schema...');
+
+        // Drop old table (losing cache is OK, it will regenerate)
+        await this.query('DROP TABLE IF EXISTS screenshot_cache CASCADE');
+        console.log('✅ Dropped old screenshot_cache table with incorrect schema');
+
+        // Recreate with correct schema
+        await this.query(`
+          CREATE TABLE screenshot_cache (
+            id SERIAL PRIMARY KEY,
+            cache_key TEXT UNIQUE NOT NULL,
+            filepath TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL
+          )
+        `);
+        console.log('✅ Created screenshot_cache table with correct schema');
+
+        // Recreate indexes
+        await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_expires ON screenshot_cache(expires_at)');
+        await this.query('CREATE INDEX IF NOT EXISTS idx_screenshot_cache_key ON screenshot_cache(cache_key)');
+        console.log('✅ Created indexes on screenshot_cache table');
+      } else {
+        console.log('✅ Migration: screenshot_cache table already has correct schema');
+      }
+    } catch (error) {
+      console.log(`⚠️ Migration warning (screenshot_cache schema fix): ${error.message}`);
+    }
+
     // Future migrations can be added here
     console.log('✅ All PostgreSQL migrations completed');
   }

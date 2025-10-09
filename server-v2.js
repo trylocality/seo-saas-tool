@@ -778,8 +778,8 @@ async function getBusinessProfileOptions(businessName, location) {
       
       const resultsUrl = response.data.results_location;
       
-      // Poll for results (max 30 seconds)
-      for (let i = 0; i < 6; i++) {
+      // Poll for results (max 60 seconds - increased from 30)
+      for (let i = 0; i < 12; i++) {
         await new Promise(resolve => setTimeout(resolve, 5000));
         
         try {
@@ -898,8 +898,8 @@ async function getOutscraperData(businessName, location) {
       
       const resultsUrl = response.data.results_location;
       
-      // Poll for results (max 30 seconds)
-      for (let i = 0; i < 6; i++) {
+      // Poll for results (max 60 seconds - increased from 30)
+      for (let i = 0; i < 12; i++) {
         await new Promise(resolve => setTimeout(resolve, 5000));
         
         try {
@@ -963,7 +963,7 @@ async function getOutscraperData(businessName, location) {
         }
       }
       
-      throw new Error('Outscraper polling timeout - no results after 30 seconds');
+      throw new Error('Outscraper polling timeout - no results after 60 seconds');
     }
     
     // Handle immediate response
@@ -3295,6 +3295,17 @@ async function generateFastBulkReport(businessName, location, industry, website)
       if (partialData.gbpScreenshot && partialData.gbpScreenshot.filepath) {
         partialData.aiAnalysis = await analyzeScreenshotWithAI(partialData.gbpScreenshot.filepath, businessName);
         console.log(`✅ AI screenshot analysis completed`);
+
+        // If Outscraper failed but AI analysis succeeded, use AI data as fallback for Outscraper
+        if (partialData.outscraper && partialData.outscraper.photos_count === 0 && partialData.aiAnalysis) {
+          console.log(`🔧 Outscraper had limited data, enriching with AI analysis...`);
+          partialData.outscraper.photos_count = partialData.aiAnalysis.photos?.count || 0;
+          partialData.outscraper.reviews = partialData.aiAnalysis.reviews?.count || 0;
+          partialData.outscraper.rating = partialData.aiAnalysis.reviews?.rating || 0;
+          partialData.outscraper.categories = partialData.aiAnalysis.categories?.visible || [];
+          partialData.outscraper.description = partialData.aiAnalysis.description?.exists ?
+            `[Description present - ${partialData.aiAnalysis.description.estimatedLength} chars]` : '';
+        }
       } else {
         console.log(`⚠️ No GBP screenshot available, using fallback data`);
         partialData.aiAnalysis = null;
@@ -3382,6 +3393,7 @@ async function generateFastBulkReport(businessName, location, industry, website)
           count: eightFactors.posts.count
         },
         social: {
+          hasAny: eightFactors.socialLinks.meets2Plus,
           count: eightFactors.socialLinks.count
         }
       },
@@ -4613,14 +4625,15 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
 
     console.log(`📋 Found ${businessList.length} businesses for fast scan`);
 
-    // Run fast audits with progress tracking
+    // Run fast audits with progress tracking - PARALLEL PROCESSING (3 at a time)
     const auditResults = [];
     const errors = [];
     let creditsUsed = 0;
+    const CONCURRENCY_LIMIT = 3; // Process 3 businesses at a time
 
-    for (let i = 0; i < businessList.length; i++) {
-      const business = businessList[i];
-      console.log(`\n⚡ Fast scanning ${i + 1}/${businessList.length}: ${business.name} (Rank #${business.rank})`);
+    // Helper function to process a single business
+    const processBusiness = async (business, index) => {
+      console.log(`\n⚡ Fast scanning ${index + 1}/${businessList.length}: ${business.name} (Rank #${business.rank})`);
 
       try {
         // Generate FAST report for this business
@@ -4638,22 +4651,22 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
           url: business.website
         };
 
-        auditResults.push(report);
-        creditsUsed++;
         console.log(`✅ Fast scan complete: ${business.name} - Score: ${report.score}/${report.maxScore}`);
+        return { success: true, report, business };
 
       } catch (businessError) {
         console.error(`❌ Fast scan failed for ${business.name}:`, businessError.message);
         console.error(`❌ Error stack:`, businessError.stack);
-        errors.push({
+
+        const error = {
           business: business.name,
           rank: business.rank,
           error: businessError.message,
           details: businessError.stack
-        });
+        };
 
         // Create a minimal fallback report for failed businesses
-        auditResults.push({
+        const fallbackReport = {
           success: false,
           type: 'fast_bulk',
           businessName: business.name,
@@ -4699,9 +4712,32 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
           },
           errors: [businessError.message],
           processingTime: new Date().toISOString()
-        });
-        creditsUsed++; // Still charge for failed attempts
+        };
+
+        return { success: false, report: fallbackReport, business, error };
       }
+    };
+
+    // Process businesses in batches with concurrency limit
+    for (let i = 0; i < businessList.length; i += CONCURRENCY_LIMIT) {
+      const batch = businessList.slice(i, i + CONCURRENCY_LIMIT);
+      console.log(`\n🚀 Processing batch ${Math.floor(i / CONCURRENCY_LIMIT) + 1}/${Math.ceil(businessList.length / CONCURRENCY_LIMIT)} (${batch.length} businesses in parallel)...`);
+
+      const batchResults = await Promise.allSettled(
+        batch.map((business, batchIndex) => processBusiness(business, i + batchIndex))
+      );
+
+      // Collect results
+      batchResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          auditResults.push(result.value.report);
+          creditsUsed++;
+
+          if (result.value.error) {
+            errors.push(result.value.error);
+          }
+        }
+      });
     }
 
     if (auditResults.length === 0) {
