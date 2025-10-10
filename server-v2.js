@@ -2176,17 +2176,25 @@ function calculateScore(data) {
   }
   
   // 7. Q&A (4 pts) - Using SerpAPI data for accurate detection
+  // NOTE: Q&A is only available in full audits (requires SerpAPI), not in fast bulk audits
   if (data.qaAnalysis && data.qaAnalysis.hasQA && data.qaAnalysis.questionCount > 0) {
     scores.qa = 4;
-    details.qa = { 
-      status: 'GOOD', 
-      message: `Q&A section active with ${data.qaAnalysis.questionCount} questions - helps answer customer queries` 
+    details.qa = {
+      status: 'GOOD',
+      message: `Q&A section active with ${data.qaAnalysis.questionCount} questions - helps answer customer queries`
+    };
+  } else if (data.qaAnalysis && data.qaAnalysis.note && data.qaAnalysis.note.includes('From AI screenshot')) {
+    // For fast bulk audits, Q&A can't be reliably detected - mark as N/A instead of MISSING
+    scores.qa = 0;
+    details.qa = {
+      status: 'N/A',
+      message: 'Q&A analysis not available in bulk audits (requires individual audit)'
     };
   } else {
     scores.qa = 0;
-    details.qa = { 
-      status: 'MISSING', 
-      message: 'No Q&A found - add common customer questions to help prospects' 
+    details.qa = {
+      status: 'MISSING',
+      message: 'No Q&A found - add common customer questions to help prospects'
     };
   }
   
@@ -2278,13 +2286,19 @@ function calculateScore(data) {
     message: `${bonusPoints} bonus points earned (${goodFactors} green factors)` 
   };
   
-  console.log(`📊 Final Score: ${totalScore}/100`);
-  
+  // Calculate actual max score based on what was analyzed
+  // For fast bulk audits: Q&A (4), Citations (10), GBP Embed (8), Landing Page (8) = -30 points
+  const isFastBulkAudit = details.qa?.status === 'N/A';
+  const actualMaxScore = isFastBulkAudit ? 70 : 100; // 100 - 30 = 70 for fast audits
+
+  console.log(`📊 Final Score: ${totalScore}/${actualMaxScore}`);
+
   return {
     totalScore: totalScore,
-    maxScore: 100,
+    maxScore: actualMaxScore,
     scores: scores,
-    details: details
+    details: details,
+    isFastBulkAudit: isFastBulkAudit
   };
 }
 // Helper function to analyze description criteria
