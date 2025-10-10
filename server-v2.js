@@ -3335,46 +3335,61 @@ async function generateFastBulkReport(businessName, location, industry, website)
     const aiData = partialData.aiAnalysis || null;
 
     // Determine which data source to use for the 8 factors
-    // Priority: AI screenshot analysis > Outscraper data
+    // Priority: Outscraper API (authoritative) > AI screenshot (visual fallback/supplement)
     const eightFactors = {
-      description: aiData?.description || {
-        exists: !!(outscraperData.description && outscraperData.description.length > 0),
-        estimatedLength: outscraperData.description?.length || 0,
-        meets150Chars: (outscraperData.description?.length || 0) >= 150
+      // Description: Prefer Outscraper (complete text), AI can only estimate from screenshot
+      description: {
+        exists: !!(outscraperData.description && outscraperData.description.length > 0) || aiData?.description?.exists || false,
+        estimatedLength: outscraperData.description?.length || aiData?.description?.estimatedLength || 0,
+        meets150Chars: (outscraperData.description?.length || aiData?.description?.estimatedLength || 0) >= 150
       },
-      categories: aiData?.categories || {
-        count: outscraperData.categories?.length || 0,
-        meets3Plus: (outscraperData.categories?.length || 0) >= 3,
-        visible: outscraperData.categories || []
+
+      // Categories: Prefer Outscraper (has ALL categories), AI only sees visible ones
+      categories: {
+        count: outscraperData.categories?.length || aiData?.categories?.count || 0,
+        meets3Plus: (outscraperData.categories?.length || aiData?.categories?.count || 0) >= 3,
+        visible: outscraperData.categories || aiData?.categories?.visible || []
       },
-      photos: aiData?.photos || {
-        count: outscraperData.photos_count || 0,
-        meets10Plus: (outscraperData.photos_count || 0) >= 10
+
+      // Photos: Prefer Outscraper (accurate count), AI estimate from visible gallery
+      photos: {
+        count: outscraperData.photos_count || aiData?.photos?.count || 0,
+        meets10Plus: (outscraperData.photos_count || aiData?.photos?.count || 0) >= 10
       },
-      reviews: aiData?.reviews || {
-        count: outscraperData.reviews || 0,
-        rating: outscraperData.rating || 0,
-        meets15Plus: (outscraperData.reviews || 0) >= 15,
-        meetsRating4Plus: (outscraperData.rating || 0) >= 4.0
+
+      // Reviews: Prefer Outscraper (total count), AI only sees recent visible ones
+      reviews: {
+        count: outscraperData.reviews || aiData?.reviews?.count || 0,
+        rating: outscraperData.rating || aiData?.reviews?.rating || 0,
+        meets15Plus: (outscraperData.reviews || aiData?.reviews?.count || 0) >= 15,
+        meetsRating4Plus: (outscraperData.rating || aiData?.reviews?.rating || 0) >= 4.0
       },
+
+      // Product Tiles: Only AI can detect (not in Outscraper API)
       productTiles: aiData?.productTiles || {
         count: 0,
         meets2Plus: false
       },
+
+      // Posts: Prefer AI (can check recency), Outscraper only has count
       posts: aiData?.posts || {
         hasAny: (outscraperData.posts || 0) > 0,
         count: outscraperData.posts || 0,
         mostRecentDaysAgo: null,
         meetsLast15Days: false
       },
+
+      // Social Links: Prefer AI (can see visible links), Outscraper may be incomplete
       socialLinks: aiData?.socialLinks || {
         count: outscraperData.social ? Object.keys(outscraperData.social).length : 0,
         meets2Plus: (outscraperData.social ? Object.keys(outscraperData.social).length : 0) >= 2,
         platforms: []
       },
-      qa: aiData?.qa || {
-        count: outscraperData.questionsAnswers || 0,
-        meets2Plus: (outscraperData.questionsAnswers || 0) >= 2
+
+      // Q&A: Neither source is reliable for bulk audits
+      qa: {
+        count: 0,
+        meets2Plus: false
       }
     };
 
