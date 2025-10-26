@@ -1849,6 +1849,82 @@ async function analyzeQuestionsAndAnswers(businessName, location, placeId) {
   }
 }
 
+// 8. SERVICES EXTRACTION - Get service types from SerpAPI Google Maps
+async function getBusinessServices(businessName, location, placeId) {
+  try {
+    console.log(`🔧 Getting services for: ${businessName}`);
+
+    if (!SERPAPI_KEY) {
+      throw new Error('SerpAPI key not configured');
+    }
+
+    // Use place_id if available for direct lookup
+    let queryParams;
+
+    if (placeId) {
+      console.log(`🎯 Using place_id for service lookup: ${placeId}`);
+      queryParams = {
+        engine: 'google_maps',
+        type: 'place',
+        place_id: placeId,
+        api_key: SERPAPI_KEY,
+        hl: 'en'
+      };
+    } else {
+      // Fall back to search if no place_id
+      console.log(`🔍 Searching for business to get services`);
+      queryParams = {
+        engine: 'google_maps',
+        type: 'search',
+        q: `${businessName} ${location}`,
+        api_key: SERPAPI_KEY,
+        hl: 'en'
+      };
+    }
+
+    const response = await axios.get('https://serpapi.com/search.json', {
+      params: queryParams,
+      timeout: 15000
+    });
+
+    // Extract services from the type field in place_results
+    const placeResults = response.data.place_results;
+
+    if (placeResults && placeResults.type) {
+      const services = Array.isArray(placeResults.type) ? placeResults.type : [placeResults.type];
+
+      console.log(`✅ Found ${services.length} services: ${services.join(', ')}`);
+
+      return {
+        hasServices: services.length > 0,
+        serviceCount: services.length,
+        services: services,
+        serviceOptions: placeResults.service_options || {},
+        note: `Found ${services.length} service types`
+      };
+    } else {
+      console.log('❌ No services found in SerpAPI response');
+      return {
+        hasServices: false,
+        serviceCount: 0,
+        services: [],
+        serviceOptions: {},
+        note: 'No service types found in API response'
+      };
+    }
+
+  } catch (error) {
+    console.error('❌ Service extraction error:', error.message);
+    return {
+      hasServices: false,
+      serviceCount: 0,
+      services: [],
+      serviceOptions: {},
+      note: `Service extraction failed: ${error.message}`
+    };
+  }
+}
+
 // Helper function to extract city and state/country from location string
 function extractCityState(location) {
   // Handle full address format (e.g., "123 Main St, Miami, FL 33101")
@@ -3328,6 +3404,24 @@ async function generateFastBulkReport(businessName, location, industry, website)
       partialData.aiAnalysis = null;
     }
 
+    // Step 4: Get services from SerpAPI (replaces Q&A in bulk audits)
+    console.log('🔧 Step 4: Getting services from SerpAPI...');
+    try {
+      const placeId = partialData.outscraper?.place_id || partialData.outscraper?.google_id;
+      partialData.services = await getBusinessServices(businessName, location, placeId);
+      console.log(`✅ Services extraction completed: ${partialData.services.serviceCount} services found`);
+    } catch (error) {
+      errors.push(`Services: ${error.message}`);
+      console.error(`⚠️ Services extraction error:`, error.message);
+      partialData.services = {
+        hasServices: false,
+        serviceCount: 0,
+        services: [],
+        serviceOptions: {},
+        note: `Service extraction failed: ${error.message}`
+      };
+    }
+
     // Compile essential data for scoring
     const outscraperData = partialData.outscraper || {};
     const aiData = partialData.aiAnalysis || null;
@@ -3384,10 +3478,12 @@ async function generateFastBulkReport(businessName, location, industry, website)
         platforms: []
       },
 
-      // Q&A: Neither source is reliable for bulk audits
-      qa: {
-        count: 0,
-        meets2Plus: false
+      // Services: From SerpAPI Google Maps (replaces Q&A for bulk audits)
+      services: {
+        count: partialData.services?.serviceCount || 0,
+        meets2Plus: (partialData.services?.serviceCount || 0) >= 2,
+        list: partialData.services?.services || [],
+        serviceOptions: partialData.services?.serviceOptions || {}
       }
     };
 
@@ -3489,16 +3585,18 @@ async function generateFastBulkReport(businessName, location, industry, website)
         meetsSocialReq: eightFactors.socialLinks.meets2Plus,
         socialPlatforms: eightFactors.socialLinks.platforms,
 
-        // Factor 8: Q&A (2+ answered)
-        qaCount: eightFactors.qa.count,
-        meetsQAReq: eightFactors.qa.meets2Plus,
+        // Factor 8: Services (2+) - Replaces Q&A in bulk audits
+        servicesCount: eightFactors.services.count,
+        meetsServicesReq: eightFactors.services.meets2Plus,
+        servicesList: eightFactors.services.list,
+        serviceOptions: eightFactors.services.serviceOptions,
 
         // Legacy fields for backward compatibility
         totalReviews: eightFactors.reviews.count,
         totalPhotos: eightFactors.photos.count,
         subcategories: eightFactors.categories.count,
         socialLinks: eightFactors.socialLinks.count,
-        questionsAnswers: eightFactors.qa.count,
+        questionsAnswers: 0, // Deprecated - replaced with services
         posts: eightFactors.posts.count
       },
 
@@ -4713,7 +4811,8 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
             totalPhotos: 0,
             subcategories: 0,
             socialLinks: 0,
-            questionsAnswers: 0,
+            questionsAnswers: 0, // Deprecated
+            servicesCount: 0,
             posts: 0,
             citationsFound: 0,
             hasGBPEmbed: false,
