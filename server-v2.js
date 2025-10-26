@@ -5864,6 +5864,84 @@ app.get('/api/factor-overrides/:reportId', authenticateToken, async (req, res) =
 });
 
 // ==========================================
+// CITATION BUILDING SERVICE ENDPOINT
+// ==========================================
+
+// Create Stripe checkout session for citation building service
+app.post('/api/create-citation-checkout', authenticateToken, async (req, res) => {
+  try {
+    const { packageSize, businessName, address, phone } = req.body;
+    const userId = req.user.id;
+
+    // Validate package size
+    if (![25, 50].includes(packageSize)) {
+      return res.status(400).json({ error: 'Invalid package size. Must be 25 or 50.' });
+    }
+
+    // Validate required fields
+    if (!businessName || !address || !phone) {
+      return res.status(400).json({ error: 'Business name, address, and phone are required.' });
+    }
+
+    // Define pricing (in cents)
+    const pricing = {
+      25: 19900, // $199.00
+      50: 34900  // $349.00
+    };
+
+    console.log(`📋 Creating citation checkout: ${packageSize} citations for ${businessName}`);
+
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Citation Building Service - ${packageSize} Citations`,
+              description: `Build your business presence across ${packageSize} local directories`,
+              metadata: {
+                service_type: 'citation_building',
+                package_size: packageSize.toString()
+              }
+            },
+            unit_amount: pricing[packageSize],
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${process.env.APP_URL || 'http://localhost:3000'}?citation_success=true`,
+      cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}?citation_cancelled=true`,
+      metadata: {
+        user_id: userId.toString(),
+        service_type: 'citation_building',
+        package_size: packageSize.toString(),
+        business_name: businessName,
+        business_address: address,
+        business_phone: phone
+      },
+      customer_email: req.user.email
+    });
+
+    console.log(`✅ Citation checkout session created: ${session.id}`);
+
+    res.json({
+      success: true,
+      url: session.url,
+      sessionId: session.id
+    });
+
+  } catch (error) {
+    console.error('❌ Citation checkout error:', error);
+    res.status(500).json({
+      error: 'Failed to create checkout session. Please try again.'
+    });
+  }
+});
+
+// ==========================================
 // ADMIN ENDPOINTS
 // ==========================================
 

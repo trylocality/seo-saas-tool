@@ -1146,6 +1146,29 @@
         .citation-item-simple.missing .citation-icon { color: #dc3545; }
         .order-citations-btn { background: #0e192b; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; margin: 20px auto; display: block; transition: all 0.3s ease; }
         .order-citations-btn:hover { background: #1a2332; transform: translateY(-2px); }
+
+        /* Citation Order Modal */
+        .citation-modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); }
+        .citation-modal-content { background: white; margin: 5% auto; padding: 0; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3); }
+        .citation-modal-header { background: #0e192b; color: white; padding: 20px; border-radius: 12px 12px 0 0; }
+        .citation-modal-header h2 { margin: 0; font-size: 1.5rem; }
+        .citation-modal-close { color: white; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 20px; }
+        .citation-modal-close:hover { color: #ccc; }
+        .citation-modal-body { padding: 30px; }
+        .citation-package-option { border: 2px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.3s; }
+        .citation-package-option:hover { border-color: #0e192b; background: #f8f9fa; }
+        .citation-package-option.selected { border-color: #0e192b; background: #f0f4ff; }
+        .citation-package-option input[type="radio"] { margin-right: 10px; }
+        .citation-package-label { font-weight: 600; font-size: 1.1rem; margin-bottom: 5px; }
+        .citation-package-price { color: #0e192b; font-size: 1.3rem; font-weight: bold; }
+        .citation-package-details { color: #6c757d; font-size: 0.9rem; margin-top: 5px; }
+        .citation-form-group { margin-bottom: 20px; }
+        .citation-form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: #495057; }
+        .citation-form-group input { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 1rem; }
+        .citation-form-group input:focus { outline: none; border-color: #0e192b; }
+        .citation-submit-btn { background: #0e192b; color: white; border: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 1.1rem; cursor: pointer; width: 100%; transition: all 0.3s; }
+        .citation-submit-btn:hover { background: #1a2332; }
+        .citation-submit-btn:disabled { background: #6c757d; cursor: not-allowed; }
         
         /* Detailed Citation Analysis */
         .detailed-analysis-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef; }
@@ -5442,25 +5465,94 @@
             console.log(` Added detailed citation summary: ${foundCount}/${totalCount} citations found`);
         }
 
-        // Order citations function
+        // Order citations function - opens modal with pre-filled data
         function orderCitations() {
-            // You can customize this to open a contact form, redirect to a service page, etc.
-            const message = `Hi! I just completed a detailed citation analysis for my business and I'm interested in your citation building service. 
+            const modal = document.getElementById('citationModal');
 
-My business details:
-- Business: ${currentReportData?.business?.name || 'Not specified'}
-- Location: ${currentReportData?.business?.location || 'Not specified'}
+            // Pre-fill business information from current report
+            const businessName = currentReportData?.business?.name || currentReportData?.businessName || '';
+            const address = currentReportData?.business?.address || currentReportData?.business?.full_address || '';
+            const phone = currentReportData?.business?.phone || '';
 
-I'd like to discuss getting citations built for the missing directories identified in my report.`;
-            
-            const encodedMessage = encodeURIComponent(message);
-            const emailSubject = encodeURIComponent('Citation Building Service Request');
-            
-            // Open email client with pre-filled message
-            window.open(`mailto:trylocality@gmail.com?subject=${emailSubject}&body=${encodedMessage}`, '_blank');
-            
-            // Also show a toast for user feedback
-            showToast('Opening email client with citation request details...', 'info');
+            document.getElementById('citationBusinessName').value = businessName;
+            document.getElementById('citationAddress').value = address;
+            document.getElementById('citationPhone').value = phone;
+
+            modal.style.display = 'block';
+        }
+
+        // Close citation modal
+        function closeCitationModal() {
+            document.getElementById('citationModal').style.display = 'none';
+        }
+
+        // Select package option
+        function selectPackage(packageSize) {
+            // Remove selected class from all options
+            document.querySelectorAll('.citation-package-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            // Add selected class to clicked option
+            event.currentTarget.classList.add('selected');
+
+            // Check the radio button
+            document.getElementById(`package${packageSize}`).checked = true;
+        }
+
+        // Submit citation order - creates Stripe checkout
+        async function submitCitationOrder(event) {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('citationSubmitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+
+            try {
+                const formData = new FormData(event.target);
+                const packageSize = formData.get('package');
+                const businessName = formData.get('businessName');
+                const address = formData.get('address');
+                const phone = formData.get('phone');
+
+                // Call backend to create Stripe checkout session
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/create-citation-checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        packageSize: parseInt(packageSize),
+                        businessName,
+                        address,
+                        phone
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.url) {
+                    // Redirect to Stripe checkout
+                    window.location.href = data.url;
+                } else {
+                    throw new Error(data.error || 'Failed to create checkout session');
+                }
+            } catch (error) {
+                console.error('Citation order error:', error);
+                showToast(error.message || 'Failed to process order. Please try again.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Proceed to Checkout';
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('citationModal');
+            if (event.target === modal) {
+                closeCitationModal();
+            }
         }
 
         // Buy credits function
@@ -6874,5 +6966,64 @@ I'd like to discuss getting citations built for the missing directories identifi
             }
         });
     </script>
+
+    <!-- Citation Order Modal -->
+    <div id="citationModal" class="citation-modal">
+        <div class="citation-modal-content">
+            <div class="citation-modal-header">
+                <span class="citation-modal-close" onclick="closeCitationModal()">&times;</span>
+                <h2>Order Citation Building Service</h2>
+            </div>
+            <div class="citation-modal-body">
+                <form id="citationOrderForm" onsubmit="submitCitationOrder(event)">
+                    <!-- Package Selection -->
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;">Choose Your Package:</h3>
+
+                        <div class="citation-package-option" onclick="selectPackage('25')">
+                            <input type="radio" name="package" value="25" id="package25" required>
+                            <label for="package25" style="cursor: pointer; margin: 0;">
+                                <div class="citation-package-label">25 Citations</div>
+                                <div class="citation-package-price">$199</div>
+                                <div class="citation-package-details">Build your presence on 25 key local directories</div>
+                            </label>
+                        </div>
+
+                        <div class="citation-package-option" onclick="selectPackage('50')">
+                            <input type="radio" name="package" value="50" id="package50" required>
+                            <label for="package50" style="cursor: pointer; margin: 0;">
+                                <div class="citation-package-label">50 Citations</div>
+                                <div class="citation-package-price">$349</div>
+                                <div class="citation-package-details">Maximum coverage across 50 local directories</div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Business Information -->
+                    <h3 style="margin-bottom: 15px; font-size: 1.1rem;">Verify Business Information:</h3>
+
+                    <div class="citation-form-group">
+                        <label for="citationBusinessName">Business Name *</label>
+                        <input type="text" id="citationBusinessName" name="businessName" required>
+                    </div>
+
+                    <div class="citation-form-group">
+                        <label for="citationAddress">Business Address *</label>
+                        <input type="text" id="citationAddress" name="address" required>
+                    </div>
+
+                    <div class="citation-form-group">
+                        <label for="citationPhone">Business Phone *</label>
+                        <input type="tel" id="citationPhone" name="phone" required>
+                    </div>
+
+                    <button type="submit" class="citation-submit-btn" id="citationSubmitBtn">
+                        Proceed to Checkout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
