@@ -1022,9 +1022,9 @@ async function getOutscraperData(businessName, location) {
   }
 }
 // 2. SCRAPINGBEE SCREENSHOT - For visual analysis
-async function takeBusinessProfileScreenshot(businessName, location) {
+async function takeBusinessProfileScreenshot(businessName, location, placeId = null) {
   try {
-    console.log(`📸 Taking ScrapingBee screenshot: ${businessName}`);
+    console.log(`📸 Taking ScrapingBee screenshot: ${businessName}${placeId ? ' (using place_id)' : ''}`);
 
     await ensureScreenshotsDir();
 
@@ -1064,18 +1064,27 @@ async function takeBusinessProfileScreenshot(businessName, location) {
       // Continue to generate new screenshot
     }
 
-    // Enhanced query for county-level searches
-    const { city, state, isCounty } = extractCityState(location);
-    const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
-
     // Detect location for better screenshot results
     const { region } = detectCountryRegion(location);
     const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
-    const googleSearchUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
+
+    // Use direct Google Maps URL with place_id if available (better for product tiles visibility)
+    // Otherwise fall back to search results
+    let targetUrl;
+    if (placeId) {
+      targetUrl = `https://www.${googleDomain}/maps/search/?api=1&query=${encodeURIComponent(businessName)}&query_place_id=${placeId}`;
+      console.log(`🎯 Using direct Maps URL with place_id for better product tile visibility`);
+    } else {
+      // Fallback to search if no place_id
+      const { city, state, isCounty } = extractCityState(location);
+      const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
+      targetUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
+      console.log(`⚠️ No place_id available, using search results (product tiles may not be visible)`);
+    }
 
     const params = {
       api_key: SCRAPINGBEE_API_KEY,
-      url: googleSearchUrl,
+      url: targetUrl,
       custom_google: 'true',
       stealth_proxy: 'true',
       render_js: 'true',
@@ -2743,24 +2752,24 @@ async function generateCompleteReport(businessName, location, industry, website,
     } else {
       foundationPromises.push(getOutscraperData(businessName, location));
     }
-    
-    // Screenshot and Citations (independent)
-    foundationPromises.push(takeBusinessProfileScreenshot(businessName, location));
-    
-    // For citations, we need the phone number from business data
-    // Since we need to wait for business data to get phone, we'll handle citations separately
-    foundationPromises.push(Promise.resolve(null)); // Placeholder for citations
-    
+
+    // Wait for business data first to get place_id for better screenshot accuracy
     const foundationResults = await Promise.allSettled(foundationPromises);
-    
+
     // Extract results with fallbacks
-    const businessData = foundationResults[0].status === 'fulfilled' 
-      ? foundationResults[0].value 
+    const businessData = foundationResults[0].status === 'fulfilled'
+      ? foundationResults[0].value
       : getFallbackBusinessData(businessName, location);
-    
-    const screenshot = foundationResults[1].status === 'fulfilled' 
-      ? foundationResults[1].value 
-      : null;
+
+    // Now take screenshot with place_id for better product tile detection
+    let screenshot = null;
+    try {
+      const placeId = businessData.place_id || businessData.google_id;
+      screenshot = await takeBusinessProfileScreenshot(businessName, location, placeId);
+    } catch (screenshotError) {
+      console.error('❌ Screenshot failed:', screenshotError.message);
+      errors.push(`Screenshot: ${screenshotError.message}`);
+    }
     
     // Now check citations with phone number from business data
     console.log(`📞 Checking citations with phone: ${businessData.phone || 'No phone available'}`);
@@ -3279,29 +3288,18 @@ async function generateFastBulkReport(businessName, location, industry, website)
       };
     }
 
-    // Step 2: Run all analysis in parallel for speed optimization (GBP screenshot only)
-    console.log('🚀 Step 2: Running parallel analysis (GBP screenshot)...');
+    // Step 2: Take screenshot with place_id for better product tile detection
+    console.log('🚀 Step 2: Taking GBP screenshot with place_id...');
 
-    const parallelAnalysis = await Promise.allSettled([
-      // GBP screenshot capture
-      takeBusinessProfileScreenshot(businessName, location),
-    ]);
-
-    // Extract results with fallbacks
-    partialData.gbpScreenshot = parallelAnalysis[0].status === 'fulfilled'
-      ? parallelAnalysis[0].value
-      : null;
-
-    // Log any failures
-    parallelAnalysis.forEach((result, index) => {
-      const stepNames = ['GBP Screenshot'];
-      if (result.status === 'rejected') {
-        errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
-        console.error(`❌ ${stepNames[index]} failed:`, result.reason?.message);
-      } else {
-        console.log(`✅ ${stepNames[index]} succeeded`);
-      }
-    });
+    try {
+      const placeId = partialData.outscraper?.place_id || partialData.outscraper?.google_id;
+      partialData.gbpScreenshot = await takeBusinessProfileScreenshot(businessName, location, placeId);
+      console.log(`✅ GBP Screenshot succeeded`);
+    } catch (screenshotError) {
+      console.error(`❌ GBP Screenshot failed:`, screenshotError.message);
+      errors.push(`GBP Screenshot: ${screenshotError.message}`);
+      partialData.gbpScreenshot = null;
+    }
 
     // Step 3: AI analysis of GBP screenshot (if available)
     console.log('🤖 Step 3: AI analyzing GBP screenshot...');
