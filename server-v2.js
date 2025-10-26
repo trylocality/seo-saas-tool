@@ -838,7 +838,7 @@ function formatBusinessOptions(businesses) {
 // 1. OUTSCRAPER - Get primary business data
 async function getOutscraperData(businessName, location) {
   try {
-    // Check cache first (24 hour TTL)
+    // Check cache first (30 minute TTL - aligns with Google's indexing delay)
     const cacheKey = `outscraper_${businessName.toLowerCase()}_${location.toLowerCase()}`;
     try {
       const cached = await db.get(
@@ -945,13 +945,13 @@ async function getOutscraperData(businessName, location) {
               photoCategories: []
             };
 
-            // Cache the result for 24 hours
+            // Cache the result for 30 minutes
             try {
               await db.query(
-                'INSERT INTO api_cache (cache_key, data, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'24 hours\') ON CONFLICT (cache_key) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL \'24 hours\'',
+                'INSERT INTO api_cache (cache_key, data, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'30 minutes\') ON CONFLICT (cache_key) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL \'30 minutes\'',
                 [cacheKey, JSON.stringify(resultData)]
               );
-              console.log(`💾 Outscraper data cached for 24 hours`);
+              console.log(`💾 Outscraper data cached for 30 minutes`);
             } catch (cacheInsertError) {
               console.log(`⚠️ Failed to cache Outscraper data: ${cacheInsertError.message}`);
             }
@@ -1000,13 +1000,13 @@ async function getOutscraperData(businessName, location) {
         photoCategories: []
       };
 
-      // Cache the result for 24 hours
+      // Cache the result for 30 minutes
       try {
         await db.query(
-          'INSERT INTO api_cache (cache_key, data, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'24 hours\') ON CONFLICT (cache_key) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL \'24 hours\'',
+          'INSERT INTO api_cache (cache_key, data, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'30 minutes\') ON CONFLICT (cache_key) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL \'30 minutes\'',
           [cacheKey, JSON.stringify(resultData)]
         );
-        console.log(`💾 Outscraper data cached for 24 hours`);
+        console.log(`💾 Outscraper data cached for 30 minutes`);
       } catch (cacheInsertError) {
         console.log(`⚠️ Failed to cache Outscraper data: ${cacheInsertError.message}`);
       }
@@ -1032,7 +1032,7 @@ async function takeBusinessProfileScreenshot(businessName, location) {
       throw new Error('ScrapingBee API key not configured');
     }
 
-    // Check cache first (24 hour TTL)
+    // Check cache first (30 minute TTL - aligns with Google's indexing delay)
     const cacheKey = `${businessName.toLowerCase()}_${location.toLowerCase()}`;
     try {
       const cached = await db.get(
@@ -1104,13 +1104,13 @@ async function takeBusinessProfileScreenshot(businessName, location) {
 
       console.log(`✅ Screenshot saved: ${filename}`);
 
-      // Cache the screenshot for 24 hours
+      // Cache the screenshot for 30 minutes
       try {
         await db.query(
-          'INSERT INTO screenshot_cache (cache_key, filepath, filename, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL \'24 hours\')',
+          'INSERT INTO screenshot_cache (cache_key, filepath, filename, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL \'30 minutes\')',
           [cacheKey, filepath, filename]
         );
-        console.log(`💾 Screenshot cached for 24 hours`);
+        console.log(`💾 Screenshot cached for 30 minutes`);
       } catch (cacheInsertError) {
         console.log(`⚠️ Failed to cache screenshot: ${cacheInsertError.message}`);
         // Don't fail the request if caching fails
@@ -5740,6 +5740,127 @@ app.post('/api/feedback', authenticateToken, async (req, res) => {
     console.error('❌ Feedback submission error:', error);
     res.status(500).json({ 
       error: 'Failed to submit feedback. Please try again.' 
+    });
+  }
+});
+
+// ==========================================
+// FACTOR OVERRIDE API ENDPOINTS
+// ==========================================
+
+// Save or update a factor override
+app.post('/api/factor-override', authenticateToken, async (req, res) => {
+  try {
+    const { reportId, factorName, overrideStatus, aiDetectedStatus, businessName } = req.body;
+    const userId = req.user.id;
+
+    // Validate required fields
+    if (!reportId || !factorName || !overrideStatus) {
+      return res.status(400).json({ error: 'Report ID, factor name, and override status are required' });
+    }
+
+    // Validate override status
+    const validStatuses = ['missing', 'needs_improvement', 'good'];
+    if (!validStatuses.includes(overrideStatus)) {
+      return res.status(400).json({ error: 'Invalid override status. Must be: missing, needs_improvement, or good' });
+    }
+
+    console.log(`🔧 Factor override: Report ${reportId}, Factor: ${factorName}, Status: ${overrideStatus}`);
+
+    try {
+      // Insert or update override (UPSERT)
+      const result = await db.query(`
+        INSERT INTO factor_overrides (report_id, user_id, business_name, factor_name, override_status, ai_detected_status, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT (report_id, factor_name)
+        DO UPDATE SET
+          override_status = $5,
+          ai_detected_status = $6,
+          updated_at = NOW()
+        RETURNING id, created_at, updated_at
+      `, [reportId, userId, businessName || '', factorName, overrideStatus, aiDetectedStatus || null]);
+
+      const override = result.rows[0];
+      console.log(`✅ Factor override saved for report ${reportId}, factor: ${factorName}`);
+
+      res.json({
+        success: true,
+        message: 'Factor status updated successfully',
+        override: {
+          id: override.id,
+          reportId,
+          factorName,
+          overrideStatus,
+          createdAt: override.created_at,
+          updatedAt: override.updated_at
+        }
+      });
+    } catch (dbError) {
+      console.error('❌ Database error saving factor override:', dbError);
+      return res.status(500).json({ error: 'Failed to save factor override. Please try again.' });
+    }
+
+  } catch (error) {
+    console.error('❌ Factor override error:', error);
+    res.status(500).json({
+      error: 'Failed to update factor status. Please try again.'
+    });
+  }
+});
+
+// Get all factor overrides for a report
+app.get('/api/factor-overrides/:reportId', authenticateToken, async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    const userId = req.user.id;
+
+    if (!reportId) {
+      return res.status(400).json({ error: 'Report ID is required' });
+    }
+
+    try {
+      // Fetch all overrides for this report
+      const result = await db.query(`
+        SELECT
+          id,
+          report_id,
+          factor_name,
+          override_status,
+          ai_detected_status,
+          created_at,
+          updated_at
+        FROM factor_overrides
+        WHERE report_id = $1 AND user_id = $2
+        ORDER BY updated_at DESC
+      `, [reportId, userId]);
+
+      const overrides = result.rows.reduce((acc, row) => {
+        acc[row.factor_name] = {
+          id: row.id,
+          overrideStatus: row.override_status,
+          aiDetectedStatus: row.ai_detected_status,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        };
+        return acc;
+      }, {});
+
+      console.log(`📋 Retrieved ${result.rows.length} factor overrides for report ${reportId}`);
+
+      res.json({
+        success: true,
+        reportId: parseInt(reportId),
+        overrides
+      });
+    } catch (dbError) {
+      console.error('❌ Database error fetching factor overrides:', dbError);
+      return res.status(500).json({ error: 'Failed to fetch factor overrides. Please try again.' });
+    }
+
+  } catch (error) {
+    console.error('❌ Factor overrides fetch error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch factor overrides. Please try again.'
     });
   }
 });

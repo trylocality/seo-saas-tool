@@ -384,6 +384,22 @@ class DatabaseAdapter {
       )
     `);
 
+    // Factor overrides table - for user manual adjustments
+    await this.query(`
+      CREATE TABLE IF NOT EXISTS factor_overrides (
+        id SERIAL PRIMARY KEY,
+        report_id INTEGER NOT NULL REFERENCES reports(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        business_name TEXT NOT NULL,
+        factor_name TEXT NOT NULL,
+        override_status TEXT NOT NULL CHECK (override_status IN ('missing', 'needs_improvement', 'good')),
+        ai_detected_status TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(report_id, factor_name)
+      )
+    `);
+
     // Create indexes for performance (with error handling for missing tables)
     const indexes = [
       'CREATE INDEX IF NOT EXISTS idx_screenshot_cache_expires ON screenshot_cache(expires_at)',
@@ -401,7 +417,9 @@ class DatabaseAdapter {
       'CREATE INDEX IF NOT EXISTS idx_reports_was_paid ON reports(was_paid)',
       'CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)',
       'CREATE INDEX IF NOT EXISTS idx_appsumo_codes_code ON appsumo_codes(code)',
-      'CREATE INDEX IF NOT EXISTS idx_appsumo_codes_redeemed ON appsumo_codes(is_redeemed)'
+      'CREATE INDEX IF NOT EXISTS idx_appsumo_codes_redeemed ON appsumo_codes(is_redeemed)',
+      'CREATE INDEX IF NOT EXISTS idx_factor_overrides_report ON factor_overrides(report_id)',
+      'CREATE INDEX IF NOT EXISTS idx_factor_overrides_user ON factor_overrides(user_id)'
     ];
 
     for (const indexQuery of indexes) {
@@ -617,6 +635,27 @@ class DatabaseAdapter {
       console.log(`⚠️ Migration warning (screenshot_cache schema fix): ${error.message}`);
     }
 
+    // Migration 7: Create factor_overrides table for manual user adjustments
+    try {
+      await this.query(`
+        CREATE TABLE IF NOT EXISTS factor_overrides (
+          id SERIAL PRIMARY KEY,
+          report_id INTEGER NOT NULL REFERENCES reports(id),
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          business_name TEXT NOT NULL,
+          factor_name TEXT NOT NULL,
+          override_status TEXT NOT NULL CHECK (override_status IN ('missing', 'needs_improvement', 'good')),
+          ai_detected_status TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(report_id, factor_name)
+        )
+      `);
+      console.log('✅ Migration: factor_overrides table created');
+    } catch (error) {
+      console.log(`⚠️ Migration warning (factor_overrides): ${error.message}`);
+    }
+
     // Future migrations can be added here
     console.log('✅ All PostgreSQL migrations completed');
   }
@@ -713,6 +752,24 @@ class DatabaseAdapter {
       )
     `);
 
+    // Factor overrides table - for user manual adjustments
+    await this.query(`
+      CREATE TABLE IF NOT EXISTS factor_overrides (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        report_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        business_name TEXT NOT NULL,
+        factor_name TEXT NOT NULL,
+        override_status TEXT NOT NULL CHECK (override_status IN ('missing', 'needs_improvement', 'good')),
+        ai_detected_status TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(report_id, factor_name),
+        FOREIGN KEY (report_id) REFERENCES reports (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      )
+    `);
+
     // Add new columns if they don't exist (for existing databases) - MUST happen before creating indexes on these columns
     const columnsToAdd = [
       { name: 'email_verified', definition: 'INTEGER DEFAULT 0' },
@@ -781,7 +838,9 @@ class DatabaseAdapter {
       { name: 'idx_payments_created_at', table: 'payments', column: 'created_at DESC' },
       { name: 'idx_reports_created_at', table: 'reports', column: 'created_at DESC' },
       { name: 'idx_reports_was_paid', table: 'reports', column: 'was_paid' },
-      { name: 'idx_feedback_user_id', table: 'feedback', column: 'user_id' }
+      { name: 'idx_feedback_user_id', table: 'feedback', column: 'user_id' },
+      { name: 'idx_factor_overrides_report', table: 'factor_overrides', column: 'report_id' },
+      { name: 'idx_factor_overrides_user', table: 'factor_overrides', column: 'user_id' }
     ];
 
     for (const index of indexes) {
