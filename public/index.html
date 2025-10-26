@@ -4105,7 +4105,11 @@
         function displayReport(reportData) {
             console.log(' Displaying single-page report:', reportData);
             console.log(' Data structure check:', Object.keys(reportData));
-            
+
+            // Store report ID and business name for manual overrides
+            window.currentReportId = reportData.id || reportData.reportId;
+            window.currentBusinessName = reportData.businessName || reportData.business?.name || '';
+
             try {
                 // More flexible data access to handle different backend structures
                 const businessData = reportData.business || reportData.businessData || {};
@@ -4583,7 +4587,7 @@
                 const suggestion = getSmartSuggestion(factor, smartSuggestions);
 
                 return `
-                    <div class="factor-card ${statusClass}" onclick="toggleFactor(this)">
+                    <div class="factor-card ${statusClass}" onclick="toggleFactor(this)" data-factor-id="${factor.id}">
                         <div class="factor-header">
                             <div class="factor-name">${factor.name}</div>
                             <span class="factor-expand-arrow">▼</span>
@@ -4617,6 +4621,26 @@
                                     </div>
                                 </div>
                             ` : ''}
+
+                            <!-- Manual Override Section -->
+                            <div class="manual-override-section" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                                <button class="manual-update-btn" onclick="showManualOverride('${factor.id}'); event.stopPropagation();" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 8px 16px; border-radius: 6px; font-size: 13px; color: #495057; cursor: pointer; transition: all 0.2s;">
+                                    🔧 Manual Update
+                                </button>
+                                <div class="manual-override-dropdown" id="override-${factor.id}" style="display: none; margin-top: 10px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+                                    <div style="font-size: 13px; color: #6c757d; margin-bottom: 8px;">Update status manually:</div>
+                                    <select class="override-select" id="select-${factor.id}" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; margin-bottom: 8px;">
+                                        <option value="missing" ${statusClass === 'missing' ? 'selected' : ''}>❌ Missing</option>
+                                        <option value="needs_improvement" ${statusClass === 'needs-improvement' ? 'selected' : ''}>⚠️ Needs Improvement</option>
+                                        <option value="good" ${statusClass === 'good' ? 'selected' : ''}>✅ Good</option>
+                                    </select>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button onclick="saveFactorOverride('${factor.id}'); event.stopPropagation();" style="flex: 1; background: #0e192b; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 13px; cursor: pointer;">Save</button>
+                                        <button onclick="cancelManualOverride('${factor.id}'); event.stopPropagation();" style="flex: 1; background: #6c757d; color: white; border: none; padding: 8px; border-radius: 4px; font-size: 13px; cursor: pointer;">Cancel</button>
+                                    </div>
+                                    <div id="override-status-${factor.id}" style="margin-top: 8px; font-size: 12px; color: #6c757d;"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -4815,6 +4839,95 @@
             }, 2000);
             
             showToast('Suggestion copied to clipboard!', 'success');
+        }
+
+        // Manual Override Functions
+        function showManualOverride(factorId) {
+            const dropdown = document.getElementById(`override-${factorId}`);
+            if (dropdown.style.display === 'none') {
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        }
+
+        function cancelManualOverride(factorId) {
+            const dropdown = document.getElementById(`override-${factorId}`);
+            dropdown.style.display = 'none';
+        }
+
+        async function saveFactorOverride(factorId) {
+            const select = document.getElementById(`select-${factorId}`);
+            const statusDiv = document.getElementById(`override-status-${factorId}`);
+            const overrideStatus = select.value;
+
+            statusDiv.textContent = 'Saving...';
+            statusDiv.style.color = '#6c757d';
+
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    showToast('Please log in to update factor status', 'error');
+                    return;
+                }
+
+                const response = await fetch('/api/factor-override', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        reportId: window.currentReportId,
+                        factorName: factorId,
+                        overrideStatus: overrideStatus,
+                        aiDetectedStatus: getCurrentFactorStatus(factorId),
+                        businessName: window.currentBusinessName || ''
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.textContent = '✓ Saved successfully';
+                    statusDiv.style.color = '#28a745';
+
+                    // Update the factor card's visual state
+                    const factorCard = document.querySelector(`[data-factor-id="${factorId}"]`);
+                    if (factorCard) {
+                        // Remove old status classes
+                        factorCard.classList.remove('missing', 'needs-improvement', 'good');
+                        // Add new status class
+                        factorCard.classList.add(overrideStatus.replace('_', '-'));
+                    }
+
+                    showToast('Factor status updated successfully!', 'success');
+
+                    setTimeout(() => {
+                        const dropdown = document.getElementById(`override-${factorId}`);
+                        dropdown.style.display = 'none';
+                    }, 1500);
+                } else {
+                    statusDiv.textContent = '✗ Failed to save';
+                    statusDiv.style.color = '#dc3545';
+                    showToast(data.error || 'Failed to update factor status', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving factor override:', error);
+                statusDiv.textContent = '✗ Error occurred';
+                statusDiv.style.color = '#dc3545';
+                showToast('Error updating factor status', 'error');
+            }
+        }
+
+        function getCurrentFactorStatus(factorId) {
+            const factorCard = document.querySelector(`[data-factor-id="${factorId}"]`);
+            if (!factorCard) return 'unknown';
+
+            if (factorCard.classList.contains('missing')) return 'missing';
+            if (factorCard.classList.contains('needs-improvement')) return 'needs_improvement';
+            if (factorCard.classList.contains('good')) return 'good';
+            return 'unknown';
         }
 
         // Display citations in single row format
