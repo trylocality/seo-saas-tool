@@ -640,7 +640,7 @@ This feedback was submitted through the Locality SEO Audit Tool.
     console.log('To: trylocality@gmail.com');
     console.log('Subject:', subject);
     console.log('Body:', emailBody);
-    
+
     // Send to feedback webhook
     const webhookUrl = process.env.FEEDBACK_WEBHOOK_URL;
     if (webhookUrl) {
@@ -653,23 +653,138 @@ This feedback was submitted through the Locality SEO Audit Tool.
         emailType: 'feedback_submission',
         timestamp: new Date().toISOString()
       };
-      
+
       console.log(`🔗 Sending feedback to webhook: ${webhookUrl}`);
-      
+
       await axios.post(webhookUrl, webhookData, {
         timeout: 5000,
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       console.log('✅ Feedback webhook sent successfully');
     } else {
       console.warn('⚠️ No FEEDBACK_WEBHOOK_URL configured');
     }
-    
+
     return true;
   } catch (error) {
     console.error('❌ Email sending failed:', error.message);
     throw error;
+  }
+}
+
+// Send citation order notification email
+async function sendCitationOrderEmail(orderData) {
+  const {
+    packageSize,
+    businessName,
+    businessAddress,
+    businessPhone,
+    customerName,
+    customerEmail,
+    amountPaid,
+    priorityCitations,
+    existingCitations,
+    missingCount,
+    foundCount,
+    totalAnalyzed
+  } = orderData;
+
+  // Format priority citations list
+  let priorityList = 'None specified';
+  if (priorityCitations && priorityCitations.length > 0) {
+    priorityList = priorityCitations.map((citation, index) => {
+      const issue = citation.issue ? ` (${citation.issue})` : '';
+      return `   ${index + 1}. ${citation.directory}${issue}`;
+    }).join('\n');
+  }
+
+  // Format existing citations list
+  let existingList = 'None found';
+  if (existingCitations && existingCitations.length > 0) {
+    existingList = existingCitations.map((citation, index) => {
+      const url = citation.url ? ` - ${citation.url}` : '';
+      return `   ${index + 1}. ${citation.directory}${url}`;
+    }).join('\n');
+  }
+
+  const subject = `🎯 NEW CITATION ORDER - ${packageSize} Citations for ${businessName}`;
+  const emailBody = `
+NEW CITATION BUILDING ORDER RECEIVED!
+
+💰 ORDER DETAILS:
+   • Package: ${packageSize} Citations
+   • Amount Paid: $${(amountPaid / 100).toFixed(2)}
+   • Order Date: ${new Date().toLocaleString()}
+
+👤 CUSTOMER INFORMATION:
+   • Name: ${customerName}
+   • Email: ${customerEmail}
+
+🏢 BUSINESS INFORMATION:
+   • Business Name: ${businessName}
+   • Address: ${businessAddress}
+   • Phone: ${businessPhone}
+
+📊 CITATION ANALYSIS:
+   • Total Directories Analyzed: ${totalAnalyzed || 'Not analyzed'}
+   • Missing Citations: ${missingCount || 0} (BUILD THESE FIRST!)
+   • Existing Citations: ${foundCount || 0} (Skip these)
+
+🎯 PRIORITY CITATIONS (Missing/RED - Build These First):
+${priorityList}
+
+✅ EXISTING CITATIONS (Found/GREEN - Skip These):
+${existingList}
+
+📋 ACTION REQUIRED:
+1. Review the priority citations list above
+2. Build citations for the ${missingCount || 0} missing directories FIRST
+3. Then fill remaining slots (up to ${packageSize} total) with other high-value directories
+4. Avoid duplicating the ${foundCount || 0} existing citations listed above
+
+---
+This order was placed through the Locality SEO Audit Tool.
+  `.trim();
+
+  try {
+    // Method 1: Log to console (always works for debugging)
+    console.log('📧 CITATION ORDER EMAIL NOTIFICATION:');
+    console.log('To: trylocality@gmail.com');
+    console.log('Subject:', subject);
+    console.log('Body:', emailBody);
+
+    // Send to webhook (try citation webhook first, then fall back to feedback webhook)
+    const webhookUrl = process.env.CITATION_ORDER_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL;
+    if (webhookUrl) {
+      const webhookData = {
+        to: 'trylocality@gmail.com',
+        subject: subject,
+        body: emailBody,
+        text: emailBody,
+        orderData: orderData,
+        type: 'citation_order',
+        emailType: 'citation_order',
+        timestamp: new Date().toISOString()
+      };
+
+      console.log(`🔗 Sending citation order notification to webhook: ${webhookUrl.substring(0, 50)}...`);
+
+      await axios.post(webhookUrl, webhookData, {
+        timeout: 5000,
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      console.log('✅ Citation order webhook sent successfully');
+    } else {
+      console.warn('⚠️ No CITATION_ORDER_WEBHOOK_URL or FEEDBACK_WEBHOOK_URL configured');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Citation order email sending failed:', error.message);
+    // Don't throw error - we don't want to fail the order if email fails
+    return false;
   }
 }
 
@@ -5544,7 +5659,69 @@ app.get('/api/reports/:id', authenticateToken, async (req, res) => {
           console.error('❌ Failed to parse stored detailed citation analysis:', analysisParseError);
         }
       }
-      
+
+      // Fetch and apply factor overrides for this report (only for regular reports, not bulk)
+      if (!isBulkReport && responseReport.auditOverview && responseReport.auditOverview.factors) {
+        try {
+          const overrides = await db.all(
+            'SELECT factor_name, override_status FROM factor_overrides WHERE report_id = $1',
+            [reportId]
+          );
+
+          if (overrides && overrides.length > 0) {
+            console.log(`🔧 Applying ${overrides.length} factor override(s) to report ${reportId}`);
+
+            // Create a map of overrides for quick lookup
+            const overrideMap = {};
+            overrides.forEach(override => {
+              overrideMap[override.factor_name] = override.override_status;
+            });
+
+            // Apply overrides to factors
+            responseReport.auditOverview.factors = responseReport.auditOverview.factors.map(factor => {
+              if (overrideMap[factor.id]) {
+                const newStatus = overrideMap[factor.id].toUpperCase().replace('_', ' ');
+                console.log(`  ✏️ Override: ${factor.id} from ${factor.status} to ${newStatus}`);
+                return {
+                  ...factor,
+                  status: newStatus,
+                  manuallyOverridden: true
+                };
+              }
+              return factor;
+            });
+
+            // Recalculate score based on overridden factors
+            const totalFactors = responseReport.auditOverview.factors.length;
+            const goodFactors = responseReport.auditOverview.factors.filter(f => f.status === 'GOOD').length;
+            const needsImprovementFactors = responseReport.auditOverview.factors.filter(f => f.status === 'NEEDS IMPROVEMENT').length;
+            const missingFactors = responseReport.auditOverview.factors.filter(f => f.status === 'MISSING').length;
+
+            // Score calculation: GOOD = 100%, NEEDS IMPROVEMENT = 50%, MISSING = 0%
+            const newScore = Math.round(((goodFactors * 100) + (needsImprovementFactors * 50)) / totalFactors);
+
+            console.log(`  📊 Recalculated score: ${newScore} (was: ${responseReport.auditOverview.overallScore?.score || 'unknown'})`);
+            console.log(`     Good: ${goodFactors}, Needs Improvement: ${needsImprovementFactors}, Missing: ${missingFactors}`);
+
+            // Update the score
+            if (!responseReport.auditOverview.overallScore) {
+              responseReport.auditOverview.overallScore = {};
+            }
+            responseReport.auditOverview.overallScore.score = newScore;
+            responseReport.finalScore = newScore;
+
+            // Update optimization opportunities count
+            optimizationOpportunities = missingFactors + needsImprovementFactors;
+            if (shouldLock) {
+              responseReport.optimizationOpportunities = optimizationOpportunities;
+            }
+          }
+        } catch (overrideError) {
+          console.error('❌ Error fetching/applying factor overrides:', overrideError);
+          // Continue without overrides if there's an error
+        }
+      }
+
       const reportType = isBulkReport ? 'BULK AUDIT' : (wasPaid ? 'PAID' : 'LOCKED');
       console.log(`✅ Successfully loaded report ${reportId} (${reportType})`);
 
@@ -5969,7 +6146,7 @@ app.get('/api/factor-overrides/:reportId', authenticateToken, async (req, res) =
 // Create Stripe checkout session for citation building service
 app.post('/api/create-citation-checkout', authenticateToken, async (req, res) => {
   try {
-    const { packageSize, businessName, address, phone } = req.body;
+    const { packageSize, businessName, address, phone, citationPriorities } = req.body;
     const userId = req.user.id;
 
     // Validate package size
@@ -5984,11 +6161,45 @@ app.post('/api/create-citation-checkout', authenticateToken, async (req, res) =>
 
     // Define pricing (in cents)
     const pricing = {
-      25: 19900, // $199.00
-      50: 34900  // $349.00
+      25: 3000, // $30.00
+      50: 5000  // $50.00
     };
 
     console.log(`📋 Creating citation checkout: ${packageSize} citations for ${businessName}`);
+
+    if (citationPriorities) {
+      console.log(`  📊 Citation priorities: ${citationPriorities.missingCount || 0} missing, ${citationPriorities.foundCount || 0} found`);
+      if (citationPriorities.missing && citationPriorities.missing.length > 0) {
+        console.log(`  🎯 Priority directories (missing/red):`, citationPriorities.missing.map(c => c.directory).join(', '));
+      }
+    }
+
+    // Prepare metadata with citation priorities
+    const metadata = {
+      user_id: userId.toString(),
+      service_type: 'citation_building',
+      package_size: packageSize.toString(),
+      business_name: businessName,
+      business_address: address,
+      business_phone: phone
+    };
+
+    // Add citation priority data if available
+    if (citationPriorities) {
+      metadata.missing_count = (citationPriorities.missingCount || 0).toString();
+      metadata.found_count = (citationPriorities.foundCount || 0).toString();
+      metadata.total_analyzed = (citationPriorities.totalAnalyzed || 0).toString();
+
+      // Store missing citations list (prioritize these first)
+      if (citationPriorities.missing && citationPriorities.missing.length > 0) {
+        metadata.priority_citations = JSON.stringify(citationPriorities.missing.slice(0, 30)); // Stripe has metadata limits
+      }
+
+      // Store found citations list
+      if (citationPriorities.found && citationPriorities.found.length > 0) {
+        metadata.existing_citations = JSON.stringify(citationPriorities.found.slice(0, 30));
+      }
+    }
 
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
@@ -5999,7 +6210,9 @@ app.post('/api/create-citation-checkout', authenticateToken, async (req, res) =>
             currency: 'usd',
             product_data: {
               name: `Citation Building Service - ${packageSize} Citations`,
-              description: `Build your business presence across ${packageSize} local directories`,
+              description: citationPriorities && citationPriorities.missingCount > 0
+                ? `Build ${packageSize} citations (prioritizing ${citationPriorities.missingCount} missing directories)`
+                : `Build your business presence across ${packageSize} local directories`,
               metadata: {
                 service_type: 'citation_building',
                 package_size: packageSize.toString()
@@ -6013,14 +6226,7 @@ app.post('/api/create-citation-checkout', authenticateToken, async (req, res) =>
       mode: 'payment',
       success_url: `${process.env.APP_URL || 'http://localhost:3000'}?citation_success=true`,
       cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}?citation_cancelled=true`,
-      metadata: {
-        user_id: userId.toString(),
-        service_type: 'citation_building',
-        package_size: packageSize.toString(),
-        business_name: businessName,
-        business_address: address,
-        business_phone: phone
-      },
+      metadata: metadata,
       customer_email: req.user.email
     });
 
@@ -6246,42 +6452,88 @@ app.post('/api/stripe-webhook', async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object;
-        
-        // Handle successful payment
+
+        // Check if this is a citation building order
+        if (session.metadata.service_type === 'citation_building') {
+          console.log('📋 Citation building order detected');
+
+          // Parse priority citations from metadata
+          let priorityCitations = [];
+          let existingCitations = [];
+
+          try {
+            if (session.metadata.priority_citations) {
+              priorityCitations = JSON.parse(session.metadata.priority_citations);
+            }
+            if (session.metadata.existing_citations) {
+              existingCitations = JSON.parse(session.metadata.existing_citations);
+            }
+          } catch (parseError) {
+            console.error('Error parsing citation data:', parseError);
+          }
+
+          // Get user info for email
+          const userId = parseInt(session.metadata.user_id);
+          const user = await db.get('SELECT first_name, last_name, email FROM users WHERE id = $1', [userId]);
+
+          const customerName = user ? `${user.first_name} ${user.last_name}` : 'Unknown';
+          const customerEmail = user ? user.email : session.customer_email || 'Unknown';
+
+          // Send citation order notification email
+          await sendCitationOrderEmail({
+            packageSize: parseInt(session.metadata.package_size),
+            businessName: session.metadata.business_name,
+            businessAddress: session.metadata.business_address,
+            businessPhone: session.metadata.business_phone,
+            customerName: customerName,
+            customerEmail: customerEmail,
+            amountPaid: session.amount_total,
+            priorityCitations: priorityCitations,
+            existingCitations: existingCitations,
+            missingCount: parseInt(session.metadata.missing_count || 0),
+            foundCount: parseInt(session.metadata.found_count || 0),
+            totalAnalyzed: parseInt(session.metadata.total_analyzed || 0)
+          });
+
+          console.log(`✅ Citation order processed and notification sent`);
+          break;
+        }
+
+        // Handle successful payment (credit purchases)
         const userId = parseInt(session.metadata.userId);
         const credits = parseInt(session.metadata.credits);
         let priceType = session.metadata.priceType;
-        
+
         // Handle backward compatibility for old plan names
         if (priceType === 'starter') {
           priceType = 'pro'; // Map old 'starter' to new 'pro'
           console.log('🔄 Mapped legacy "starter" plan to "pro"');
         } else if (priceType === 'pro') {
-          priceType = 'premium'; // Map old 'pro' to new 'premium'  
+          priceType = 'premium'; // Map old 'pro' to new 'premium'
           console.log('🔄 Mapped legacy "pro" plan to "premium"');
         }
-        
+
         // Check for duplicate payment processing
         const existingPayment = await db.query(
           'SELECT id FROM payments WHERE stripe_session_id = $1',
           [session.id]
         );
-        
+
         if (existingPayment.rows && existingPayment.rows.length > 0) {
           console.log(`⚠️ Payment already processed for session ${session.id}`);
           break;
         }
-        
+
         // Update user credits
         await db.query(
           'UPDATE users SET credits_remaining = credits_remaining + $1 WHERE id = $2',
           [credits, userId]
         );
-        
+
         // Record payment
         await db.query(`
           INSERT INTO payments (
-            user_id, stripe_session_id, stripe_payment_intent_id, 
+            user_id, stripe_session_id, stripe_payment_intent_id,
             amount, status, product_type, credits_purchased
           ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         `, [
@@ -6293,7 +6545,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
           priceType,
           credits
         ]);
-        
+
         // Update subscription tier if applicable
         if (priceType === 'pro' || priceType === 'premium') {
           await db.query(
@@ -6301,7 +6553,7 @@ app.post('/api/stripe-webhook', async (req, res) => {
             [priceType, userId]
           );
         }
-        
+
         console.log(`✅ Payment successful for user ${userId}: ${credits} credits added`);
         console.log(`🔍 DEBUG - Session data:`, {
           sessionId: session.id,

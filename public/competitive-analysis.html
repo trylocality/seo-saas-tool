@@ -939,14 +939,26 @@
                     </div>
                 </div>
 
-                <div style="background: #e7f3ff; border-left: 4px solid #17a2b8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h3 style="color: #0e192b; margin-bottom: 15px;">🤖 AI Analysis</h3>
-                    <div style="white-space: pre-wrap; line-height: 1.6;">${comparison.aiAnalysis || 'Generating insights...'}</div>
+                <!-- AI Analysis Section - Clean White Design -->
+                <div style="background: white; border: 2px solid #e9ecef; border-radius: 12px; padding: 30px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #f8f9fa;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 24px;">
+                            🤖
+                        </div>
+                        <h3 style="color: #0e192b; margin: 0; font-size: 1.5rem; font-weight: 700;">AI Analysis</h3>
+                    </div>
+                    <div style="color: #2d3748; font-size: 1rem; line-height: 1.8; white-space: pre-wrap;">${comparison.aiAnalysis || 'Generating insights...'}</div>
                 </div>
 
-                <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px;">
-                    <h3 style="color: #856404; margin-bottom: 15px;">💡 Recommendations for ${lowerRanked.name}</h3>
-                    <div style="white-space: pre-wrap; line-height: 1.6;">${comparison.recommendations || 'Analyzing improvement opportunities...'}</div>
+                <!-- Recommendations Section - Clean Design -->
+                <div style="background: white; border: 2px solid #ffc107; border-radius: 12px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #fff3cd;">
+                        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-size: 24px;">
+                            💡
+                        </div>
+                        <h3 style="color: #0e192b; margin: 0; font-size: 1.5rem; font-weight: 700;">Recommendations for ${lowerRanked.name}</h3>
+                    </div>
+                    <div style="color: #2d3748; font-size: 1rem; line-height: 1.8; white-space: pre-wrap;">${comparison.recommendations || 'Analyzing improvement opportunities...'}</div>
                 </div>
             `;
 

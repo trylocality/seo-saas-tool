@@ -4650,9 +4650,9 @@
                                 <button class="manual-update-btn" onclick="showManualOverride('${factor.id}'); event.stopPropagation();" style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 8px 16px; border-radius: 6px; font-size: 13px; color: #495057; cursor: pointer; transition: all 0.2s;">
                                     🔧 Manual Update
                                 </button>
-                                <div class="manual-override-dropdown" id="override-${factor.id}" style="display: none; margin-top: 10px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+                                <div class="manual-override-dropdown" id="override-${factor.id}" onclick="event.stopPropagation();" style="display: none; margin-top: 10px; padding: 12px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
                                     <div style="font-size: 13px; color: #6c757d; margin-bottom: 8px;">Update status manually:</div>
-                                    <select class="override-select" id="select-${factor.id}" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; margin-bottom: 8px;">
+                                    <select class="override-select" id="select-${factor.id}" onclick="event.stopPropagation();" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 14px; margin-bottom: 8px;">
                                         <option value="missing" ${statusClass === 'missing' ? 'selected' : ''}>❌ Missing</option>
                                         <option value="needs_improvement" ${statusClass === 'needs-improvement' ? 'selected' : ''}>⚠️ Needs Improvement</option>
                                         <option value="good" ${statusClass === 'good' ? 'selected' : ''}>✅ Good</option>
@@ -4912,24 +4912,21 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    statusDiv.textContent = '✓ Saved successfully';
+                    statusDiv.textContent = '✓ Saved successfully - Reloading...';
                     statusDiv.style.color = '#28a745';
-
-                    // Update the factor card's visual state
-                    const factorCard = document.querySelector(`[data-factor-id="${factorId}"]`);
-                    if (factorCard) {
-                        // Remove old status classes
-                        factorCard.classList.remove('missing', 'needs-improvement', 'good');
-                        // Add new status class
-                        factorCard.classList.add(overrideStatus.replace('_', '-'));
-                    }
 
                     showToast('Factor status updated successfully!', 'success');
 
-                    setTimeout(() => {
-                        const dropdown = document.getElementById(`override-${factorId}`);
-                        dropdown.style.display = 'none';
-                    }, 1500);
+                    // Reload the report to show updated factor position and recalculated score
+                    setTimeout(async () => {
+                        try {
+                            await viewStoredReport(window.currentReportId);
+                            showToast('Report updated with new factor status', 'success');
+                        } catch (reloadError) {
+                            console.error('Error reloading report:', reloadError);
+                            showToast('Factor saved but failed to reload. Please refresh the page.', 'warning');
+                        }
+                    }, 800);
                 } else {
                     statusDiv.textContent = '✗ Failed to save';
                     statusDiv.style.color = '#dc3545';
@@ -5478,6 +5475,55 @@
             document.getElementById('citationAddress').value = address;
             document.getElementById('citationPhone').value = phone;
 
+            // Capture citation analysis data for prioritization
+            const citationAnalysis = currentReportData?.citationsAnalysis || currentReportData?.detailedCitationAnalysis;
+            if (citationAnalysis) {
+                // Store citation data in a hidden field or global variable
+                window.citationPriorityData = {
+                    missing: [],
+                    found: [],
+                    total: 0
+                };
+
+                // Extract missing and found citations
+                if (citationAnalysis.data && citationAnalysis.data.checked) {
+                    citationAnalysis.data.checked.forEach(citation => {
+                        if (citation.found) {
+                            window.citationPriorityData.found.push({
+                                directory: citation.directory,
+                                url: citation.url || ''
+                            });
+                        } else {
+                            window.citationPriorityData.missing.push({
+                                directory: citation.directory
+                            });
+                        }
+                    });
+                    window.citationPriorityData.total = citationAnalysis.data.checked.length;
+                }
+
+                // Also check detailed analysis if available
+                if (citationAnalysis.detailedResults) {
+                    citationAnalysis.detailedResults.forEach(citation => {
+                        const status = citation.status?.toLowerCase() || '';
+                        if (status === 'not found' || status === 'missing' || !citation.found) {
+                            // Add to missing if not already there
+                            if (!window.citationPriorityData.missing.some(c => c.directory === citation.directory)) {
+                                window.citationPriorityData.missing.push({
+                                    directory: citation.directory,
+                                    issue: citation.issue || 'Not found'
+                                });
+                            }
+                        }
+                    });
+                }
+
+                console.log('📋 Citation priority data captured:', window.citationPriorityData);
+            } else {
+                console.warn('⚠️ No citation analysis data available for this report');
+                window.citationPriorityData = null;
+            }
+
             modal.style.display = 'block';
         }
 
@@ -5515,6 +5561,11 @@
                 const address = formData.get('address');
                 const phone = formData.get('phone');
 
+                // Prepare citation priority data
+                const citationData = window.citationPriorityData || { missing: [], found: [], total: 0 };
+
+                console.log(`📋 Submitting citation order with ${citationData.missing.length} missing citations to prioritize`);
+
                 // Call backend to create Stripe checkout session
                 const token = localStorage.getItem('token');
                 const response = await fetch('/api/create-citation-checkout', {
@@ -5527,7 +5578,14 @@
                         packageSize: parseInt(packageSize),
                         businessName,
                         address,
-                        phone
+                        phone,
+                        citationPriorities: {
+                            missing: citationData.missing,
+                            found: citationData.found,
+                            totalAnalyzed: citationData.total,
+                            missingCount: citationData.missing.length,
+                            foundCount: citationData.found.length
+                        }
                     })
                 });
 
@@ -6984,7 +7042,7 @@
                             <input type="radio" name="package" value="25" id="package25" required>
                             <label for="package25" style="cursor: pointer; margin: 0;">
                                 <div class="citation-package-label">25 Citations</div>
-                                <div class="citation-package-price">$199</div>
+                                <div class="citation-package-price">$30</div>
                                 <div class="citation-package-details">Build your presence on 25 key local directories</div>
                             </label>
                         </div>
@@ -6993,7 +7051,7 @@
                             <input type="radio" name="package" value="50" id="package50" required>
                             <label for="package50" style="cursor: pointer; margin: 0;">
                                 <div class="citation-package-label">50 Citations</div>
-                                <div class="citation-package-price">$349</div>
+                                <div class="citation-package-price">$50</div>
                                 <div class="citation-package-details">Maximum coverage across 50 local directories</div>
                             </label>
                         </div>
