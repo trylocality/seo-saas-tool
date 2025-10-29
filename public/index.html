@@ -4888,7 +4888,7 @@
             statusDiv.style.color = '#6c757d';
 
             try {
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem('authToken');
                 if (!token) {
                     showToast('Please log in to update factor status', 'error');
                     return;
@@ -5567,7 +5567,7 @@
                 console.log(`📋 Submitting citation order with ${citationData.missing.length} missing citations to prioritize`);
 
                 // Call backend to create Stripe checkout session
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem('authToken');
                 const response = await fetch('/api/create-citation-checkout', {
                     method: 'POST',
                     headers: {
