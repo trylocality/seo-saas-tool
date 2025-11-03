@@ -64,6 +64,26 @@
         .resend-btn:hover {
             background: rgba(0, 0, 0, 0.15);
         }
+        .banner-close-btn {
+            background: transparent;
+            border: none;
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            line-height: 1;
+        }
+        .banner-close-btn:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
         
         /* Modern Pricing Modal Styles */
         .pricing-modal {
@@ -1148,13 +1168,13 @@
         .order-citations-btn:hover { background: #1a2332; transform: translateY(-2px); }
 
         /* Citation Order Modal */
-        .citation-modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); }
-        .citation-modal-content { background: white; margin: 5% auto; padding: 0; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3); }
-        .citation-modal-header { background: #0e192b; color: white; padding: 20px; border-radius: 12px 12px 0 0; }
+        .citation-modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); overflow-y: auto; }
+        .citation-modal-content { background: white; margin: 5% auto; padding: 0; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3); max-height: 90vh; display: flex; flex-direction: column; }
+        .citation-modal-header { background: #0e192b; color: white; padding: 20px; border-radius: 12px 12px 0 0; flex-shrink: 0; }
         .citation-modal-header h2 { margin: 0; font-size: 1.5rem; }
         .citation-modal-close { color: white; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 20px; }
         .citation-modal-close:hover { color: #ccc; }
-        .citation-modal-body { padding: 30px; }
+        .citation-modal-body { padding: 30px; overflow-y: auto; }
         .citation-package-option { border: 2px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.3s; }
         .citation-package-option:hover { border-color: #0e192b; background: #f8f9fa; }
         .citation-package-option.selected { border-color: #0e192b; background: #f0f4ff; }
@@ -2271,6 +2291,9 @@
                     </div>
                     <button id="resendBtn" onclick="resendVerificationEmail()" class="resend-btn">
                         Resend Email
+                    </button>
+                    <button onclick="dismissVerificationBanner()" class="banner-close-btn" title="Dismiss notification">
+                        ×
                     </button>
                 </div>
             </div>
@@ -3678,7 +3701,8 @@
                 // Show/hide email verification banner
                 const verificationBanner = document.getElementById('emailVerificationBanner');
                 if (verificationBanner) {
-                    if (currentUser.emailVerified) {
+                    const wasDismissed = sessionStorage.getItem('verificationBannerDismissed') === 'true';
+                    if (currentUser.emailVerified || wasDismissed) {
                         verificationBanner.classList.add('hidden');
                         document.body.classList.remove('has-email-banner');
                     } else {
@@ -3750,6 +3774,16 @@
                 button.disabled = false;
                 button.textContent = originalText;
                 showToast('Network error. Please try again.', 'error');
+            }
+        }
+
+        // Dismiss email verification banner
+        function dismissVerificationBanner() {
+            const banner = document.getElementById('emailVerificationBanner');
+            if (banner) {
+                banner.classList.add('hidden');
+                // Store dismissal in sessionStorage so it stays dismissed during this session
+                sessionStorage.setItem('verificationBannerDismissed', 'true');
             }
         }
 
