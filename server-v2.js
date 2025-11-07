@@ -2002,6 +2002,19 @@ async function getBusinessServices(businessName, location, placeId) {
       timeout: 15000
     });
 
+    // Check for API errors first
+    if (response.data.error) {
+      console.log(`⚠️ SerpAPI error: ${response.data.error}`);
+      console.log('🔄 Falling back to empty services (API limitation)');
+      return {
+        hasServices: false,
+        serviceCount: 0,
+        services: [],
+        serviceOptions: {},
+        note: `SerpAPI error: ${response.data.error}`
+      };
+    }
+
     // Extract services from the type field in place_results
     const placeResults = response.data.place_results;
 
@@ -3541,6 +3554,14 @@ async function generateFastBulkReport(businessName, location, industry, website)
     const outscraperData = partialData.outscraper || {};
     const aiData = partialData.aiAnalysis || null;
 
+    // Log data source summary for debugging
+    console.log(`📊 Data sources for ${businessName}:`, {
+      outscraper: outscraperData.photos_count > 0 || outscraperData.reviews > 0 ? '✅' : '❌',
+      aiAnalysis: aiData ? '✅' : '❌',
+      services: partialData.services?.serviceCount > 0 ? '✅' : '❌',
+      screenshot: partialData.gbpScreenshot ? '✅' : '❌'
+    });
+
     // Determine which data source to use for the 8 factors
     // Priority: Outscraper API (authoritative) > AI screenshot (visual fallback/supplement)
     const eightFactors = {
@@ -3644,9 +3665,9 @@ async function generateFastBulkReport(businessName, location, industry, website)
       },
       reviewsAnalysis: reviewsAnalysis,
       qaAnalysis: {
-        hasQA: eightFactors.qa.meets2Plus,
-        questionCount: eightFactors.qa.count,
-        note: aiData ? 'From AI screenshot analysis' : 'From business data'
+        hasQA: eightFactors.services.meets2Plus,
+        questionCount: eightFactors.services.count,
+        note: 'Services data from SerpAPI (replaces Q&A in bulk audits)'
       },
       screenshot: partialData.gbpScreenshot?.filepath || null,
       eightFactors: eightFactors, // Add the 8 factors for detailed analysis
