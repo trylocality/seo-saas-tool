@@ -3532,21 +3532,31 @@ async function generateFastBulkReport(businessName, location, industry, website)
       partialData.aiAnalysis = null;
     }
 
-    // Step 4: Get services from SerpAPI (replaces Q&A in bulk audits)
-    console.log('🔧 Step 4: Getting services from SerpAPI...');
+    // Step 4: Analyze website for local landing page (replaces Q&A in bulk audits)
+    console.log('🌐 Step 4: Analyzing website for local landing page...');
     try {
-      const placeId = partialData.outscraper?.place_id || partialData.outscraper?.google_id;
-      partialData.services = await getBusinessServices(businessName, location, placeId);
-      console.log(`✅ Services extraction completed: ${partialData.services.serviceCount} services found`);
+      if (website) {
+        partialData.websiteAnalysis = await analyzeWebsite(website, location);
+        console.log(`✅ Website analysis completed: ${partialData.websiteAnalysis.hasLocalizedPage ? '✅ Has local landing page' : '❌ No local landing page'}`);
+      } else {
+        console.log('⚠️ No website provided, skipping website analysis');
+        partialData.websiteAnalysis = {
+          hasGBPEmbed: false,
+          hasLocalizedPage: false,
+          services: [],
+          content: '',
+          note: 'No website provided'
+        };
+      }
     } catch (error) {
-      errors.push(`Services: ${error.message}`);
-      console.error(`⚠️ Services extraction error:`, error.message);
-      partialData.services = {
-        hasServices: false,
-        serviceCount: 0,
+      errors.push(`Website Analysis: ${error.message}`);
+      console.error(`⚠️ Website analysis error:`, error.message);
+      partialData.websiteAnalysis = {
+        hasGBPEmbed: false,
+        hasLocalizedPage: false,
         services: [],
-        serviceOptions: {},
-        note: `Service extraction failed: ${error.message}`
+        content: '',
+        note: `Website analysis failed: ${error.message}`
       };
     }
 
@@ -3558,7 +3568,7 @@ async function generateFastBulkReport(businessName, location, industry, website)
     console.log(`📊 Data sources for ${businessName}:`, {
       outscraper: outscraperData.photos_count > 0 || outscraperData.reviews > 0 ? '✅' : '❌',
       aiAnalysis: aiData ? '✅' : '❌',
-      services: partialData.services?.serviceCount > 0 ? '✅' : '❌',
+      websiteAnalysis: partialData.websiteAnalysis?.hasLocalizedPage ? '✅' : '❌',
       screenshot: partialData.gbpScreenshot ? '✅' : '❌'
     });
 
@@ -3614,12 +3624,11 @@ async function generateFastBulkReport(businessName, location, industry, website)
         platforms: []
       },
 
-      // Services: From SerpAPI Google Maps (replaces Q&A for bulk audits)
-      services: {
-        count: partialData.services?.serviceCount || 0,
-        meets2Plus: (partialData.services?.serviceCount || 0) >= 2,
-        list: partialData.services?.services || [],
-        serviceOptions: partialData.services?.serviceOptions || {}
+      // Local Landing Page: From website analysis (replaces Q&A for bulk audits)
+      localLandingPage: {
+        hasPage: partialData.websiteAnalysis?.hasLocalizedPage || false,
+        hasGBPEmbed: partialData.websiteAnalysis?.hasGBPEmbed || false,
+        note: partialData.websiteAnalysis?.note || 'Not analyzed'
       }
     };
 
@@ -3657,17 +3666,18 @@ async function generateFastBulkReport(businessName, location, industry, website)
         }
       },
       citations: { found: [], checked: [], total: 0, stats: { found: 0, missing: 0, percentage: 0, score: 0 } },
-      websiteAnalysis: {
+      websiteAnalysis: partialData.websiteAnalysis || {
         hasGBPEmbed: false,
         hasLocalizedPage: false,
         services: [],
-        screenshot: null
+        content: '',
+        note: 'Not analyzed'
       },
       reviewsAnalysis: reviewsAnalysis,
       qaAnalysis: {
-        hasQA: eightFactors.services.meets2Plus,
-        questionCount: eightFactors.services.count,
-        note: 'Services data from SerpAPI (replaces Q&A in bulk audits)'
+        hasQA: eightFactors.localLandingPage.hasPage,
+        questionCount: eightFactors.localLandingPage.hasPage ? 1 : 0,
+        note: 'Local landing page detection (replaces Q&A in bulk audits)'
       },
       screenshot: partialData.gbpScreenshot?.filepath || null,
       eightFactors: eightFactors, // Add the 8 factors for detailed analysis
@@ -3721,19 +3731,22 @@ async function generateFastBulkReport(businessName, location, industry, website)
         meetsSocialReq: eightFactors.socialLinks.meets2Plus,
         socialPlatforms: eightFactors.socialLinks.platforms,
 
-        // Factor 8: Services (2+) - Replaces Q&A in bulk audits
-        servicesCount: eightFactors.services.count,
-        meetsServicesReq: eightFactors.services.meets2Plus,
-        servicesList: eightFactors.services.list,
-        serviceOptions: eightFactors.services.serviceOptions,
+        // Factor 8: Local Landing Page - Replaces Q&A in bulk audits
+        hasLocalLandingPage: eightFactors.localLandingPage.hasPage,
+        hasGBPEmbed: eightFactors.localLandingPage.hasGBPEmbed,
+        meetsLocalLandingPageReq: eightFactors.localLandingPage.hasPage,
 
         // Legacy fields for backward compatibility
         totalReviews: eightFactors.reviews.count,
         totalPhotos: eightFactors.photos.count,
         subcategories: eightFactors.categories.count,
         socialLinks: eightFactors.socialLinks.count,
-        questionsAnswers: 0, // Deprecated - replaced with services
-        posts: eightFactors.posts.count
+        questionsAnswers: 0, // Deprecated - replaced with local landing page
+        servicesCount: 0, // Deprecated - replaced with local landing page
+        posts: eightFactors.posts.count,
+        citationsFound: 0,
+        hasGBPEmbed: eightFactors.localLandingPage.hasGBPEmbed,
+        hasLocalizedPage: eightFactors.localLandingPage.hasPage
       },
 
       // Scoring
@@ -5154,7 +5167,7 @@ HIGHER RANKED BUSINESS (#${higherRanked.rank}): ${higherRanked.name}
 - Products/Services: ${higherRanked.coreMetrics.meetsProductTilesReq ? `✅ ${higherRanked.coreMetrics.productTilesCount} products` : `❌ ${higherRanked.coreMetrics.productTilesCount} products`}
 - Posts: ${higherRanked.coreMetrics.meetsPostsReq ? '✅ Posted within 15 days' : '❌ No recent posts'}
 - Social Links: ${higherRanked.coreMetrics.meetsSocialReq ? `✅ ${higherRanked.coreMetrics.socialLinksCount} platforms` : `❌ ${higherRanked.coreMetrics.socialLinksCount} platforms`}
-- Q&A: ${higherRanked.coreMetrics.meetsQAReq ? `✅ ${higherRanked.coreMetrics.qaCount} answered` : `❌ ${higherRanked.coreMetrics.qaCount} answered`}
+- Local Landing Page: ${higherRanked.coreMetrics.meetsLocalLandingPageReq ? '✅ Has location-specific landing page' : '❌ No local landing page'}
 
 LOWER RANKED BUSINESS (#${lowerRanked.rank}): ${lowerRanked.name}
 - Description: ${lowerRanked.coreMetrics.meetsDescriptionReq ? '✅ Has 150+ char description' : '❌ Missing or short description'}
@@ -5164,7 +5177,7 @@ LOWER RANKED BUSINESS (#${lowerRanked.rank}): ${lowerRanked.name}
 - Products/Services: ${lowerRanked.coreMetrics.meetsProductTilesReq ? `✅ ${lowerRanked.coreMetrics.productTilesCount} products` : `❌ ${lowerRanked.coreMetrics.productTilesCount} products`}
 - Posts: ${lowerRanked.coreMetrics.meetsPostsReq ? '✅ Posted within 15 days' : '❌ No recent posts'}
 - Social Links: ${lowerRanked.coreMetrics.meetsSocialReq ? `✅ ${lowerRanked.coreMetrics.socialLinksCount} platforms` : `❌ ${lowerRanked.coreMetrics.socialLinksCount} platforms`}
-- Q&A: ${lowerRanked.coreMetrics.meetsQAReq ? `✅ ${lowerRanked.coreMetrics.qaCount} answered` : `❌ ${lowerRanked.coreMetrics.qaCount} answered`}
+- Local Landing Page: ${lowerRanked.coreMetrics.meetsLocalLandingPageReq ? '✅ Has location-specific landing page' : '❌ No local landing page'}
 
 Provide:
 1. A brief analysis (2-3 sentences) explaining WHY the higher-ranked business is ranking better
