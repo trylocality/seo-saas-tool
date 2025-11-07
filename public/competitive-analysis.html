@@ -14,7 +14,12 @@
 
         /* Header */
         .header { text-align: center; margin-bottom: 30px; background: transparent; padding: 0; }
-        .logo { height: 240px; width: auto; max-width: 800px; display: block; margin: 0 auto; }
+        .logo { height: 60px; width: auto; max-width: 200px; }
+
+        /* Card Header with Logo */
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .card-header-left { flex: 1; }
+        .card-header-logo { flex-shrink: 0; }
 
         /* Back Button */
         .btn { background: linear-gradient(135deg, #1a2332 0%, #0e192b 100%); color: white; padding: 12px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s; text-decoration: none; display: inline-block; }
@@ -115,6 +120,9 @@
             .filters-bar { flex-direction: column; align-items: stretch; }
             .competitive-table { font-size: 0.75rem; }
             .business-info { min-width: 200px; }
+            .card-header { flex-direction: column; align-items: stretch; gap: 10px; }
+            .card-header-logo { text-align: right; }
+            .logo { height: 50px; }
         }
 
         /* Hidden class */
@@ -130,14 +138,16 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <img src="locality-logo.png" alt="Locality" class="logo">
-        </div>
-
         <!-- Analysis Setup Form -->
         <div id="setupSection" class="card">
-            <button class="btn btn-secondary" onclick="goBack()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← BACK TO DASHBOARD</button>
+            <div class="card-header">
+                <div class="card-header-left">
+                    <button class="btn btn-secondary" onclick="goBack()" style="width: auto; padding: 8px 20px;">← BACK TO DASHBOARD</button>
+                </div>
+                <div class="card-header-logo">
+                    <img src="locality-logo.png" alt="Locality" class="logo">
+                </div>
+            </div>
 
             <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Fast Competitive Analysis</h2>
             <p style="text-align: center; color: #666; margin-bottom: 40px; font-size: 1.1rem;">
@@ -214,7 +224,14 @@
 
         <!-- Results Section -->
         <div id="resultsSection" class="card hidden">
-            <button class="btn btn-secondary" onclick="goBack()" style="width: auto; margin-bottom: 20px; padding: 8px 20px;">← BACK TO DASHBOARD</button>
+            <div class="card-header">
+                <div class="card-header-left">
+                    <button class="btn btn-secondary" onclick="goBack()" style="width: auto; padding: 8px 20px;">← BACK TO DASHBOARD</button>
+                </div>
+                <div class="card-header-logo">
+                    <img src="locality-logo.png" alt="Locality" class="logo">
+                </div>
+            </div>
 
             <div class="results-header">
                 <div>
