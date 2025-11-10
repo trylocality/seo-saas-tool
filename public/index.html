@@ -1192,9 +1192,12 @@
         
         /* Detailed Citation Analysis */
         .detailed-analysis-section { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef; }
-        .detailed-analysis-btn { background: #17a2b8; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; margin: 0 auto 10px; display: block; transition: all 0.3s ease; }
+        .citation-buttons-container { display: flex; gap: 15px; justify-content: center; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+        .detailed-analysis-btn { background: #17a2b8; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s ease; flex: 0 1 auto; }
         .detailed-analysis-btn:hover { background: #138496; transform: translateY(-2px); }
         .detailed-analysis-btn:disabled { background: #6c757d; cursor: not-allowed; transform: none; }
+        .order-citations-cta-btn { background: #0e192b; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s ease; flex: 0 1 auto; }
+        .order-citations-cta-btn:hover { background: #1a2332; transform: translateY(-2px); }
         .detailed-analysis-subtext { text-align: center; color: #6c757d; font-size: 0.9rem; margin: 0 0 20px 0; }
         
         /* Detailed Results */
@@ -1269,7 +1272,7 @@
             
             /* Hide non-essential elements for print */
             .btn, .report-actions, .how-to-fix-btn, .view-details-btn,
-            .copy-suggestion-btn, .order-citations-btn,
+            .copy-suggestion-btn, .order-citations-btn, .order-citations-cta-btn,
             .factor-expand-arrow, .action-arrow, .detailed-analysis-btn,
             .detailed-analysis-subtext, #detailedCitationSummary {
                 display: none !important;
@@ -2071,6 +2074,7 @@
 .report-section.locked .copy-suggestion-btn,
 .report-section.locked .detailed-analysis-btn,
 .report-section.locked .order-citations-btn,
+.report-section.locked .order-citations-cta-btn,
 .report-section.locked .action-item,
 .report-section.locked .citation-item-simple {
     pointer-events: none !important;
@@ -2542,9 +2546,14 @@
                     
                     <!-- Detailed Citation Analysis Section -->
                     <div class="detailed-analysis-section">
-                        <button class="detailed-analysis-btn" id="detailedAnalysisBtn" onclick="runDetailedCitationAnalysis()">
-                            RUN DETAILED CITATION ANALYSIS
-                        </button>
+                        <div class="citation-buttons-container">
+                            <button class="detailed-analysis-btn" id="detailedAnalysisBtn" onclick="runDetailedCitationAnalysis()">
+                                RUN DETAILED CITATION ANALYSIS
+                            </button>
+                            <button class="order-citations-cta-btn" onclick="orderCitations()">
+                                ORDER CITATIONS
+                            </button>
+                        </div>
                         <p class="detailed-analysis-subtext">
                             We have a curated list of directories that can add SEO value. Run a report to see if you are listed.
                         </p>
@@ -5131,11 +5140,6 @@
                 localStorage.setItem(storageKey, JSON.stringify(window.currentActionPlan));
             }
         }
-        
-        // Order citations function
-        function orderCitations() {
-            window.open('https://trylocality.com/citations', '_blank');
-        }
 
         // Detailed Citation Analysis function
         async function runDetailedCitationAnalysis() {
@@ -5655,7 +5659,7 @@
         // Download PDF function
         function downloadPDF() {
             // Hide non-printable elements
-            const elementsToHide = document.querySelectorAll('.btn, .report-actions, .how-to-fix-btn, .detailed-analysis-btn, .detailed-analysis-subtext, #detailedCitationSummary');
+            const elementsToHide = document.querySelectorAll('.btn, .report-actions, .how-to-fix-btn, .detailed-analysis-btn, .order-citations-cta-btn, .detailed-analysis-subtext, #detailedCitationSummary');
             elementsToHide.forEach(el => el.style.display = 'none');
             
             // Ensure proper print layout classes are applied
