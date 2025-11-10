@@ -1258,6 +1258,104 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
   }
 }
 
+// 2B. SCRAPE SOCIAL LINKS FROM GBP HTML - Get social links from the actual GBP page
+async function scrapeSocialLinksFromGBP(businessName, location, placeId = null) {
+  try {
+    console.log(`🔗 Scraping social links from GBP HTML: ${businessName}`);
+
+    if (!SCRAPINGBEE_API_KEY) {
+      console.log(`⚠️ ScrapingBee API key not configured, skipping social link scraping`);
+      return { count: 0, meets2Plus: false, platforms: [] };
+    }
+
+    // Detect location for better results
+    const { region } = detectCountryRegion(location);
+    const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+
+    // Build target URL - prefer place_id for accuracy
+    let targetUrl;
+    if (placeId) {
+      targetUrl = `https://www.${googleDomain}/maps/search/?api=1&query=${encodeURIComponent(businessName)}&query_place_id=${placeId}`;
+    } else {
+      const { city, state, isCounty } = extractCityState(location);
+      const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
+      targetUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
+    }
+
+    const params = {
+      api_key: SCRAPINGBEE_API_KEY,
+      url: targetUrl,
+      custom_google: 'true',
+      stealth_proxy: 'true',
+      render_js: 'true',
+      wait: 4000,
+      country_code: region.toLowerCase()
+    };
+
+    const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
+      params: params,
+      timeout: 60000
+    });
+
+    if (response.status === 200 && response.data) {
+      const htmlContent = typeof response.data === 'string' ? response.data : response.data.toString();
+      const htmlLower = htmlContent.toLowerCase();
+
+      // Look for social media links in the HTML
+      const socialPlatforms = [
+        { name: 'Facebook', patterns: [/https?:\/\/(?:www\.)?facebook\.com\/[a-zA-Z0-9._-]+/gi, /https?:\/\/(?:www\.)?fb\.com\/[a-zA-Z0-9._-]+/gi] },
+        { name: 'Instagram', patterns: [/https?:\/\/(?:www\.)?instagram\.com\/[a-zA-Z0-9._-]+/gi] },
+        { name: 'Twitter', patterns: [/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[a-zA-Z0-9._-]+/gi] },
+        { name: 'LinkedIn', patterns: [/https?:\/\/(?:www\.)?linkedin\.com\/(?:company|in)\/[a-zA-Z0-9._-]+/gi] },
+        { name: 'YouTube', patterns: [/https?:\/\/(?:www\.)?youtube\.com\/(?:channel|c|user)\/[a-zA-Z0-9._-]+/gi] },
+        { name: 'TikTok', patterns: [/https?:\/\/(?:www\.)?tiktok\.com\/@[a-zA-Z0-9._-]+/gi] },
+        { name: 'Pinterest', patterns: [/https?:\/\/(?:www\.)?pinterest\.com\/[a-zA-Z0-9._-]+/gi] }
+      ];
+
+      const foundPlatforms = [];
+      const foundLinks = {};
+
+      socialPlatforms.forEach(platform => {
+        platform.patterns.forEach(pattern => {
+          const matches = htmlContent.match(pattern);
+          if (matches && matches.length > 0) {
+            // Get unique, clean URLs
+            const uniqueUrls = [...new Set(matches.map(url => {
+              // Clean up URLs (remove tracking params, etc.)
+              return url.split('?')[0].split('&')[0];
+            }))];
+
+            if (!foundPlatforms.includes(platform.name)) {
+              foundPlatforms.push(platform.name);
+              foundLinks[platform.name] = uniqueUrls[0]; // Store first unique URL
+            }
+          }
+        });
+      });
+
+      const count = foundPlatforms.length;
+      const meets2Plus = count >= 2;
+
+      console.log(`  ${meets2Plus ? '✅' : '❌'} Found ${count} social platform${count !== 1 ? 's' : ''}: ${foundPlatforms.join(', ') || 'none'}`);
+
+      return {
+        count: count,
+        meets2Plus: meets2Plus,
+        platforms: foundPlatforms,
+        links: foundLinks
+      };
+    } else {
+      console.log(`  ⚠️ Unexpected response status: ${response.status}`);
+      return { count: 0, meets2Plus: false, platforms: [] };
+    }
+
+  } catch (error) {
+    console.error(`  ❌ Social link scraping error: ${error.message}`);
+    // Return empty result rather than throwing - this is non-critical
+    return { count: 0, meets2Plus: false, platforms: [] };
+  }
+}
+
 // 3. AI ANALYSIS - Extract posts, services, Q&As from screenshot
 async function analyzeScreenshotWithAI(screenshotPath, businessName) {
   try {
@@ -1551,7 +1649,7 @@ async function checkCitations(businessName, phoneNumber) {
 async function analyzeWebsite(websiteUrl, location) {
   try {
     console.log(`🌐 Analyzing website: ${websiteUrl}`);
-    
+
     if (!websiteUrl) {
       return {
         hasGBPEmbed: false,
@@ -1561,24 +1659,27 @@ async function analyzeWebsite(websiteUrl, location) {
         note: 'No website provided'
       };
     }
-    
+
     // Ensure URL has protocol
     if (!websiteUrl.startsWith('http')) {
       websiteUrl = 'https://' + websiteUrl;
     }
-    
-    const response = await axios.get(websiteUrl, {
-      timeout: 15000,
-      maxRedirects: 3,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-    
-    const htmlContent = response.data;
-    const htmlLower = htmlContent.toLowerCase();
-    
-    // Check for GBP embed
+
+    // Parse base URL for multi-page checking
+    const baseUrl = new URL(websiteUrl).origin;
+
+    // Define common pages to check for Google Maps embed
+    const pagesToCheck = [
+      websiteUrl, // Homepage
+      `${baseUrl}/contact`,
+      `${baseUrl}/contact-us`,
+      `${baseUrl}/about`,
+      `${baseUrl}/about-us`,
+      `${baseUrl}/locations`,
+      `${baseUrl}/location`
+    ];
+
+    // Check for GBP embed indicators
     const gbpIndicators = [
       'maps.google.com/maps',
       'google.com/maps/embed',
@@ -1586,7 +1687,84 @@ async function analyzeWebsite(websiteUrl, location) {
       'place_id=',
       'maps.googleapis.com'
     ];
-    const hasGBPEmbed = gbpIndicators.some(indicator => htmlLower.includes(indicator));
+
+    let hasGBPEmbed = false;
+    let htmlContent = '';
+    let htmlLower = '';
+    let checkedPages = 0;
+
+    // Try to fetch homepage first
+    try {
+      console.log(`  📄 Checking homepage for GBP embed...`);
+      const response = await axios.get(websiteUrl, {
+        timeout: 10000,
+        maxRedirects: 3,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      htmlContent = response.data;
+      htmlLower = htmlContent.toLowerCase();
+      hasGBPEmbed = gbpIndicators.some(indicator => htmlLower.includes(indicator));
+      checkedPages++;
+
+      if (hasGBPEmbed) {
+        console.log(`  ✅ Found GBP embed on homepage`);
+      }
+    } catch (error) {
+      console.log(`  ⚠️ Could not fetch homepage: ${error.message}`);
+    }
+
+    // If not found on homepage, check other common pages
+    if (!hasGBPEmbed) {
+      console.log(`  🔍 GBP embed not on homepage, checking other pages...`);
+
+      for (const pageUrl of pagesToCheck.slice(1)) { // Skip first (homepage) as we already checked
+        try {
+          const response = await axios.get(pageUrl, {
+            timeout: 8000,
+            maxRedirects: 3,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+
+          const pageHtml = response.data.toLowerCase();
+          const foundOnThisPage = gbpIndicators.some(indicator => pageHtml.includes(indicator));
+          checkedPages++;
+
+          if (foundOnThisPage) {
+            hasGBPEmbed = true;
+            const pageName = pageUrl.replace(baseUrl, '');
+            console.log(`  ✅ Found GBP embed on ${pageName}`);
+            // Use this page's HTML for further analysis if homepage failed
+            if (!htmlContent) {
+              htmlContent = response.data;
+              htmlLower = pageHtml;
+            }
+            break;
+          }
+        } catch (error) {
+          // Silently continue to next page
+        }
+      }
+
+      if (!hasGBPEmbed) {
+        console.log(`  ❌ No GBP embed found on ${checkedPages} pages checked`);
+      }
+    }
+
+    // If we still don't have HTML content, we can't continue analysis
+    if (!htmlContent) {
+      return {
+        hasGBPEmbed: false,
+        hasLocalizedPage: false,
+        services: [],
+        content: '',
+        note: 'Website not accessible'
+      };
+    }
     
     // Check for localized landing page - search for both city AND state/country
     const { city, state } = extractCityState(location);
@@ -2965,16 +3143,32 @@ async function generateCompleteReport(businessName, location, industry, website,
       ? foundationResults[0].value
       : getFallbackBusinessData(businessName, location);
 
-    // Now take screenshot with place_id for better product tile detection
+    // Now take screenshot and scrape social links with place_id
+    const placeId = businessData.place_id || businessData.google_id;
+
+    // Run screenshot and social scraping in parallel
+    console.log(`📸 Taking screenshot and scraping social links in parallel...`);
+    const [screenshotResult, socialLinksResult] = await Promise.allSettled([
+      takeBusinessProfileScreenshot(businessName, location, placeId),
+      scrapeSocialLinksFromGBP(businessName, location, placeId)
+    ]);
+
     let screenshot = null;
-    try {
-      const placeId = businessData.place_id || businessData.google_id;
-      screenshot = await takeBusinessProfileScreenshot(businessName, location, placeId);
-    } catch (screenshotError) {
-      console.error('❌ Screenshot failed:', screenshotError.message);
-      errors.push(`Screenshot: ${screenshotError.message}`);
+    if (screenshotResult.status === 'fulfilled') {
+      screenshot = screenshotResult.value;
+    } else {
+      console.error('❌ Screenshot failed:', screenshotResult.reason?.message);
+      errors.push(`Screenshot: ${screenshotResult.reason?.message}`);
     }
-    
+
+    let scrapedSocialLinks = { count: 0, meets2Plus: false, platforms: [] };
+    if (socialLinksResult.status === 'fulfilled') {
+      scrapedSocialLinks = socialLinksResult.value;
+      console.log(`✅ Social link scraping completed: ${scrapedSocialLinks.count} platforms`);
+    } else {
+      console.error('⚠️ Social link scraping failed (non-critical):', socialLinksResult.reason?.message);
+    }
+
     // Now check citations with phone number from business data
     console.log(`📞 Checking citations with phone: ${businessData.phone || 'No phone available'}`);
     let citations;
@@ -3053,18 +3247,36 @@ async function generateCompleteReport(businessName, location, industry, website,
     });
     
     console.log(`✅ Group 2 completed: Reviews, Q&A, Website, AI Analysis`);
-    
+
+    // Merge AI analysis social links with scraped social links for most accurate count
+    // Priority: scrapedSocialLinks (from GBP HTML) > AI analysis (from screenshot)
+    const mergedSocialLinks = {
+      count: Math.max(scrapedSocialLinks.count, aiAnalysis?.socialLinks?.count || 0),
+      meets2Plus: scrapedSocialLinks.meets2Plus || aiAnalysis?.socialLinks?.meets2Plus || false,
+      platforms: [...new Set([
+        ...(scrapedSocialLinks.platforms || []),
+        ...(aiAnalysis?.socialLinks?.platforms || [])
+      ])],
+      links: scrapedSocialLinks.links || {}
+    };
+
+    console.log(`🔗 Merged social links: ${mergedSocialLinks.count} platforms (Scraped: ${scrapedSocialLinks.count}, AI: ${aiAnalysis?.socialLinks?.count || 0})`);
+
     // Compile data for scoring (same as before)
     const partialData = {
       outscraper: businessData,
       screenshot: screenshot,
-      aiAnalysis: aiAnalysis,
+      aiAnalysis: {
+        ...aiAnalysis,
+        socialLinks: mergedSocialLinks  // Use merged social links
+      },
       citations: citations,
       websiteAnalysis: websiteAnalysis,
       reviewsAnalysis: reviewsAnalysis,
-      qaAnalysis: qaAnalysis
+      qaAnalysis: qaAnalysis,
+      scrapedSocialLinks: scrapedSocialLinks  // Keep original for debugging
     };
-    
+
     // Compile data for scoring
     const compiledData = {
       businessInfo: { businessName, location, industry, website },
