@@ -1294,7 +1294,7 @@ async function scrapeSocialLinksFromGBP(businessName, location, placeId = null) 
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
-      timeout: 60000
+      timeout: 45000  // Reduced from 60s to 45s
     });
 
     if (response.status === 200 && response.data) {
@@ -1369,7 +1369,7 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
     const base64Image = imageBuffer.toString('base64');
     
     const analysisPrompt = `
-    Analyze this Google Business Profile screenshot for "${businessName}" and extract these 8 key factors.
+    Analyze this Google Business Profile screenshot for "${businessName}" and extract these 7 key factors.
     Look very carefully at ALL visible sections of the profile.
 
     IMPORTANT: Look for these specific elements:
@@ -1402,9 +1402,7 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
        - Look for social media icons (Facebook, Instagram, Twitter, LinkedIn, etc.)
        - Usually in business info section
 
-    8. Q&A SECTION: Questions and Answers
-       - Look for "Questions & answers" section
-       - Count visible questions if possible
+    NOTE: Q&A section has been removed from Google Business Profiles - do not look for it.
 
     Respond ONLY with valid JSON in this EXACT format:
     {
@@ -1442,10 +1440,6 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
         "count": 0,
         "meets2Plus": false,
         "platforms": []
-      },
-      "qa": {
-        "count": 0,
-        "meets2Plus": false
       }
     }
     `;
@@ -1534,8 +1528,12 @@ async function checkCitations(businessName, phoneNumber) {
     
     const found = [];
     const checked = [];
-    
-    for (const directory of directories) {
+
+    // PERFORMANCE OPTIMIZATION: Check all directories in parallel instead of sequential
+    const citationPromises = directories.map(async (directory, index) => {
+      // Stagger requests by 100ms to avoid hitting rate limits
+      await new Promise(resolve => setTimeout(resolve, index * 100));
+
       try {
         // Create search query with business name and phone patterns
         let searchQuery;
@@ -1547,10 +1545,10 @@ async function checkCitations(businessName, phoneNumber) {
           // Fallback to name only if no phone patterns
           searchQuery = `site:${directory.domain} "${businessName}"`;
         }
-        
+
         // Use US as default region for citations
         const googleDomain = 'google.com';
-        
+
         const response = await axios.get('https://serpapi.com/search.json', {
           params: {
             engine: 'google',
@@ -1561,22 +1559,22 @@ async function checkCitations(businessName, phoneNumber) {
             gl: 'us',
             hl: 'en'
           },
-          timeout: 10000
+          timeout: 8000  // Reduced from 10000ms to 8000ms
         });
-        
+
         // Enhanced validation: check if results contain both business name and phone number
         let hasValidResults = false;
         let bestResult = null;
-        
+
         if (response.data.organic_results && response.data.organic_results.length > 0) {
           for (const result of response.data.organic_results) {
             const resultText = `${result.title || ''} ${result.snippet || ''}`.toLowerCase();
             const businessNameFound = resultText.includes(businessName.toLowerCase());
-            
+
             // Check if any phone pattern matches the result text
             let phoneFound = false;
             if (phonePatterns.length > 0) {
-              phoneFound = phonePatterns.some(pattern => 
+              phoneFound = phonePatterns.some(pattern =>
                 resultText.includes(pattern.toLowerCase()) ||
                 resultText.includes(normalizePhoneNumber(pattern))
               );
@@ -1584,7 +1582,7 @@ async function checkCitations(businessName, phoneNumber) {
               // If no phone provided, just check business name
               phoneFound = true;
             }
-            
+
             if (businessNameFound && phoneFound) {
               hasValidResults = true;
               bestResult = result;
@@ -1592,38 +1590,51 @@ async function checkCitations(businessName, phoneNumber) {
             }
           }
         }
-        
-        checked.push({
+
+        const checkedResult = {
           directory: directory.name,
           domain: directory.domain,
           found: hasValidResults,
           searchQuery: searchQuery,
           matchType: hasValidResults ? 'name+phone' : 'none'
-        });
-        
-        if (hasValidResults && bestResult) {
-          found.push({
-            directory: directory.name,
-            domain: directory.domain,
-            url: bestResult.link,
-            title: bestResult.title,
-            matchType: 'name+phone'
-          });
-        }
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-      } catch (dirError) {
-        console.error(`❌ Citation check failed for ${directory.name}:`, dirError.message);
-        checked.push({
+        };
+
+        const foundResult = hasValidResults && bestResult ? {
           directory: directory.name,
           domain: directory.domain,
-          found: false,
-          error: dirError.message
-        });
+          url: bestResult.link,
+          title: bestResult.title,
+          matchType: 'name+phone'
+        } : null;
+
+        return { checkedResult, foundResult };
+
+      } catch (dirError) {
+        console.error(`❌ Citation check failed for ${directory.name}:`, dirError.message);
+        return {
+          checkedResult: {
+            directory: directory.name,
+            domain: directory.domain,
+            found: false,
+            error: dirError.message
+          },
+          foundResult: null
+        };
       }
-    }
+    });
+
+    // Wait for all citation checks to complete in parallel
+    const citationResults = await Promise.allSettled(citationPromises);
+
+    // Collect results
+    citationResults.forEach(result => {
+      if (result.status === 'fulfilled' && result.value) {
+        checked.push(result.value.checkedResult);
+        if (result.value.foundResult) {
+          found.push(result.value.foundResult);
+        }
+      }
+    });
     
     console.log(`📊 Citations found: ${found.length}/${directories.length}`);
     
@@ -1931,7 +1942,7 @@ async function analyzeQAWithScraping(businessName, location, placeId) {
         window_width: '1920',
         window_height: '1080'
       },
-      timeout: 60000 // Give it more time due to premium proxy
+      timeout: 45000  // Reduced from 60s to 45s // Give it more time due to premium proxy
     });
     
     const html = response.data;
@@ -2066,7 +2077,7 @@ async function analyzeQuestionsAndAnswers(businessName, location, placeId) {
           gl: region.toLowerCase(),
           hl: 'en'
         },
-        timeout: 15000
+        timeout: 10000  // Reduced timeout for faster failures
       });
       
       if (searchResponse.data.local_results && searchResponse.data.local_results.length > 0) {
@@ -2389,7 +2400,7 @@ async function analyzeReviews(businessName, location, placeId) {
           gl: region.toLowerCase(),
           hl: 'en'
         },
-        timeout: 15000
+        timeout: 10000  // Reduced timeout for faster failures
       });
       
       if (searchResponse.data.local_results && searchResponse.data.local_results.length > 0) {
@@ -2488,12 +2499,12 @@ function calculateScore(data) {
     productTiles: 0,      // 10 pts
     photos: 0,            // 8 pts
     posts: 0,             // 8 pts
-    qa: 0,                // 4 pts
     social: 0,            // 2 pts
     reviews: 0,           // 12 pts (3 each for 4 criteria)
     citations: 0,         // 10 pts (1 per directory)
     gbpEmbed: 0,          // 8 pts
     landingPage: 0        // 8 pts
+    // Q&A removed (was 4 pts) - no longer available on GBPs
   };
   
   const details = {};
@@ -2508,18 +2519,41 @@ function calculateScore(data) {
   }
   
   // 2. BUSINESS DESCRIPTION (10 pts) - 0/5/10 based on criteria
+  // Check Outscraper first, fallback to AI analysis if Outscraper doesn't have description
   const desc = data.outscraper.description;
-  const descAnalysis = analyzeDescriptionCriteria(desc, data.businessInfo.businessName, data.businessInfo.location, data.businessInfo.industry);
-  
-  if (!desc) {
+  const hasDescriptionFromAI = data.aiAnalysis?.description?.exists || false;
+  const descriptionLengthFromAI = data.aiAnalysis?.description?.estimatedLength || 0;
+
+  // If Outscraper has description, analyze it fully
+  if (desc && desc.length > 0) {
+    const descAnalysis = analyzeDescriptionCriteria(desc, data.businessInfo.businessName, data.businessInfo.location, data.businessInfo.industry);
+
+    if (descAnalysis.criteriaCount === 3) {
+      scores.description = 10;
+      details.description = { status: 'GOOD', message: 'Great description that helps customers find you' };
+    } else {
+      scores.description = 5;
+      details.description = { status: 'NEEDS IMPROVEMENT', message: 'Basic description detected - could be more compelling' };
+    }
+  }
+  // If Outscraper missing but AI detected description from screenshot
+  else if (hasDescriptionFromAI) {
+    // Give partial credit based on length estimate from AI
+    if (descriptionLengthFromAI >= 150) {
+      scores.description = 5;
+      details.description = { status: 'NEEDS IMPROVEMENT', message: 'Description detected (estimated 150+ chars) - good start' };
+    } else if (descriptionLengthFromAI > 0) {
+      scores.description = 3;
+      details.description = { status: 'NEEDS IMPROVEMENT', message: 'Short description detected - could be more detailed' };
+    } else {
+      scores.description = 2;
+      details.description = { status: 'NEEDS IMPROVEMENT', message: 'Description present but quality unknown' };
+    }
+  }
+  // No description found anywhere
+  else {
     scores.description = 0;
     details.description = { status: 'MISSING', message: 'No description found - missing opportunity to tell your story' };
-  } else if (descAnalysis.criteriaCount === 3) {
-    scores.description = 10;
-    details.description = { status: 'GOOD', message: 'Great description that helps customers find you' };
-  } else {
-    scores.description = 5;
-    details.description = { status: 'NEEDS IMPROVEMENT', message: 'Basic description detected - could be more compelling' };
   }
   
   // 3. CATEGORIES (8 pts) - 0 if only primary, 5 if 2-3 total, 8 if 4+ total
@@ -2566,30 +2600,10 @@ function calculateScore(data) {
     details.posts = { status: 'MISSING', message: 'No recent posts - missing chance to engage customers' };
   }
   
-  // 7. Q&A (4 pts) - Using SerpAPI data for accurate detection
-  // NOTE: Q&A is only available in full audits (requires SerpAPI), not in fast bulk audits
-  if (data.qaAnalysis && data.qaAnalysis.hasQA && data.qaAnalysis.questionCount > 0) {
-    scores.qa = 4;
-    details.qa = {
-      status: 'GOOD',
-      message: `Q&A section active with ${data.qaAnalysis.questionCount} questions - helps answer customer queries`
-    };
-  } else if (data.qaAnalysis && data.qaAnalysis.note && data.qaAnalysis.note.includes('From AI screenshot')) {
-    // For fast bulk audits, Q&A can't be reliably detected - mark as N/A instead of MISSING
-    scores.qa = 0;
-    details.qa = {
-      status: 'N/A',
-      message: 'Q&A analysis not available in bulk audits (requires individual audit)'
-    };
-  } else {
-    scores.qa = 0;
-    details.qa = {
-      status: 'MISSING',
-      message: 'No Q&A found - add common customer questions to help prospects'
-    };
-  }
-  
-  // 8. SOCIAL PROFILES (2 pts) - Binary
+  // 7. Q&A REMOVED - Google removed this feature from Business Profiles
+  // Commenting out for historical reference but no longer scoring
+
+  // 8. SOCIAL PROFILES (2 pts) - Binary (was #8, now #7 after Q&A removal)
   if (data.aiAnalysis.social && data.aiAnalysis.social.hasAny) {
     scores.social = 2;
     details.social = { status: 'GOOD', message: 'Social media links help customers connect' };
@@ -2677,10 +2691,11 @@ function calculateScore(data) {
     message: `${bonusPoints} bonus points earned (${goodFactors} green factors)` 
   };
   
-  // Calculate actual max score based on what was analyzed
-  // For fast bulk audits: Q&A (4), Citations (10), GBP Embed (8), Landing Page (8) = -30 points
-  const isFastBulkAudit = details.qa?.status === 'N/A';
-  const actualMaxScore = isFastBulkAudit ? 70 : 100; // 100 - 30 = 70 for fast audits
+  // Calculate actual max score
+  // Max score is now 96 (was 100 before Q&A removal: 100 - 4 = 96)
+  // For fast bulk audits: Citations (10), GBP Embed (8) = -18 points (Landing Page IS included)
+  const isFastBulkAudit = !data.citations || data.citations.stats.score === 0;
+  const actualMaxScore = isFastBulkAudit ? 78 : 96; // 96 for full audits, 78 for fast bulk (96 - 10 citations - 8 gbp embed = 78)
 
   console.log(`📊 Final Score: ${totalScore}/${actualMaxScore}`);
 
@@ -3146,11 +3161,12 @@ async function generateCompleteReport(businessName, location, industry, website,
     // Now take screenshot and scrape social links with place_id
     const placeId = businessData.place_id || businessData.google_id;
 
-    // Run screenshot and social scraping in parallel
-    console.log(`📸 Taking screenshot and scraping social links in parallel...`);
-    const [screenshotResult, socialLinksResult] = await Promise.allSettled([
+    // PERFORMANCE OPTIMIZATION: Run screenshot, social scraping, AND citations in parallel
+    console.log(`📸 Taking screenshot, scraping social links, and checking citations in parallel...`);
+    const [screenshotResult, socialLinksResult, citationsResult] = await Promise.allSettled([
       takeBusinessProfileScreenshot(businessName, location, placeId),
-      scrapeSocialLinksFromGBP(businessName, location, placeId)
+      scrapeSocialLinksFromGBP(businessName, location, placeId),
+      checkCitations(businessName, businessData.phone || '')
     ]);
 
     let screenshot = null;
@@ -3169,36 +3185,35 @@ async function generateCompleteReport(businessName, location, industry, website,
       console.error('⚠️ Social link scraping failed (non-critical):', socialLinksResult.reason?.message);
     }
 
-    // Now check citations with phone number from business data
-    console.log(`📞 Checking citations with phone: ${businessData.phone || 'No phone available'}`);
     let citations;
-    try {
-      citations = await checkCitations(businessName, businessData.phone || '');
-    } catch (citationError) {
-      console.error('❌ Citation check failed:', citationError.message);
+    if (citationsResult.status === 'fulfilled') {
+      citations = citationsResult.value;
+      console.log(`✅ Citations check completed: ${citations.stats.found}/${citations.total} found`);
+    } else {
+      console.error('❌ Citation check failed:', citationsResult.reason?.message);
       citations = getFallbackCitations();
-      errors.push(`Citations: ${citationError.message}`);
+      errors.push(`Citations: ${citationsResult.reason?.message}`);
     }
-    
+
     // Log any foundation failures
     foundationResults.forEach((result, index) => {
       if (result.status === 'rejected') {
-        const stepNames = ['Business Data', 'Screenshot', 'Citations'];
+        const stepNames = ['Business Data'];
         errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
         console.log(`⚠️ ${stepNames[index]} failed: ${result.reason?.message}`);
       }
     });
-    
-    console.log(`✅ Group 1 completed: Business data, Screenshot, Citations`);
-    
+
+    console.log(`✅ Group 1 completed: Business data, Screenshot, Social Links, Citations`);
+
     // GROUP 2: Dependent Analysis (Needs data from Group 1)
+    // Q&A removed - no longer available on Google Business Profiles
     console.log('📊 Group 2: Running dependent analysis in parallel...');
     const analysisPromises = [
       analyzeReviews(businessName, location, businessData.place_id),
-      analyzeQAWithScraping(businessName, location, businessData.place_id),
       analyzeWebsite(businessData.website || website, location)
     ];
-    
+
     // Add AI analysis if we have screenshot
     if (screenshot && screenshot.filepath) {
       console.log(`🤖 Adding AI screenshot analysis to queue`);
@@ -3207,46 +3222,35 @@ async function generateCompleteReport(businessName, location, industry, website,
       console.log(`⚡ Skipping AI analysis (no screenshot available) - using fallback data`);
       analysisPromises.push(Promise.resolve(getFallbackAIAnalysis()));
     }
-    
+
     const analysisResults = await Promise.allSettled(analysisPromises);
-    
+
     // Extract analysis results with fallbacks
-    const reviewsAnalysis = analysisResults[0].status === 'fulfilled' 
-      ? analysisResults[0].value 
+    const reviewsAnalysis = analysisResults[0].status === 'fulfilled'
+      ? analysisResults[0].value
       : getFallbackReviews();
-    
-    const qaAnalysis = analysisResults[1].status === 'fulfilled' 
-      ? analysisResults[1].value 
-      : getFallbackQA();
-    
-    const websiteAnalysis = analysisResults[2].status === 'fulfilled' 
-      ? analysisResults[2].value 
+
+    const websiteAnalysis = analysisResults[1].status === 'fulfilled'
+      ? analysisResults[1].value
       : getFallbackWebsite();
-    
-    const aiAnalysis = analysisResults[3].status === 'fulfilled' 
-      ? analysisResults[3].value 
+
+    const aiAnalysis = analysisResults[2].status === 'fulfilled'
+      ? analysisResults[2].value
       : getFallbackAIAnalysis();
-    
+
     // Log any analysis failures with detailed debugging
     analysisResults.forEach((result, index) => {
-      const stepNames = ['Reviews', 'Q&A', 'Website', 'AI Analysis'];
+      const stepNames = ['Reviews', 'Website', 'AI Analysis'];
       if (result.status === 'rejected') {
         errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
         console.log(`❌ ${stepNames[index]} FAILED: ${result.reason?.message}`);
         console.log(`🔍 Full error:`, result.reason);
       } else {
         console.log(`✅ ${stepNames[index]} succeeded`);
-        if (index === 1) { // Q&A analysis
-          console.log(`🔍 Q&A Result:`, {
-            hasQA: result.value?.hasQA,
-            questionCount: result.value?.questionCount,
-            note: result.value?.note
-          });
-        }
       }
     });
     
-    console.log(`✅ Group 2 completed: Reviews, Q&A, Website, AI Analysis`);
+    console.log(`✅ Group 2 completed: Reviews, Website, AI Analysis`);
 
     // Merge AI analysis social links with scraped social links for most accurate count
     // Priority: scrapedSocialLinks (from GBP HTML) > AI analysis (from screenshot)
@@ -3273,20 +3277,41 @@ async function generateCompleteReport(businessName, location, industry, website,
       citations: citations,
       websiteAnalysis: websiteAnalysis,
       reviewsAnalysis: reviewsAnalysis,
-      qaAnalysis: qaAnalysis,
       scrapedSocialLinks: scrapedSocialLinks  // Keep original for debugging
+      // qaAnalysis removed - Q&A no longer available on GBPs
     };
 
     // Compile data for scoring
+    // Transform AI analysis format to match what calculateScore expects
+    const transformedAiAnalysis = {
+      ...partialData.aiAnalysis,
+      productTiles: {
+        hasAny: partialData.aiAnalysis?.productTiles?.meets2Plus || false,
+        count: partialData.aiAnalysis?.productTiles?.count || 0
+      },
+      posts: {
+        hasRecent: partialData.aiAnalysis?.posts?.meetsLast15Days || false,
+        hasAny: partialData.aiAnalysis?.posts?.hasAny || false,
+        count: partialData.aiAnalysis?.posts?.count || 0
+      },
+      social: {
+        hasAny: partialData.aiAnalysis?.socialLinks?.meets2Plus || false,
+        count: partialData.aiAnalysis?.socialLinks?.count || 0,
+        platforms: partialData.aiAnalysis?.socialLinks?.platforms || []
+      },
+      // Keep socialLinks for backward compatibility
+      socialLinks: partialData.aiAnalysis?.socialLinks || { count: 0, meets2Plus: false, platforms: [] }
+    };
+
     const compiledData = {
       businessInfo: { businessName, location, industry, website },
       outscraper: partialData.outscraper,
-      aiAnalysis: partialData.aiAnalysis,
+      aiAnalysis: transformedAiAnalysis,
       citations: partialData.citations,
       websiteAnalysis: partialData.websiteAnalysis,
       reviewsAnalysis: partialData.reviewsAnalysis,
-      qaAnalysis: partialData.qaAnalysis,
       screenshot: partialData.screenshot
+      // qaAnalysis removed - Q&A no longer available on GBPs
     };
     
     // Calculate score
@@ -3515,9 +3540,10 @@ function formatFactorName(key) {
 function getMaxScore(key) {
   const maxScores = {
     claimed: 8, description: 10, categories: 8, productTiles: 10,
-    photos: 8, posts: 8, qa: 4, social: 2,
+    photos: 8, posts: 8, social: 2,
     reviews: 12, citations: 10, gbpEmbed: 8, landingPage: 8,
-    bonus: 6 // Maximum possible bonus points (12 factors / 2)
+    bonus: 5 // Maximum possible bonus points (11 factors / 2, was 6 before Q&A removal)
+    // Q&A removed (was 4 pts) - no longer available on GBPs
   };
   return maxScores[key] || 0;
 }
@@ -3532,12 +3558,12 @@ function generateActionPlan(scoreData) {
     productTiles: { task: 'Add Product/Service Tiles', time: '30 minutes', priority: 'HIGH' },
     photos: { task: 'Upload High-Quality Photos', time: '1 hour', priority: 'MEDIUM' },
     posts: { task: 'Start Weekly Google Posts', time: '15 min/week', priority: 'MEDIUM' },
-    qa: { task: 'Populate Q&A Section', time: '30 minutes', priority: 'LOW' },
     social: { task: 'Add Social Media Links', time: '10 minutes', priority: 'LOW' },
     reviews: { task: 'Implement Review Strategy', time: '2-4 weeks', priority: 'HIGH' },
     citations: { task: 'Build Local Citations', time: '2-4 hours', priority: 'HIGH' },
     gbpEmbed: { task: 'Embed GBP on Website', time: '15 minutes', priority: 'MEDIUM' },
     landingPage: { task: 'Create Localized Landing Page', time: '2-4 hours', priority: 'MEDIUM' }
+    // Q&A removed - no longer available on GBPs
   };
   
   Object.entries(scoreData.scores).forEach(([key, score]) => {
@@ -3886,12 +3912,8 @@ async function generateFastBulkReport(businessName, location, industry, website)
         note: 'Not analyzed'
       },
       reviewsAnalysis: reviewsAnalysis,
-      qaAnalysis: {
-        hasQA: eightFactors.localLandingPage.hasPage,
-        questionCount: eightFactors.localLandingPage.hasPage ? 1 : 0,
-        note: 'Local landing page detection (replaces Q&A in bulk audits)'
-      },
       screenshot: partialData.gbpScreenshot?.filepath || null,
+      // qaAnalysis removed - Q&A no longer available on GBPs
       eightFactors: eightFactors, // Add the 8 factors for detailed analysis
       errors: errors
     };
