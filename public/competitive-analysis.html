@@ -215,7 +215,7 @@
                         <li>✓ Photo counts and categories</li>
                         <li>✓ Citation checking (top 5 directories)</li>
                         <li>✓ Social media presence</li>
-                        <li>✓ Q&As, posts, and engagement</li>
+                        <li>✓ Local landing pages, posts, and engagement</li>
                         <li> Optimized for speed (no AI analysis)</li>
                     </ul>
                 </div>
@@ -669,7 +669,7 @@
                             <div>${metrics.meetsPhotosReq ? checkmark : xmark} Photos (${metrics.photosCount || 0})</div>
                             <div>${metrics.meetsSocialReq ? checkmark : xmark} Social Links</div>
                             <div>${metrics.meetsReviewsReq ? checkmark : xmark} Reviews (${metrics.reviewsCount || 0})</div>
-                            <div>${metrics.meetsQAReq ? checkmark : xmark} Q&A</div>
+                            <div>${metrics.meetsLocalLandingPageReq ? checkmark : xmark} Local Landing Page</div>
                         </div>
                     </div>
                 `;
@@ -792,7 +792,7 @@
 
             // Create CSV content with 8 Key Factors
             const headers = ['Rank', 'Business Name', 'Address', 'Phone', 'Website', 'Rating', 'Reviews', 'Score',
-                             'Description✓', 'Categories✓', 'Photos✓', 'Reviews✓', 'Products✓', 'Posts✓', 'Social✓', 'Q&A✓', 'Opportunity'];
+                             'Description✓', 'Categories✓', 'Photos✓', 'Reviews✓', 'Products✓', 'Posts✓', 'Social✓', 'Landing Page✓', 'Opportunity'];
             const csvContent = [
                 headers.join(','),
                 ...filteredResults.map(result => {
@@ -813,7 +813,7 @@
                         m.meetsProductTilesReq ? 'YES' : 'NO',
                         m.meetsPostsReq ? 'YES' : 'NO',
                         m.meetsSocialReq ? 'YES' : 'NO',
-                        m.meetsQAReq ? 'YES' : 'NO',
+                        m.meetsLocalLandingPageReq ? 'YES' : 'NO',
                         result.opportunity
                     ].join(',');
                 })

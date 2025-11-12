@@ -3890,18 +3890,26 @@ async function generateFastBulkReport(businessName, location, industry, website)
       },
       outscraper: outscraperData,
       aiAnalysis: {
+        // CRITICAL: Must include ALL factors that calculateScore expects
+        description: eightFactors.description,
+        categories: eightFactors.categories,
+        photos: eightFactors.photos,
+        reviews: eightFactors.reviews,
         productTiles: {
           hasAny: eightFactors.productTiles.meets2Plus,
-          count: eightFactors.productTiles.count
+          count: eightFactors.productTiles.count,
+          meets2Plus: eightFactors.productTiles.meets2Plus
         },
         posts: {
           hasRecent: eightFactors.posts.meetsLast15Days,
-          count: eightFactors.posts.count
+          count: eightFactors.posts.count,
+          meetsLast15Days: eightFactors.posts.meetsLast15Days
         },
         social: {
           hasAny: eightFactors.socialLinks.meets2Plus,
           count: eightFactors.socialLinks.count
-        }
+        },
+        socialLinks: eightFactors.socialLinks
       },
       citations: { found: [], checked: [], total: 0, stats: { found: 0, missing: 0, percentage: 0, score: 0 } },
       websiteAnalysis: partialData.websiteAnalysis || {
