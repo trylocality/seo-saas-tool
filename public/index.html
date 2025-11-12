@@ -5688,9 +5688,10 @@
             }
 
             // Extract business info from current report
-            const businessName = currentReportData.businessName || currentReportData.businessInfo?.businessName || currentReportData.business?.name;
-            const location = currentReportData.location || currentReportData.businessInfo?.location;
-            const industry = currentReportData.industry || currentReportData.businessInfo?.industry;
+            // Backend returns: { business: { name, location, industry, website } }
+            const businessName = currentReportData.business?.name || currentReportData.businessName || currentReportData.businessInfo?.businessName;
+            const location = currentReportData.business?.location || currentReportData.location || currentReportData.businessInfo?.location;
+            const industry = currentReportData.business?.industry || currentReportData.industry || currentReportData.businessInfo?.industry;
 
             if (!businessName || !location || !industry) {
                 showToast('Missing business information. Cannot run competitive analysis.', 'error');
