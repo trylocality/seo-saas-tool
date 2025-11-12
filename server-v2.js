@@ -1258,6 +1258,120 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
   }
 }
 
+// 2C. TAKE SERVICES TAB SCREENSHOT - Capture the Services section specifically
+async function takeServicesTabScreenshot(businessName, location, placeId = null) {
+  try {
+    console.log(`📋 Taking Services tab screenshot: ${businessName}`);
+
+    await ensureScreenshotsDir();
+
+    if (!SCRAPINGBEE_API_KEY) {
+      throw new Error('ScrapingBee API key not configured');
+    }
+
+    if (!placeId) {
+      console.log(`⚠️ No place_id available - cannot navigate to Services tab directly`);
+      return null;
+    }
+
+    // Check cache first (30 minute TTL)
+    const cacheKey = `services_${businessName.toLowerCase()}_${location.toLowerCase()}`;
+    try {
+      const cached = await db.get(
+        'SELECT filepath, filename, created_at FROM screenshot_cache WHERE cache_key = $1 AND expires_at > NOW()',
+        [cacheKey]
+      );
+
+      if (cached) {
+        try {
+          await fs.access(cached.filepath);
+          const age = Math.round((Date.now() - new Date(cached.created_at)) / 1000 / 60);
+          console.log(`✅ Using cached Services screenshot (age: ${age} minutes)`);
+          return {
+            success: true,
+            filename: cached.filename,
+            filepath: cached.filepath,
+            url: `/screenshots/${cached.filename}`,
+            fromCache: true
+          };
+        } catch (fileError) {
+          console.log(`⚠️ Cached Services screenshot missing, will regenerate`);
+          await db.query('DELETE FROM screenshot_cache WHERE cache_key = $1', [cacheKey]);
+        }
+      }
+    } catch (cacheError) {
+      console.log(`⚠️ Services screenshot cache check failed: ${cacheError.message}`);
+    }
+
+    // Detect location
+    const { region } = detectCountryRegion(location);
+    const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+
+    // Google Maps URL that opens directly to the place with Services tab
+    // We'll use JavaScript execution to click the Services tab
+    const targetUrl = `https://www.${googleDomain}/maps/place/?q=place_id:${placeId}`;
+
+    const params = {
+      api_key: SCRAPINGBEE_API_KEY,
+      url: targetUrl,
+      custom_google: 'true',
+      stealth_proxy: 'true',
+      render_js: 'true',
+      screenshot: 'true',
+      screenshot_full_page: 'false', // Don't need full page for Services
+      wait: 5000, // Wait longer for tabs to load
+      window_width: 1920,
+      window_height: 1080,
+      block_resources: 'false',
+      country_code: region.toLowerCase(),
+      // Click on Services tab using JavaScript
+      js_snippet: "try { const servicesTab = document.querySelector('button[aria-label*=\"Services\"], button[data-tab-index=\"1\"], button:has-text(\"Services\")'); if (servicesTab) { servicesTab.click(); await new Promise(r => setTimeout(r, 2000)); } } catch(e) { console.log('Services tab not found'); }"
+    };
+
+    const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
+      params: params,
+      timeout: 120000,
+      responseType: 'arraybuffer'
+    });
+
+    if (response.status === 200 && response.headers['content-type'].includes('image')) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const safeBusinessName = businessName.replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `${safeBusinessName}_services_${timestamp}.png`;
+      const filepath = path.join(screenshotsDir, filename);
+
+      await fs.writeFile(filepath, response.data);
+
+      console.log(`✅ Services screenshot saved: ${filename}`);
+
+      // Cache for 30 minutes
+      try {
+        await db.query(
+          'INSERT INTO screenshot_cache (cache_key, filepath, filename, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL \'30 minutes\')',
+          [cacheKey, filepath, filename]
+        );
+        console.log(`💾 Services screenshot cached for 30 minutes`);
+      } catch (cacheInsertError) {
+        console.log(`⚠️ Failed to cache Services screenshot: ${cacheInsertError.message}`);
+      }
+
+      return {
+        success: true,
+        filename: filename,
+        filepath: filepath,
+        url: `/screenshots/${filename}`
+      };
+    } else {
+      throw new Error(`Unexpected response: ${response.status}`);
+    }
+
+  } catch (error) {
+    console.error('❌ Services screenshot error:', error.message);
+    // Non-critical error - return null and continue
+    return null;
+  }
+}
+
 // 2B. SCRAPE SOCIAL LINKS FROM GBP HTML - Get social links from the actual GBP page
 async function scrapeSocialLinksFromGBP(businessName, location, placeId = null) {
   try {
@@ -1496,6 +1610,95 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
   } catch (error) {
     console.error('❌ AI analysis error:', error.message);
     throw new Error(`AI analysis failed: ${error.message}`);
+  }
+}
+
+// SERVICES TAB ANALYSIS - Analyze Services section from screenshot
+async function analyzeServicesFromScreenshot(screenshotPath, businessName) {
+  try {
+    console.log(`🛠️ AI analyzing Services tab screenshot: ${businessName}`);
+
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const imageData = await fs.readFile(screenshotPath);
+    const base64Image = imageData.toString('base64');
+
+    const prompt = `Analyze this Google Business Profile Services tab screenshot.
+
+Business: ${businessName}
+
+Look for the Services section and determine:
+1. Does a Services section/tab exist?
+2. How many individual services are listed/visible?
+3. Do the services appear to have descriptions (not just titles)?
+
+Respond ONLY with valid JSON in this EXACT format:
+{
+  "hasServices": true/false,
+  "servicesCount": 0,
+  "hasDescriptions": true/false,
+  "servicesVisible": ["Service 1", "Service 2"]
+}
+
+Notes:
+- If no Services section is visible, set hasServices to false and servicesCount to 0
+- Count ALL visible service items
+- Check if services have description text below the title
+- Include up to 5 service names in servicesVisible array`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:image/png;base64,${base64Image}`,
+                detail: 'high'
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 300,
+      temperature: 0.1
+    });
+
+    const content = response.choices[0].message.content.trim();
+
+    let cleanedResponse = content;
+    if (content.includes('```json')) {
+      cleanedResponse = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    } else if (content.includes('```')) {
+      cleanedResponse = content.replace(/```\n?/g, '').trim();
+    }
+
+    const analysis = JSON.parse(cleanedResponse);
+
+    console.log(`✅ Services Analysis:`, {
+      hasServices: analysis.hasServices,
+      count: analysis.servicesCount,
+      hasDescriptions: analysis.hasDescriptions,
+      examples: analysis.servicesVisible?.slice(0, 3)
+    });
+
+    return analysis;
+
+  } catch (error) {
+    console.error('❌ Services analysis error:', error.message);
+    // Return safe fallback
+    return {
+      hasServices: false,
+      servicesCount: 0,
+      hasDescriptions: false,
+      servicesVisible: [],
+      error: error.message
+    };
   }
 }
 
@@ -2578,9 +2781,10 @@ async function calculateScore(data) {
     landingPage: 0,       // 8 pts
     hours: 0,             // 4 pts - NEW
     address: 0,           // 4 pts - NEW
-    keywordInName: 0      // 4 pts - NEW
+    keywordInName: 0,     // 4 pts - NEW
+    services: 0           // 4 pts - NEW
     // Q&A removed (was 4 pts) - no longer available on GBPs
-    // Total: 98 pts
+    // Total: 102 pts
   };
   
   const details = {};
@@ -2812,6 +3016,37 @@ async function calculateScore(data) {
     details.keywordInName = {
       status: 'MISSING',
       message: 'No industry keywords in business name - Google has rules for this, but when possible, we suggest adding a relevant keyword to the business name, which does impact ranking'
+    };
+  }
+
+  // 16. SERVICES SECTION (4 pts) - From Services tab screenshot analysis
+  const servicesData = data.servicesAnalysis || {};
+  const servicesCount = servicesData.servicesCount || 0;
+  const hasDescriptions = servicesData.hasDescriptions || false;
+
+  if (servicesCount >= 3 && hasDescriptions) {
+    scores.services = 4;
+    details.services = {
+      status: 'GOOD',
+      message: `${servicesCount} services listed with descriptions - great for capturing keyword variations`
+    };
+  } else if (servicesCount > 0 && servicesCount < 3) {
+    scores.services = 2;
+    details.services = {
+      status: 'NEEDS IMPROVEMENT',
+      message: `Only ${servicesCount} service${servicesCount === 1 ? '' : 's'} listed - add at least 3 services with detailed descriptions`
+    };
+  } else if (servicesCount >= 3 && !hasDescriptions) {
+    scores.services = 2;
+    details.services = {
+      status: 'NEEDS IMPROVEMENT',
+      message: `${servicesCount} services listed but missing descriptions - add detailed descriptions to each service`
+    };
+  } else {
+    scores.services = 0;
+    details.services = {
+      status: 'MISSING',
+      message: 'No Services section found - add 5+ services with detailed descriptions to improve rankings'
     };
   }
 
@@ -3177,6 +3412,27 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
       suggestions.keywordInName = await callOpenAI(keywordInNamePrompt, 'keyword in name');
     }
 
+    // 12. Services Section (if needed)
+    if (scoreData.scores.services < 4) {
+      const servicesPrompt = `
+      Create Services section strategy for:
+      Business: ${businessName}
+      Industry: ${industry}
+      Location: ${city}, ${state}
+
+      Provide:
+      - Generate 5-7 specific service ideas for this business
+      - For each service, provide a compelling title and description (100-150 chars)
+      - Explain why the Services tab is important for rankings
+      - Note that services help capture keyword variations
+      - Include pricing strategy advice (whether to show prices)
+
+      Format as a ready-to-use list of services they can add to their GBP.
+      `;
+
+      suggestions.services = await callOpenAI(servicesPrompt, 'services');
+    }
+
     console.log(`✅ Smart suggestions generated for ${Object.keys(suggestions).length} areas`);
 
     return {
@@ -3363,10 +3619,11 @@ async function generateCompleteReport(businessName, location, industry, website,
     // Now take screenshot and scrape social links with place_id
     const placeId = businessData.place_id || businessData.google_id;
 
-    // PERFORMANCE OPTIMIZATION: Run screenshot, social scraping, AND citations in parallel
-    console.log(`📸 Taking screenshot, scraping social links, and checking citations in parallel...`);
-    const [screenshotResult, socialLinksResult, citationsResult] = await Promise.allSettled([
+    // PERFORMANCE OPTIMIZATION: Run screenshot, services screenshot, social scraping, AND citations in parallel
+    console.log(`📸 Taking screenshots (main + services), scraping social links, and checking citations in parallel...`);
+    const [screenshotResult, servicesScreenshotResult, socialLinksResult, citationsResult] = await Promise.allSettled([
       takeBusinessProfileScreenshot(businessName, location, placeId),
+      takeServicesTabScreenshot(businessName, location, placeId),
       scrapeSocialLinksFromGBP(businessName, location, placeId),
       checkCitations(businessName, businessData.phone || '')
     ]);
@@ -3377,6 +3634,14 @@ async function generateCompleteReport(businessName, location, industry, website,
     } else {
       console.error('❌ Screenshot failed:', screenshotResult.reason?.message);
       errors.push(`Screenshot: ${screenshotResult.reason?.message}`);
+    }
+
+    let servicesScreenshot = null;
+    if (servicesScreenshotResult.status === 'fulfilled') {
+      servicesScreenshot = servicesScreenshotResult.value;
+      console.log(`✅ Services screenshot completed`);
+    } else {
+      console.error('⚠️ Services screenshot failed (non-critical):', servicesScreenshotResult.reason?.message);
     }
 
     let scrapedSocialLinks = { count: 0, meets2Plus: false, platforms: [] };
@@ -3425,6 +3690,15 @@ async function generateCompleteReport(businessName, location, industry, website,
       analysisPromises.push(Promise.resolve(getFallbackAIAnalysis()));
     }
 
+    // Add Services analysis if we have services screenshot
+    if (servicesScreenshot && servicesScreenshot.filepath) {
+      console.log(`🛠️ Adding Services screenshot analysis to queue`);
+      analysisPromises.push(analyzeServicesFromScreenshot(servicesScreenshot.filepath, businessName));
+    } else {
+      console.log(`⚡ Skipping Services analysis (no services screenshot available)`);
+      analysisPromises.push(Promise.resolve({ hasServices: false, servicesCount: 0, hasDescriptions: false, servicesVisible: [] }));
+    }
+
     const analysisResults = await Promise.allSettled(analysisPromises);
 
     // Extract analysis results with fallbacks
@@ -3440,9 +3714,13 @@ async function generateCompleteReport(businessName, location, industry, website,
       ? analysisResults[2].value
       : getFallbackAIAnalysis();
 
+    const servicesAnalysis = analysisResults[3].status === 'fulfilled'
+      ? analysisResults[3].value
+      : { hasServices: false, servicesCount: 0, hasDescriptions: false, servicesVisible: [] };
+
     // Log any analysis failures with detailed debugging
     analysisResults.forEach((result, index) => {
-      const stepNames = ['Reviews', 'Website', 'AI Analysis'];
+      const stepNames = ['Reviews', 'Website', 'AI Analysis', 'Services Analysis'];
       if (result.status === 'rejected') {
         errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
         console.log(`❌ ${stepNames[index]} FAILED: ${result.reason?.message}`);
@@ -3479,6 +3757,7 @@ async function generateCompleteReport(businessName, location, industry, website,
       citations: citations,
       websiteAnalysis: websiteAnalysis,
       reviewsAnalysis: reviewsAnalysis,
+      servicesAnalysis: servicesAnalysis,  // Add services analysis
       scrapedSocialLinks: scrapedSocialLinks  // Keep original for debugging
       // qaAnalysis removed - Q&A no longer available on GBPs
     };
@@ -3525,6 +3804,7 @@ async function generateCompleteReport(businessName, location, industry, website,
       citations: partialData.citations,
       websiteAnalysis: partialData.websiteAnalysis,
       reviewsAnalysis: partialData.reviewsAnalysis,
+      servicesAnalysis: partialData.servicesAnalysis,
       screenshot: partialData.screenshot
       // qaAnalysis removed - Q&A no longer available on GBPs
     };
@@ -3750,6 +4030,7 @@ function formatFactorName(key) {
     hours: 'Hours of Operation',
     address: 'Address Visibility',
     keywordInName: 'Keyword in Business Name',
+    services: 'Services Section',
     bonus: 'Bonus Points'
   };
   return nameMap[key] || key;
@@ -3760,8 +4041,8 @@ function getMaxScore(key) {
     claimed: 4, description: 10, categories: 8, productTiles: 10,
     photos: 8, posts: 6, social: 2,
     reviews: 12, citations: 10, gbpEmbed: 8, landingPage: 8,
-    hours: 4, address: 4, keywordInName: 4,
-    bonus: 7 // Maximum possible bonus points (14 factors / 2, rounded up)
+    hours: 4, address: 4, keywordInName: 4, services: 4,
+    bonus: 7 // Maximum possible bonus points (15 factors / 2, rounded up)
     // Q&A removed (was 4 pts) - no longer available on GBPs
   };
   return maxScores[key] || 0;
@@ -3780,6 +4061,7 @@ function generateActionPlan(scoreData) {
     hours: { task: 'Add/Expand Hours of Operation', time: '5 minutes', priority: 'HIGH' },
     address: { task: 'Add Public Address (if applicable)', time: '10 minutes', priority: 'MEDIUM' },
     keywordInName: { task: 'Add Industry Keywords to Business Name', time: '30 minutes', priority: 'HIGH' },
+    services: { task: 'Add Services Section with Descriptions', time: '45 minutes', priority: 'HIGH' },
     social: { task: 'Add Social Media Links', time: '10 minutes', priority: 'LOW' },
     reviews: { task: 'Implement Review Strategy', time: '2-4 weeks', priority: 'HIGH' },
     citations: { task: 'Build Local Citations', time: '2-4 hours', priority: 'HIGH' },
