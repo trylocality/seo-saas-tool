@@ -3939,8 +3939,12 @@ async function generateFastBulkReport(businessName, location, industry, website)
       website: website,
       generatedDate: new Date().toLocaleDateString(),
 
-      // Core data for ranking comparison - 8 FACTORS
+      // Core data for ranking comparison - 9 FACTORS (includes Claimed Profile)
       coreMetrics: {
+        // Factor 0: Claimed Profile (verified/has reviews)
+        isClaimed: outscraperData.verified || outscraperData.rating > 0,
+        meetsClaimedReq: outscraperData.verified || outscraperData.rating > 0,
+
         // Factor 1: Description (150+ chars)
         hasDescription: eightFactors.description.exists,
         descriptionLength: eightFactors.description.estimatedLength,
