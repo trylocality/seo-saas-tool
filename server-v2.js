@@ -1498,6 +1498,78 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
     throw new Error(`AI analysis failed: ${error.message}`);
   }
 }
+
+// BUSINESS NAME KEYWORD ANALYSIS - Check if business name contains industry keywords
+async function analyzeBusinessNameKeywords(businessName, industry) {
+  try {
+    console.log(`🏷️ Analyzing business name keywords: "${businessName}" in ${industry}`);
+
+    const prompt = `Analyze if this business name includes relevant industry keywords.
+
+Business Name: "${businessName}"
+Industry: "${industry}"
+
+Task: Determine if the business name contains keywords that customers would search for when looking for this type of business.
+
+Examples:
+- "Joe's Plumbing & Heating" → HAS keywords (plumbing, heating)
+- "ABC Services" → NO keywords
+- "Sam's Sales Recruiting" → HAS keywords (sales, recruiting)
+- "TechDraft Solutions" → NO keywords (for recruiting industry)
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "hasKeywords": true/false,
+  "matchedKeywords": ["keyword1", "keyword2"],
+  "missingKeywords": ["keyword3"],
+  "confidence": "high/medium/low"
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 200
+    });
+
+    const content = response.choices[0].message.content.trim();
+
+    // Remove markdown code blocks if present
+    let cleanedResponse = content;
+    if (content.includes('```json')) {
+      cleanedResponse = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    } else if (content.includes('```')) {
+      cleanedResponse = content.replace(/```\n?/g, '').trim();
+    }
+
+    const analysis = JSON.parse(cleanedResponse);
+
+    console.log(`✅ Keyword Analysis:`, {
+      hasKeywords: analysis.hasKeywords,
+      matched: analysis.matchedKeywords,
+      missing: analysis.missingKeywords
+    });
+
+    return analysis;
+
+  } catch (error) {
+    console.error('❌ Business name keyword analysis error:', error.message);
+    // Return safe fallback
+    return {
+      hasKeywords: false,
+      matchedKeywords: [],
+      missingKeywords: [],
+      confidence: 'low',
+      error: error.message
+    };
+  }
+}
+
 // 4. CITATION CHECKER - Check presence in major directories
 async function checkCitations(businessName, phoneNumber) {
   try {
@@ -2483,7 +2555,7 @@ async function analyzeReviews(businessName, location, placeId) {
 }
 
 // 7. COMPLETE SCORING SYSTEM (UPDATED V3)
-function calculateScore(data) {
+async function calculateScore(data) {
   console.log(`📊 Calculating score for: ${data.businessInfo.businessName}`);
   console.log('🔍 SCORING DEBUG - Raw Data:');
   console.log(`   Photos: ${data.outscraper.photos_count}`);
@@ -2493,25 +2565,29 @@ function calculateScore(data) {
   console.log(`   Description length: ${data.outscraper.description?.length || 0}`);
   
   const scores = {
-    claimed: 0,           // 8 pts
+    claimed: 0,           // 4 pts (reduced from 8)
     description: 0,       // 10 pts
     categories: 0,        // 8 pts
     productTiles: 0,      // 10 pts
     photos: 0,            // 8 pts
-    posts: 0,             // 8 pts
+    posts: 0,             // 6 pts (reduced from 8)
     social: 0,            // 2 pts
     reviews: 0,           // 12 pts (3 each for 4 criteria)
     citations: 0,         // 10 pts (1 per directory)
     gbpEmbed: 0,          // 8 pts
-    landingPage: 0        // 8 pts
+    landingPage: 0,       // 8 pts
+    hours: 0,             // 4 pts - NEW
+    address: 0,           // 4 pts - NEW
+    keywordInName: 0      // 4 pts - NEW
     // Q&A removed (was 4 pts) - no longer available on GBPs
+    // Total: 98 pts
   };
   
   const details = {};
   
-  // 1. CLAIMED PROFILE (8 pts) - Binary
+  // 1. CLAIMED PROFILE (4 pts) - Binary
   if (data.outscraper.verified || data.outscraper.rating > 0) {
-    scores.claimed = 8;
+    scores.claimed = 4;
     details.claimed = { status: 'GOOD', message: 'Profile verified - you have full control' };
   } else {
     scores.claimed = 0;
@@ -2593,9 +2669,9 @@ function calculateScore(data) {
     details.photos = { status: 'MISSING', message: 'No photos - businesses with photos get 42% more requests' };
   }
   
-  // 6. POSTS (8 pts) - Binary: recent activity
+  // 6. POSTS (6 pts) - Binary: recent activity
   if (data.aiAnalysis.posts && data.aiAnalysis.posts.hasRecent) {
-    scores.posts = 8;
+    scores.posts = 6;
     details.posts = { status: 'GOOD', message: 'Active posting keeps customers engaged' };
   } else {
     scores.posts = 0;
@@ -2675,7 +2751,70 @@ function calculateScore(data) {
     scores.landingPage = 0;
     details.landingPage = { status: 'MISSING', message: 'No local page - missing local search traffic' };
   }
-  
+
+  // 13. HOURS OF OPERATION (4 pts) - Binary: Are hours displayed?
+  const hasHours = data.outscraper.hours && Object.keys(data.outscraper.hours).length > 0;
+  if (hasHours) {
+    scores.hours = 4;
+    details.hours = {
+      status: 'GOOD',
+      message: 'Hours of operation is a real ranking factor for your business, and if you are closed during the time of a search, you will rank lower. If possible, expand your hours of operation to ensure the highest ranking at all times'
+    };
+  } else {
+    scores.hours = 0;
+    details.hours = {
+      status: 'MISSING',
+      message: 'No hours listed - add your hours of operation to improve rankings. If you are closed during the time of a search, you will rank lower'
+    };
+  }
+
+  // 14. ADDRESS VISIBILITY (4 pts) - Binary: Public address vs Service Area Business
+  const hasVisibleAddress = Boolean(
+    data.outscraper.address &&
+    !data.outscraper.is_service_area_business &&
+    data.outscraper.address !== 'Service area business'
+  );
+
+  if (hasVisibleAddress) {
+    scores.address = 4;
+    details.address = {
+      status: 'GOOD',
+      message: 'Visible public address helps with local rankings'
+    };
+  } else {
+    scores.address = 0;
+    details.address = {
+      status: 'MISSING',
+      message: 'A public address is a ranking factor, but only if there is a real physical location. Service area businesses have reduced map visibility'
+    };
+  }
+
+  // 15. KEYWORD IN BUSINESS NAME (4 pts) - Analyzed with AI
+  let keywordAnalysis = null;
+  try {
+    keywordAnalysis = await analyzeBusinessNameKeywords(
+      data.businessInfo.businessName,
+      data.businessInfo.industry
+    );
+  } catch (error) {
+    console.error('⚠️ Keyword analysis failed:', error.message);
+    keywordAnalysis = { hasKeywords: false, matchedKeywords: [], missingKeywords: [] };
+  }
+
+  if (keywordAnalysis && keywordAnalysis.hasKeywords) {
+    scores.keywordInName = 4;
+    details.keywordInName = {
+      status: 'GOOD',
+      message: `Business name includes relevant keywords (${keywordAnalysis.matchedKeywords.join(', ')}) - excellent for rankings`
+    };
+  } else {
+    scores.keywordInName = 0;
+    details.keywordInName = {
+      status: 'MISSING',
+      message: 'No industry keywords in business name - Google has rules for this, but when possible, we suggest adding a relevant keyword to the business name, which does impact ranking'
+    };
+  }
+
   // Calculate base score
   let totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
   
@@ -2978,9 +3117,68 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
         };
       }
     }
-    
+
+    // 9. Hours of Operation (if needed)
+    if (scoreData.scores.hours < 4) {
+      const hoursPrompt = `
+      Create hours of operation strategy for:
+      Business: ${businessName}
+      Industry: ${industry}
+      Location: ${city}, ${state}
+
+      Provide:
+      - Recommended hours for ${industry} businesses
+      - Advice on expanding hours to improve rankings
+      - Note that being closed during search time hurts rankings
+      - Suggest specific days/times to add if possible
+
+      Keep it practical and industry-appropriate.
+      `;
+
+      suggestions.hours = await callOpenAI(hoursPrompt, 'hours');
+    }
+
+    // 10. Address Visibility (if needed)
+    if (scoreData.scores.address < 4) {
+      const addressPrompt = `
+      Create address visibility strategy for:
+      Business: ${businessName}
+      Industry: ${industry}
+
+      Provide guidance on:
+      - Importance of visible public address for rankings
+      - Options if they are a service area business (virtual office, coworking space)
+      - Only recommend if they have a real physical location
+      - Explain reduced map visibility for service area businesses
+
+      Be realistic about whether they need a physical location.
+      `;
+
+      suggestions.address = await callOpenAI(addressPrompt, 'address');
+    }
+
+    // 11. Keyword in Business Name (if needed)
+    if (scoreData.scores.keywordInName < 4) {
+      const keywordInNamePrompt = `
+      Create business name keyword strategy for:
+      Business: ${businessName}
+      Industry: ${industry}
+
+      Provide:
+      - Explain why keywords in business name improve rankings
+      - Suggest how to add industry keywords to their GBP name
+      - IMPORTANT: Warn about Google's rules (must match actual branding/signage)
+      - Suggest considering a DBA (Doing Business As) name
+      - Examples of compliant vs non-compliant names
+
+      Be clear about Google's guidelines to avoid suspension.
+      `;
+
+      suggestions.keywordInName = await callOpenAI(keywordInNamePrompt, 'keyword in name');
+    }
+
     console.log(`✅ Smart suggestions generated for ${Object.keys(suggestions).length} areas`);
-    
+
     return {
       suggestions: suggestions
     };
@@ -3333,7 +3531,7 @@ async function generateCompleteReport(businessName, location, industry, website,
     
     // Calculate score
     console.log('📊 Calculating score...');
-    const scoreData = calculateScore(compiledData);
+    const scoreData = await calculateScore(compiledData);
     
     // Generate action plan
     console.log('📋 Creating action plan...');
@@ -3549,6 +3747,9 @@ function formatFactorName(key) {
     citations: 'Local Citations',
     gbpEmbed: 'GBP Website Embed',
     landingPage: 'Localized Landing Page',
+    hours: 'Hours of Operation',
+    address: 'Address Visibility',
+    keywordInName: 'Keyword in Business Name',
     bonus: 'Bonus Points'
   };
   return nameMap[key] || key;
@@ -3556,10 +3757,11 @@ function formatFactorName(key) {
 
 function getMaxScore(key) {
   const maxScores = {
-    claimed: 8, description: 10, categories: 8, productTiles: 10,
-    photos: 8, posts: 8, social: 2,
+    claimed: 4, description: 10, categories: 8, productTiles: 10,
+    photos: 8, posts: 6, social: 2,
     reviews: 12, citations: 10, gbpEmbed: 8, landingPage: 8,
-    bonus: 5 // Maximum possible bonus points (11 factors / 2, was 6 before Q&A removal)
+    hours: 4, address: 4, keywordInName: 4,
+    bonus: 7 // Maximum possible bonus points (14 factors / 2, rounded up)
     // Q&A removed (was 4 pts) - no longer available on GBPs
   };
   return maxScores[key] || 0;
@@ -3575,6 +3777,9 @@ function generateActionPlan(scoreData) {
     productTiles: { task: 'Add Product/Service Tiles', time: '30 minutes', priority: 'HIGH' },
     photos: { task: 'Upload High-Quality Photos', time: '1 hour', priority: 'MEDIUM' },
     posts: { task: 'Start Weekly Google Posts', time: '15 min/week', priority: 'MEDIUM' },
+    hours: { task: 'Add/Expand Hours of Operation', time: '5 minutes', priority: 'HIGH' },
+    address: { task: 'Add Public Address (if applicable)', time: '10 minutes', priority: 'MEDIUM' },
+    keywordInName: { task: 'Add Industry Keywords to Business Name', time: '30 minutes', priority: 'HIGH' },
     social: { task: 'Add Social Media Links', time: '10 minutes', priority: 'LOW' },
     reviews: { task: 'Implement Review Strategy', time: '2-4 weeks', priority: 'HIGH' },
     citations: { task: 'Build Local Citations', time: '2-4 hours', priority: 'HIGH' },
@@ -3945,7 +4150,7 @@ async function generateFastBulkReport(businessName, location, industry, website)
 
     // Calculate score with available data
     console.log('📊 Step 4: Calculating fast score...');
-    const scoreData = calculateScore(compiledData);
+    const scoreData = await calculateScore(compiledData);
 
     const report = {
       success: true,
