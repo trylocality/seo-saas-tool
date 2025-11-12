@@ -2524,6 +2524,8 @@ function calculateScore(data) {
   const hasDescriptionFromAI = data.aiAnalysis?.description?.exists || false;
   const descriptionLengthFromAI = data.aiAnalysis?.description?.estimatedLength || 0;
 
+  console.log(`🔍 DESCRIPTION DEBUG: Outscraper="${desc?.substring(0, 50) || 'EMPTY'}", AI.exists=${hasDescriptionFromAI}, AI.length=${descriptionLengthFromAI}`);
+
   // If Outscraper has description, analyze it fully
   if (desc && desc.length > 0) {
     const descAnalysis = analyzeDescriptionCriteria(desc, data.businessInfo.businessName, data.businessInfo.location, data.businessInfo.industry);
@@ -2604,6 +2606,8 @@ function calculateScore(data) {
   // Commenting out for historical reference but no longer scoring
 
   // 8. SOCIAL PROFILES (2 pts) - Binary (was #8, now #7 after Q&A removal)
+  console.log(`🔍 SOCIAL DEBUG: social.hasAny=${data.aiAnalysis.social?.hasAny}, count=${data.aiAnalysis.social?.count}, socialLinks.meets2Plus=${data.aiAnalysis.socialLinks?.meets2Plus}`);
+
   if (data.aiAnalysis.social && data.aiAnalysis.social.hasAny) {
     scores.social = 2;
     details.social = { status: 'GOOD', message: 'Social media links help customers connect' };
@@ -3283,23 +3287,36 @@ async function generateCompleteReport(businessName, location, industry, website,
 
     // Compile data for scoring
     // Transform AI analysis format to match what calculateScore expects
+    // DUAL-SOURCE VALIDATION: Use data from either Outscraper OR AI (whichever has it)
     const transformedAiAnalysis = {
       ...partialData.aiAnalysis,
+      // Description: Already merged in partialData.aiAnalysis
+      description: partialData.aiAnalysis?.description || { exists: false, estimatedLength: 0, meets150Chars: false },
+
+      // Product Tiles: Only AI can detect
       productTiles: {
         hasAny: partialData.aiAnalysis?.productTiles?.meets2Plus || false,
-        count: partialData.aiAnalysis?.productTiles?.count || 0
+        count: partialData.aiAnalysis?.productTiles?.count || 0,
+        meets2Plus: partialData.aiAnalysis?.productTiles?.meets2Plus || false
       },
+
+      // Posts: Prefer AI (has recency data)
       posts: {
         hasRecent: partialData.aiAnalysis?.posts?.meetsLast15Days || false,
         hasAny: partialData.aiAnalysis?.posts?.hasAny || false,
-        count: partialData.aiAnalysis?.posts?.count || 0
+        count: partialData.aiAnalysis?.posts?.count || 0,
+        meetsLast15Days: partialData.aiAnalysis?.posts?.meetsLast15Days || false
       },
+
+      // Social: Use MERGED data from both scraped GBP HTML and AI screenshot
       social: {
         hasAny: partialData.aiAnalysis?.socialLinks?.meets2Plus || false,
         count: partialData.aiAnalysis?.socialLinks?.count || 0,
-        platforms: partialData.aiAnalysis?.socialLinks?.platforms || []
+        platforms: partialData.aiAnalysis?.socialLinks?.platforms || [],
+        meets2Plus: partialData.aiAnalysis?.socialLinks?.meets2Plus || false
       },
-      // Keep socialLinks for backward compatibility
+
+      // Keep socialLinks for backward compatibility (already merged at line 3275)
       socialLinks: partialData.aiAnalysis?.socialLinks || { count: 0, meets2Plus: false, platforms: [] }
     };
 
