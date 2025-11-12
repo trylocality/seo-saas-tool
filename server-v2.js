@@ -5404,6 +5404,244 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
   }
 });
 
+// Competitive Analysis Around Target Business
+app.post('/api/competitive-analysis-around-business', authenticateToken, async (req, res) => {
+  try {
+    const { businessName, location, industry } = req.body;
+
+    // Validation
+    if (!businessName || !location || !industry) {
+      return res.status(400).json({ error: 'Business name, location, and industry are required' });
+    }
+
+    console.log(`🎯 Starting competitive analysis around: ${businessName} in ${location}`);
+
+    // Step 1: Get business rankings to find target business's position
+    const allBusinesses = await getBusinessRankings(industry, location, 100, 1);
+
+    if (!allBusinesses || allBusinesses.length === 0) {
+      return res.status(404).json({ error: 'No businesses found for this industry/location' });
+    }
+
+    // Step 2: Find the target business in the rankings
+    const targetIndex = allBusinesses.findIndex(b =>
+      b.name.toLowerCase().includes(businessName.toLowerCase()) ||
+      businessName.toLowerCase().includes(b.name.toLowerCase())
+    );
+
+    if (targetIndex === -1) {
+      return res.status(404).json({
+        error: `Could not find "${businessName}" in the top 100 rankings for ${industry} in ${location}`,
+        suggestion: 'Try using the exact business name as it appears on Google Maps'
+      });
+    }
+
+    const targetRank = targetIndex + 1;
+    console.log(`📍 Found target business at rank #${targetRank}`);
+
+    // Step 3: Determine which businesses to analyze (5 above + target + 5 below)
+    let startIndex, endIndex, businessesToScan;
+
+    if (targetRank <= 5) {
+      // If in top 5, scan from #1 to target + 5 below
+      startIndex = 0;
+      endIndex = Math.min(targetIndex + 5, allBusinesses.length - 1);
+      console.log(`📊 Target is in top 5 - scanning ranks #1 to #${endIndex + 1}`);
+    } else {
+      // Otherwise, scan 5 above + target + 5 below
+      startIndex = Math.max(0, targetIndex - 5);
+      endIndex = Math.min(targetIndex + 5, allBusinesses.length - 1);
+      console.log(`📊 Scanning ranks #${startIndex + 1} to #${endIndex + 1} (centered around #${targetRank})`);
+    }
+
+    businessesToScan = allBusinesses.slice(startIndex, endIndex + 1);
+    const totalToScan = businessesToScan.length;
+
+    // Step 4: Check if user has enough credits
+    const creditsNeeded = totalToScan;
+    if (req.user.credits_remaining < creditsNeeded) {
+      return res.status(402).json({
+        error: `Insufficient credits. This competitive analysis requires ${creditsNeeded} credits (analyzing ${totalToScan} businesses). You have ${req.user.credits_remaining}.`,
+        creditsNeeded,
+        creditsAvailable: req.user.credits_remaining
+      });
+    }
+
+    console.log(`💳 User has ${req.user.credits_remaining} credits, needs ${creditsNeeded} for ${totalToScan} businesses`);
+
+    // Step 5: Run fast audits on all businesses (3 at a time)
+    const auditResults = [];
+    const errors = [];
+    let creditsUsed = 0;
+    const CONCURRENCY_LIMIT = 3;
+
+    const processBusiness = async (business, index) => {
+      console.log(`\n⚡ Scanning ${index + 1}/${businessesToScan.length}: ${business.name} (Rank #${business.rank})`);
+
+      try {
+        const report = await generateFastBulkReport(
+          business.name,
+          business.location || location,
+          industry,
+          business.website
+        );
+
+        report.ranking = {
+          position: business.rank,
+          searchTerm: `${industry} ${location}`,
+          url: business.website,
+          isTarget: business.name.toLowerCase() === businessName.toLowerCase()
+        };
+
+        console.log(`✅ Scan complete: ${business.name} - Score: ${report.score}/${report.maxScore}`);
+        return { success: true, report, business };
+
+      } catch (businessError) {
+        console.error(`❌ Scan failed for ${business.name}:`, businessError.message);
+
+        const fallbackReport = {
+          success: false,
+          type: 'fast_bulk',
+          businessName: business.name,
+          location: location,
+          industry: industry,
+          website: business.website || null,
+          ranking: {
+            position: business.rank,
+            searchTerm: `${industry} ${location}`,
+            url: business.website,
+            isTarget: business.name.toLowerCase() === businessName.toLowerCase()
+          },
+          score: 0,
+          maxScore: 96,
+          coreMetrics: {
+            isClaimed: false,
+            meetsClaimedReq: false,
+            hasDescription: false,
+            meetsDescriptionReq: false,
+            categoriesCount: 0,
+            meetsCategoriesReq: false,
+            photosCount: 0,
+            meetsPhotosReq: false,
+            reviewsCount: 0,
+            averageRating: 0,
+            meetsReviewsReq: false,
+            productTilesCount: 0,
+            meetsProductTilesReq: false,
+            postsCount: 0,
+            meetsPostsReq: false,
+            socialLinksCount: 0,
+            meetsSocialReq: false,
+            hasLocalLandingPage: false,
+            meetsLocalLandingPageReq: false
+          },
+          errors: [businessError.message]
+        };
+
+        return { success: false, report: fallbackReport, business, error: businessError.message };
+      }
+    };
+
+    // Process in batches
+    for (let i = 0; i < businessesToScan.length; i += CONCURRENCY_LIMIT) {
+      const batch = businessesToScan.slice(i, i + CONCURRENCY_LIMIT);
+      console.log(`\n🚀 Processing batch ${Math.floor(i / CONCURRENCY_LIMIT) + 1}/${Math.ceil(businessesToScan.length / CONCURRENCY_LIMIT)}`);
+
+      const batchResults = await Promise.allSettled(
+        batch.map((business, batchIndex) => processBusiness(business, i + batchIndex))
+      );
+
+      batchResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          auditResults.push(result.value.report);
+          creditsUsed++;
+          if (result.value.error) {
+            errors.push(result.value.error);
+          }
+        }
+      });
+    }
+
+    if (auditResults.length === 0) {
+      return res.status(500).json({
+        error: 'Competitive analysis failed - no businesses could be processed',
+        errors: errors
+      });
+    }
+
+    console.log(`📊 Generating competitive analysis for ${auditResults.length} businesses...`);
+
+    // Generate analysis
+    const competitiveAnalysis = generateCompetitiveAnalysis(auditResults, industry, location);
+    const industryBenchmarks = calculateIndustryBenchmarks(auditResults);
+    const opportunityMatrix = identifyOpportunities(auditResults);
+
+    // Find target business in results
+    const targetBusiness = auditResults.find(r =>
+      r.ranking && r.ranking.isTarget
+    ) || auditResults.find(r =>
+      r.businessName.toLowerCase() === businessName.toLowerCase()
+    );
+
+    // Create response
+    const competitiveReport = {
+      success: true,
+      type: 'competitive_analysis_around_business',
+      targetBusiness: {
+        name: businessName,
+        rank: targetRank,
+        score: targetBusiness?.score || 0,
+        maxScore: targetBusiness?.maxScore || 96
+      },
+      searchCriteria: {
+        industry: industry,
+        location: location,
+        totalScanned: auditResults.length,
+        startingPosition: startIndex + 1,
+        endingPosition: endIndex + 1,
+        targetPosition: targetRank
+      },
+      generatedDate: new Date().toLocaleDateString(),
+      executiveSummary: competitiveAnalysis.summary,
+      businesses: auditResults,
+      competitiveAnalysis: competitiveAnalysis,
+      industryBenchmarks: industryBenchmarks,
+      opportunityMatrix: opportunityMatrix,
+      scanSummary: {
+        averageScore: Math.round(auditResults.reduce((sum, r) => sum + r.score, 0) / auditResults.length),
+        averageReviews: Math.round(auditResults.reduce((sum, r) => sum + r.coreMetrics.totalReviews, 0) / auditResults.length),
+        averagePhotos: Math.round(auditResults.reduce((sum, r) => sum + r.coreMetrics.totalPhotos, 0) / auditResults.length),
+        businessesWithGBP: auditResults.filter(r => r.coreMetrics.hasGBPEmbed).length,
+        businessesWithSocial: auditResults.filter(r => r.coreMetrics.socialLinks > 0).length
+      },
+      errors: errors.length > 0 ? errors : undefined,
+      creditsUsed: creditsUsed
+    };
+
+    // Deduct credits
+    try {
+      await db.query(
+        'UPDATE users SET credits_remaining = credits_remaining - $1 WHERE id = $2',
+        [creditsUsed, req.user.id]
+      );
+      console.log(`💳 ${creditsUsed} credits deducted for competitive analysis`);
+    } catch (creditError) {
+      console.error('Error updating credits:', creditError);
+    }
+
+    console.log(`\n✅ Competitive analysis complete! Analyzed ${auditResults.length} businesses around ${businessName}`);
+
+    res.json(competitiveReport);
+
+  } catch (error) {
+    console.error('❌ Competitive analysis error:', error);
+    res.status(500).json({
+      error: 'Competitive analysis failed',
+      details: error.message
+    });
+  }
+});
+
 // Compare two businesses with AI analysis
 app.post('/api/compare-businesses', authenticateToken, async (req, res) => {
   try {

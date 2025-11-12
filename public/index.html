@@ -2604,6 +2604,9 @@
                 <button class="btn" onclick="downloadPDF()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
                     Download PDF Report
                 </button>
+                <button class="btn" onclick="runCompetitiveAnalysis()" style="width: auto; padding: 12px 25px; margin-right: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+                    Competitive Analysis
+                </button>
                 <button class="btn" onclick="showReportForm()" style="width: auto; padding: 12px 25px; margin-right: 15px;">
                     Generate Another Report
                 </button>
@@ -5661,20 +5664,99 @@
             // Hide non-printable elements
             const elementsToHide = document.querySelectorAll('.btn, .report-actions, .how-to-fix-btn, .detailed-analysis-btn, .order-citations-cta-btn, .detailed-analysis-subtext, #detailedCitationSummary');
             elementsToHide.forEach(el => el.style.display = 'none');
-            
+
             // Ensure proper print layout classes are applied
             const reportSection = document.getElementById('reportSection');
             const hasDetailedAnalysis = reportSection && reportSection.classList.contains('detailed-analysis-active');
-            
+
             console.log(` Generating PDF - Detailed analysis: ${hasDetailedAnalysis}`);
-            
+
             // Trigger print
             window.print();
-            
+
             // Restore elements after print
             setTimeout(() => {
                 elementsToHide.forEach(el => el.style.display = '');
             }, 1000);
+        }
+
+        // Competitive Analysis function
+        async function runCompetitiveAnalysis() {
+            if (!currentReportData) {
+                showToast('No report data available. Please generate a report first.', 'error');
+                return;
+            }
+
+            // Extract business info from current report
+            const businessName = currentReportData.businessName || currentReportData.businessInfo?.businessName || currentReportData.business?.name;
+            const location = currentReportData.location || currentReportData.businessInfo?.location;
+            const industry = currentReportData.industry || currentReportData.businessInfo?.industry;
+
+            if (!businessName || !location || !industry) {
+                showToast('Missing business information. Cannot run competitive analysis.', 'error');
+                console.error('Missing data:', { businessName, location, industry });
+                return;
+            }
+
+            // Confirm with user
+            const confirmed = confirm(`Run competitive analysis for ${businessName}?\n\nThis will analyze businesses ranking around you in Google Maps.\n\nNote: This costs credits based on how many businesses are analyzed (typically 6-11 businesses).`);
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                showToast('Starting competitive analysis... This may take 1-2 minutes.', 'info');
+
+                const token = localStorage.getItem('authToken');
+                const response = await fetch('/api/competitive-analysis-around-business', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        businessName: businessName,
+                        location: location,
+                        industry: industry
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Store the report data in localStorage and redirect to competitive analysis page
+                    localStorage.setItem('bulkReportData', JSON.stringify(data));
+                    showToast(`Competitive analysis complete! Analyzed ${data.searchCriteria.totalScanned} businesses.`, 'success');
+
+                    // Redirect to competitive analysis page after a short delay
+                    setTimeout(() => {
+                        window.location.href = 'competitive-analysis.html';
+                    }, 1000);
+                } else if (response.status === 402) {
+                    // Insufficient credits
+                    showToast(data.error || 'Insufficient credits for competitive analysis.', 'error');
+
+                    // Prompt user to buy credits
+                    setTimeout(() => {
+                        const buyCreds = confirm(`${data.error}\n\nWould you like to purchase more credits?`);
+                        if (buyCreds) {
+                            buyCredits();
+                        }
+                    }, 500);
+                } else if (response.status === 404) {
+                    // Business not found in rankings
+                    showToast(data.error || 'Business not found in rankings.', 'error');
+                    if (data.suggestion) {
+                        alert(`${data.error}\n\nTip: ${data.suggestion}`);
+                    }
+                } else {
+                    throw new Error(data.error || 'Failed to run competitive analysis');
+                }
+            } catch (error) {
+                console.error('Competitive analysis error:', error);
+                showToast('Failed to run competitive analysis. Please try again.', 'error');
+            }
         }
 
         // Account Menu Functions
