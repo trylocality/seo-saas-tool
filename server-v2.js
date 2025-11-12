@@ -3310,7 +3310,7 @@ async function generateCompleteReport(businessName, location, industry, website,
 
       // Social: Use MERGED data from both scraped GBP HTML and AI screenshot
       social: {
-        hasAny: partialData.aiAnalysis?.socialLinks?.meets2Plus || false,
+        hasAny: (partialData.aiAnalysis?.socialLinks?.count || 0) > 0,
         count: partialData.aiAnalysis?.socialLinks?.count || 0,
         platforms: partialData.aiAnalysis?.socialLinks?.platforms || [],
         meets2Plus: partialData.aiAnalysis?.socialLinks?.meets2Plus || false
@@ -3923,7 +3923,7 @@ async function generateFastBulkReport(businessName, location, industry, website)
           meetsLast15Days: eightFactors.posts.meetsLast15Days
         },
         social: {
-          hasAny: eightFactors.socialLinks.meets2Plus,
+          hasAny: eightFactors.socialLinks.count > 0,
           count: eightFactors.socialLinks.count
         },
         socialLinks: eightFactors.socialLinks
