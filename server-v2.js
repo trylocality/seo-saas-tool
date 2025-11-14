@@ -1036,7 +1036,27 @@ async function getOutscraperData(businessName, location) {
             console.log(`✅ Outscraper found: ${business.name || business.title || businessName}`);
             console.log(`🔍 PROFILE DETAILS: Name: "${business.name}", Address: "${business.full_address || business.address}", Phone: "${business.phone}"`);
             console.log(`🔍 VERIFICATION STATUS: Verified: ${business.verified}, Claimed: ${business.claimed}, Rating: ${business.rating}, Reviews: ${business.reviews}`);
-            console.log('🔍 FINAL BUSINESS OBJECT:', JSON.stringify(business, null, 2));
+
+            // Check ALL possible description fields from Outscraper
+            const possibleDescriptions = [
+              business.description,
+              business.about,
+              business.business_description,
+              business.business_info,
+              business.details,
+              business.info
+            ].filter(Boolean); // Remove nulls/undefined
+
+            const description = possibleDescriptions.length > 0 ? possibleDescriptions[0] : '';
+
+            console.log(`📝 DESCRIPTION CHECK: Found ${possibleDescriptions.length} possible description fields`);
+            if (description) {
+              console.log(`   ✅ Description found: "${description.substring(0, 100)}..." (${description.length} chars)`);
+            } else {
+              console.log(`   ⚠️ NO DESCRIPTION in Outscraper response - will rely on AI fallback`);
+              // Log all available fields for debugging
+              console.log(`   Available Outscraper fields:`, Object.keys(business).filter(k => typeof business[k] === 'string' && business[k].length > 20).join(', '));
+            }
 
             const resultData = {
               name: business.name || business.title || businessName,
@@ -1046,7 +1066,7 @@ async function getOutscraperData(businessName, location) {
               rating: parseFloat(business.rating) || 0,
               reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
               verified: business.verified || business.claimed || false,
-              description: business.description || '',
+              description: description,
               photos: parseInt(business.photos_count) || parseInt(business.photos) || 0,
               photos_count: parseInt(business.photos_count) || parseInt(business.photos) || 0,
               categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
@@ -1093,6 +1113,27 @@ async function getOutscraperData(businessName, location) {
       console.log(`🔍 PROFILE DETAILS: Name: "${business.name}", Address: "${business.full_address || business.address}", Phone: "${business.phone}"`);
       console.log(`🔍 VERIFICATION STATUS: Verified: ${business.verified}, Claimed: ${business.claimed}, Rating: ${business.rating}, Reviews: ${business.reviews}`);
 
+      // Check ALL possible description fields from Outscraper
+      const possibleDescriptions = [
+        business.description,
+        business.about,
+        business.business_description,
+        business.business_info,
+        business.details,
+        business.info
+      ].filter(Boolean); // Remove nulls/undefined
+
+      const description = possibleDescriptions.length > 0 ? possibleDescriptions[0] : '';
+
+      console.log(`📝 DESCRIPTION CHECK: Found ${possibleDescriptions.length} possible description fields`);
+      if (description) {
+        console.log(`   ✅ Description found: "${description.substring(0, 100)}..." (${description.length} chars)`);
+      } else {
+        console.log(`   ⚠️ NO DESCRIPTION in Outscraper response - will rely on AI fallback`);
+        // Log all available fields for debugging
+        console.log(`   Available Outscraper fields:`, Object.keys(business).filter(k => typeof business[k] === 'string' && business[k].length > 20).join(', '));
+      }
+
       const resultData = {
         name: business.name || business.title || businessName,
         phone: business.phone || '',
@@ -1101,7 +1142,7 @@ async function getOutscraperData(businessName, location) {
         rating: parseFloat(business.rating) || 0,
         reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
         verified: business.verified || business.claimed || false,
-        description: business.description || '',
+        description: description,
         photos: parseInt(business.photos_count) || parseInt(business.photos) || 0,
         photos_count: parseInt(business.photos_count) || parseInt(business.photos) || 0,
         categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
@@ -1205,7 +1246,7 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
       render_js: 'true',
       screenshot: 'true',
       screenshot_full_page: 'true',
-      wait: 4000,
+      wait: 6000, // Increased from 4000ms to ensure content loads fully
       window_width: 1920,
       window_height: 1080,
       block_resources: 'false',
@@ -1214,7 +1255,7 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
-      timeout: 120000,
+      timeout: 180000, // Increased to 3 minutes for better reliability
       responseType: 'arraybuffer'
     });
 
@@ -1319,18 +1360,49 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
       render_js: 'true',
       screenshot: 'true',
       screenshot_full_page: 'false', // Don't need full page for Services
-      wait: 5000, // Wait longer for tabs to load
+      wait: 8000, // Increased wait time for tabs to load properly
       window_width: 1920,
       window_height: 1080,
       block_resources: 'false',
       country_code: region.toLowerCase(),
-      // Click on Services tab using JavaScript
-      js_snippet: "try { const servicesTab = document.querySelector('button[aria-label*=\"Services\"], button[data-tab-index=\"1\"], button:has-text(\"Services\")'); if (servicesTab) { servicesTab.click(); await new Promise(r => setTimeout(r, 2000)); } } catch(e) { console.log('Services tab not found'); }"
+      // Click on Services tab using JavaScript - IMPROVED SELECTORS
+      js_snippet: `
+        async function clickServicesTab() {
+          // Wait for page to fully load
+          await new Promise(r => setTimeout(r, 3000));
+
+          // Try multiple selector strategies
+          const selectors = [
+            'button[aria-label*="Services"]',
+            'button[aria-label*="services"]',
+            'button[data-value="services"]',
+            'button.hh2c6[data-tab-index="1"]',
+            'button[role="tab"]:nth-child(2)',
+            'div[role="tablist"] button:nth-child(2)'
+          ];
+
+          for (const selector of selectors) {
+            const tab = document.querySelector(selector);
+            if (tab) {
+              console.log('Found Services tab with selector:', selector);
+              tab.click();
+              // Wait longer for content to load after click
+              await new Promise(r => setTimeout(r, 4000));
+              return true;
+            }
+          }
+
+          console.log('Services tab not found with any selector');
+          return false;
+        }
+
+        clickServicesTab();
+      `
     };
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
-      timeout: 120000,
+      timeout: 180000, // Increased to 3 minutes for better reliability
       responseType: 'arraybuffer'
     });
 
@@ -1402,13 +1474,13 @@ async function scrapeSocialLinksFromGBP(businessName, location, placeId = null) 
       custom_google: 'true',
       stealth_proxy: 'true',
       render_js: 'true',
-      wait: 4000,
+      wait: 5000, // Increased from 4000ms for better content loading
       country_code: region.toLowerCase()
     };
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
-      timeout: 45000  // Reduced from 60s to 45s
+      timeout: 60000  // Increased back to 60s for reliability
     });
 
     if (response.status === 200 && response.data) {
@@ -1484,13 +1556,32 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
     
     const analysisPrompt = `
     Analyze this Google Business Profile screenshot for "${businessName}" and extract these 7 key factors.
-    Look very carefully at ALL visible sections of the profile.
+    Look very carefully at ALL visible sections of the profile - scroll through the ENTIRE image.
 
     IMPORTANT: Look for these specific elements:
 
-    1. BUSINESS DESCRIPTION: The "About" or "From the business" section
-       - Check if description exists and estimate character length
-       - Determine if it's 150+ characters
+    1. BUSINESS DESCRIPTION: **THIS IS CRITICAL - LOOK VERY CAREFULLY**
+       DESCRIPTION CAN APPEAR IN MULTIPLE PLACES:
+       - "About" section (most common)
+       - "From the business" section
+       - "Business description" field
+       - Text paragraph below the business name/address
+       - "Overview" section
+       - Any multi-sentence text about the business (not reviews)
+
+       **INSTRUCTIONS:**
+       - Look EVERYWHERE in the screenshot for descriptive text about the business
+       - Descriptions are usually 2+ sentences describing what they do, their services, their history, etc.
+       - They often include keywords about their industry/services
+       - Count the approximate character length by estimating ~5 chars per word
+       - If you see ANY business description text, SET exists=true
+       - Be GENEROUS - if there's ANY descriptive paragraph, count it
+       - Example: "We are a family-owned tire shop serving Lindon for 20 years. We offer tire sales, installation, balancing, and rotation services." = ~150+ chars
+
+       **DO NOT CONFUSE WITH:**
+       - Customer reviews (these are not descriptions)
+       - Address or contact info (not descriptions)
+       - Category names (not descriptions)
 
     2. CATEGORIES: Business categories/types listed
        - Count how many categories/subcategories are shown
@@ -1569,11 +1660,12 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
           type: 'image_url',
           image_url: {
             url: `data:image/png;base64,${base64Image}`,
-            detail: 'high'
+            detail: 'high' // Use high detail for better description detection
           }
         }]
       }],
-      max_tokens: 800
+      max_tokens: 1000, // Increased for more detailed analysis
+      temperature: 0.1  // Low temperature for consistency
     }, {
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
@@ -1594,15 +1686,16 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
 
     const analysis = JSON.parse(cleanedResponse);
 
-    console.log(`✅ AI Analysis Complete:`, {
-      description: analysis.description?.meets150Chars,
+    // Enhanced logging for description detection
+    console.log(`✅ AI Analysis Complete:`);
+    console.log(`   📝 Description: exists=${analysis.description?.exists}, length=${analysis.description?.estimatedLength}, meets150=${analysis.description?.meets150Chars}`);
+    console.log(`   📊 Other factors:`, {
       categories: `${analysis.categories?.count} (3+: ${analysis.categories?.meets3Plus})`,
       photos: `${analysis.photos?.count} (10+: ${analysis.photos?.meets10Plus})`,
       reviews: `${analysis.reviews?.count} reviews, ${analysis.reviews?.rating}⭐`,
       products: `${analysis.productTiles?.count} (2+: ${analysis.productTiles?.meets2Plus})`,
       posts: `${analysis.posts?.count} (last 15d: ${analysis.posts?.meetsLast15Days})`,
-      social: `${analysis.socialLinks?.count} (2+: ${analysis.socialLinks?.meets2Plus})`,
-      qa: `${analysis.qa?.count} (2+: ${analysis.qa?.meets2Plus})`
+      social: `${analysis.socialLinks?.count} (2+: ${analysis.socialLinks?.meets2Plus})`
     });
 
     return analysis;
@@ -1625,28 +1718,38 @@ async function analyzeServicesFromScreenshot(screenshotPath, businessName) {
     const imageData = await fs.readFile(screenshotPath);
     const base64Image = imageData.toString('base64');
 
-    const prompt = `Analyze this Google Business Profile Services tab screenshot.
+    const prompt = `Analyze this Google Business Profile screenshot to find the Services section.
 
 Business: ${businessName}
 
-Look for the Services section and determine:
-1. Does a Services section/tab exist?
-2. How many individual services are listed/visible?
-3. Do the services appear to have descriptions (not just titles)?
+CRITICAL: Look VERY CAREFULLY for a Services section or Services tab. It may appear as:
+- A tab labeled "Services" at the top
+- A section with a list of service offerings
+- Individual service items with titles and descriptions
+- Service categories or groups
+
+Your task:
+1. Does a Services section exist? (Look carefully - it might be a tab that wasn't clicked, or a section in the profile)
+2. How many individual services can you count? (Count EVERY visible service item)
+3. Do the services have descriptions beyond just the title?
+
+IMPORTANT:
+- Count ALL services you can see, even if there are many (50+ is possible)
+- Even brief descriptions count (not just titles)
+- If you see a Services tab but the content isn't loaded, note that
 
 Respond ONLY with valid JSON in this EXACT format:
 {
   "hasServices": true/false,
   "servicesCount": 0,
   "hasDescriptions": true/false,
-  "servicesVisible": ["Service 1", "Service 2"]
+  "servicesVisible": ["Service 1", "Service 2", "Service 3"]
 }
 
 Notes:
-- If no Services section is visible, set hasServices to false and servicesCount to 0
-- Count ALL visible service items
-- Check if services have description text below the title
-- Include up to 5 service names in servicesVisible array`;
+- Be THOROUGH in counting - businesses often have 10-50+ services
+- Check for both service titles AND description text
+- Include up to 10 example service names in servicesVisible array`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -1659,14 +1762,14 @@ Notes:
               type: 'image_url',
               image_url: {
                 url: `data:image/png;base64,${base64Image}`,
-                detail: 'high'
+                detail: 'high' // Use high detail for better service detection
               }
             }
           ]
         }
       ],
-      max_tokens: 300,
-      temperature: 0.1
+      max_tokens: 500, // Increased for longer service lists
+      temperature: 0.1  // Keep low for consistency
     });
 
     const content = response.choices[0].message.content.trim();
@@ -1714,11 +1817,23 @@ Industry: "${industry}"
 
 Task: Determine if the business name contains keywords that customers would search for when looking for this type of business.
 
+IMPORTANT GUIDELINES:
+- Look for ANY industry-related words, including:
+  - Core service/product words (e.g., "tire", "plumbing", "restaurant")
+  - Related terms (e.g., "auto", "brake", "wheel" for tire shops)
+  - Service descriptors (e.g., "repair", "sales", "service")
+- Be LENIENT - if there's any industry keyword, count it as YES
+- Common words like "discount", "premium", "express" are NOT keywords
+- Location names are NOT keywords
+
 Examples:
 - "Joe's Plumbing & Heating" → HAS keywords (plumbing, heating)
-- "ABC Services" → NO keywords
+- "ABC Services" → NO keywords (too generic)
+- "Discount Tire" → HAS keywords (tire)
 - "Sam's Sales Recruiting" → HAS keywords (sales, recruiting)
 - "TechDraft Solutions" → NO keywords (for recruiting industry)
+- "Brake Masters" → HAS keywords (brake)
+- "Quick Lube Plus" → HAS keywords (lube)
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -1736,8 +1851,8 @@ Respond ONLY with valid JSON in this exact format:
           content: prompt
         }
       ],
-      temperature: 0.3,
-      max_tokens: 200
+      temperature: 0.2, // Slightly lower for more consistent results
+      max_tokens: 300   // Increased for more detailed analysis
     });
 
     const content = response.choices[0].message.content.trim();
@@ -1834,7 +1949,7 @@ async function checkCitations(businessName, phoneNumber) {
             gl: 'us',
             hl: 'en'
           },
-          timeout: 8000  // Reduced from 10000ms to 8000ms
+          timeout: 12000  // Increased from 8000ms for better reliability
         });
 
         // Enhanced validation: check if results contain both business name and phone number
