@@ -1447,11 +1447,11 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
 // 2B. SCRAPE SOCIAL LINKS FROM GBP HTML - Get social links from the actual GBP page
 async function scrapeSocialLinksFromGBP(businessName, location, placeId = null) {
   try {
-    console.log(`🔗 Scraping social links from GBP HTML: ${businessName}`);
+    console.log(`🔗 Scraping social links AND description from GBP HTML: ${businessName}`);
 
     if (!SCRAPINGBEE_API_KEY) {
       console.log(`⚠️ ScrapingBee API key not configured, skipping social link scraping`);
-      return { count: 0, meets2Plus: false, platforms: [] };
+      return { count: 0, meets2Plus: false, platforms: [], description: null };
     }
 
     // Detect location for better results
@@ -1524,21 +1524,82 @@ async function scrapeSocialLinksFromGBP(businessName, location, placeId = null) 
 
       console.log(`  ${meets2Plus ? '✅' : '❌'} Found ${count} social platform${count !== 1 ? 's' : ''}: ${foundPlatforms.join(', ') || 'none'}`);
 
+      // EXTRACT BUSINESS DESCRIPTION from HTML
+      let extractedDescription = null;
+
+      // Google Business Profile descriptions appear in various patterns in the HTML
+      // Try multiple extraction methods for maximum reliability
+
+      // Method 1: Look for "From the business" section (most common)
+      const fromBusinessMatch = htmlContent.match(/From the business[:\s]+([^<]{50,1000})/i);
+      if (fromBusinessMatch && fromBusinessMatch[1]) {
+        extractedDescription = fromBusinessMatch[1].trim();
+      }
+
+      // Method 2: Look for description in structured data (JSON-LD)
+      if (!extractedDescription) {
+        const jsonLdMatch = htmlContent.match(/<script type="application\/ld\+json">[\s\S]*?"description"\s*:\s*"([^"]{50,1000})"[\s\S]*?<\/script>/i);
+        if (jsonLdMatch && jsonLdMatch[1]) {
+          extractedDescription = jsonLdMatch[1].replace(/\\n/g, ' ').replace(/\\/g, '').trim();
+        }
+      }
+
+      // Method 3: Look for "About" section in aria-labels or specific divs
+      if (!extractedDescription) {
+        const aboutMatch = htmlContent.match(/aria-label="About[^"]*"[^>]*>([^<]{50,1000})</i);
+        if (aboutMatch && aboutMatch[1]) {
+          extractedDescription = aboutMatch[1].trim();
+        }
+      }
+
+      // Method 4: Look for common GBP description patterns in the raw HTML
+      if (!extractedDescription) {
+        const descPatterns = [
+          /"description":"([^"]{50,1000})"/i,
+          /business-description[^>]*>([^<]{50,1000})</i,
+          /profile-description[^>]*>([^<]{50,1000})</i
+        ];
+
+        for (const pattern of descPatterns) {
+          const match = htmlContent.match(pattern);
+          if (match && match[1]) {
+            extractedDescription = match[1].replace(/\\n/g, ' ').replace(/\\/g, '').trim();
+            break;
+          }
+        }
+      }
+
+      if (extractedDescription) {
+        // Clean up the description
+        extractedDescription = extractedDescription
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        console.log(`  📝 Extracted description (${extractedDescription.length} chars): "${extractedDescription.substring(0, 100)}..."`);
+      } else {
+        console.log(`  ⚠️ No description found in HTML`);
+      }
+
       return {
         count: count,
         meets2Plus: meets2Plus,
         platforms: foundPlatforms,
-        links: foundLinks
+        links: foundLinks,
+        description: extractedDescription  // NEW: Return extracted description
       };
     } else {
       console.log(`  ⚠️ Unexpected response status: ${response.status}`);
-      return { count: 0, meets2Plus: false, platforms: [] };
+      return { count: 0, meets2Plus: false, platforms: [], description: null };
     }
 
   } catch (error) {
     console.error(`  ❌ Social link scraping error: ${error.message}`);
     // Return empty result rather than throwing - this is non-critical
-    return { count: 0, meets2Plus: false, platforms: [] };
+    return { count: 0, meets2Plus: false, platforms: [], description: null };
   }
 }
 
@@ -2923,30 +2984,43 @@ async function calculateScore(data) {
   }
   
   // 2. BUSINESS DESCRIPTION (10 pts) - 0/5/10 based on criteria
-  // DUAL-SOURCE VALIDATION: Check Outscraper first, fallback to AI analysis
-  const desc = data.outscraper.description;
+  // TRI-SOURCE VALIDATION: Priority = HTML extraction > Outscraper API > AI screenshot estimation
+  const htmlDesc = data.scrapedSocialLinks?.description;  // NEW: HTML-extracted description
+  const outscraperDesc = data.outscraper.description;
   const hasDescriptionFromAI = data.aiAnalysis?.description?.exists || false;
   const descriptionLengthFromAI = data.aiAnalysis?.description?.estimatedLength || 0;
 
   // Filter out placeholder descriptions like "[Description present - X chars]"
-  const isPlaceholder = desc && desc.startsWith('[Description present');
-  const hasRealOutscraperDesc = desc && desc.length > 0 && !isPlaceholder;
+  const isPlaceholder = outscraperDesc && outscraperDesc.startsWith('[Description present');
+  const hasRealOutscraperDesc = outscraperDesc && outscraperDesc.length > 0 && !isPlaceholder;
 
-  console.log(`🔍 DESCRIPTION DEBUG: Outscraper="${desc?.substring(0, 50) || 'EMPTY'}" (isPlaceholder=${isPlaceholder}), AI.exists=${hasDescriptionFromAI}, AI.length=${descriptionLengthFromAI}`);
+  console.log(`🔍 DESCRIPTION DEBUG: HTML="${htmlDesc?.substring(0, 50) || 'EMPTY'}", Outscraper="${outscraperDesc?.substring(0, 50) || 'EMPTY'}" (isPlaceholder=${isPlaceholder}), AI.exists=${hasDescriptionFromAI}, AI.length=${descriptionLengthFromAI}`);
 
-  // Priority 1: If Outscraper has REAL description (not placeholder), analyze it fully
-  if (hasRealOutscraperDesc) {
-    const descAnalysis = analyzeDescriptionCriteria(desc, data.businessInfo.businessName, data.businessInfo.location, data.businessInfo.industry);
+  // PRIORITY 1: HTML-extracted description (FULL TEXT from GBP page - MOST RELIABLE)
+  if (htmlDesc && htmlDesc.length > 50) {
+    const descAnalysis = analyzeDescriptionCriteria(htmlDesc, data.businessInfo.businessName, data.businessInfo.location, data.businessInfo.industry);
 
     if (descAnalysis.criteriaCount === 3) {
       scores.description = 10;
-      details.description = { status: 'GOOD', message: 'Great description that helps customers find you' };
+      details.description = { status: 'GOOD', message: 'Great description that helps customers find you', fullText: htmlDesc };
     } else {
       scores.description = 5;
-      details.description = { status: 'NEEDS IMPROVEMENT', message: 'Basic description detected - could be more compelling' };
+      details.description = { status: 'NEEDS IMPROVEMENT', message: 'Basic description detected - could be more compelling', fullText: htmlDesc };
     }
   }
-  // Priority 2: If Outscraper missing/placeholder but AI detected description from screenshot
+  // PRIORITY 2: Outscraper API description (if HTML extraction failed)
+  else if (hasRealOutscraperDesc) {
+    const descAnalysis = analyzeDescriptionCriteria(outscraperDesc, data.businessInfo.businessName, data.businessInfo.location, data.businessInfo.industry);
+
+    if (descAnalysis.criteriaCount === 3) {
+      scores.description = 10;
+      details.description = { status: 'GOOD', message: 'Great description that helps customers find you', fullText: outscraperDesc };
+    } else {
+      scores.description = 5;
+      details.description = { status: 'NEEDS IMPROVEMENT', message: 'Basic description detected - could be more compelling', fullText: outscraperDesc };
+    }
+  }
+  // PRIORITY 3: AI screenshot estimation (no full text available)
   else if (hasDescriptionFromAI) {
     // Give partial credit based on length estimate from AI
     if (descriptionLengthFromAI >= 150) {
@@ -2960,7 +3034,7 @@ async function calculateScore(data) {
       details.description = { status: 'NEEDS IMPROVEMENT', message: 'Description present but quality unknown' };
     }
   }
-  // No description found in either source
+  // No description found in any source
   else {
     scores.description = 0;
     details.description = { status: 'MISSING', message: 'No description found - missing opportunity to tell your story' };
@@ -3942,6 +4016,7 @@ async function generateCompleteReport(businessName, location, industry, website,
       websiteAnalysis: partialData.websiteAnalysis,
       reviewsAnalysis: partialData.reviewsAnalysis,
       servicesAnalysis: partialData.servicesAnalysis,
+      scrapedSocialLinks: scrapedSocialLinks,  // NEW: Include HTML-scraped data (social + description)
       screenshot: partialData.screenshot
       // qaAnalysis removed - Q&A no longer available on GBPs
     };
