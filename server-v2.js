@@ -1817,30 +1817,39 @@ Industry: "${industry}"
 
 Task: Determine if the business name contains keywords that customers would search for when looking for this type of business.
 
-IMPORTANT GUIDELINES:
-- Look for ANY industry-related words, including:
-  - Core service/product words (e.g., "tire", "plumbing", "restaurant")
-  - Related terms (e.g., "auto", "brake", "wheel" for tire shops)
-  - Service descriptors (e.g., "repair", "sales", "service")
-- Be LENIENT - if there's any industry keyword, count it as YES
-- Common words like "discount", "premium", "express" are NOT keywords
-- Location names are NOT keywords
+CRITICAL GUIDELINES - READ CAREFULLY:
+1. Look for ANY industry-related words, including:
+   - Core service/product words (e.g., "tire", "plumbing", "restaurant", "dental", "law", "accounting")
+   - Related terms (e.g., "auto", "brake", "wheel" for tire shops; "teeth", "smile" for dentists)
+   - Service descriptors (e.g., "repair", "sales", "service", "care", "consulting", "solutions" when paired with industry terms)
 
-Examples:
-- "Joe's Plumbing & Heating" → HAS keywords (plumbing, heating)
-- "ABC Services" → NO keywords (too generic)
-- "Discount Tire" → HAS keywords (tire)
-- "Sam's Sales Recruiting" → HAS keywords (sales, recruiting)
-- "TechDraft Solutions" → NO keywords (for recruiting industry)
-- "Brake Masters" → HAS keywords (brake)
-- "Quick Lube Plus" → HAS keywords (lube)
+2. Be LENIENT - if there's ANY industry keyword, set hasKeywords=true
+   - Even partial matches count (e.g., "Dent" in "DentCare" for dental industry)
+   - Compound words count (e.g., "LawFirm", "AutoCare")
 
-Respond ONLY with valid JSON in this exact format:
+3. DO NOT count as keywords:
+   - Generic modifiers ALONE: "discount", "premium", "express", "quality", "best", "affordable"
+   - Location names: city names, state names, street names
+   - Owner names: "Joe's", "Smith's", "Mike's"
+   - Generic business types ALONE: "services", "company", "group", "solutions" (unless paired with industry term)
+
+4. Examples to follow EXACTLY:
+   - "Joe's Plumbing & Heating" → hasKeywords: true, matched: ["plumbing", "heating"]
+   - "ABC Services" → hasKeywords: false (too generic)
+   - "Discount Tire" → hasKeywords: true, matched: ["tire"]
+   - "Sam's Sales Recruiting" → hasKeywords: true, matched: ["sales", "recruiting"]
+   - "TechDraft Solutions" → hasKeywords: false (for recruiting industry - no recruiting keywords)
+   - "Brake Masters" → hasKeywords: true, matched: ["brake"]
+   - "Quick Lube Plus" → hasKeywords: true, matched: ["lube"]
+   - "Smile Dental Care" → hasKeywords: true, matched: ["smile", "dental"]
+   - "Main Street Restaurant" → hasKeywords: true, matched: ["restaurant"]
+
+Respond ONLY with valid JSON in this EXACT format (no extra text):
 {
-  "hasKeywords": true/false,
+  "hasKeywords": true,
   "matchedKeywords": ["keyword1", "keyword2"],
   "missingKeywords": ["keyword3"],
-  "confidence": "high/medium/low"
+  "confidence": "high"
 }`;
 
     const response = await openai.chat.completions.create({
@@ -1851,7 +1860,7 @@ Respond ONLY with valid JSON in this exact format:
           content: prompt
         }
       ],
-      temperature: 0.2, // Slightly lower for more consistent results
+      temperature: 0.1, // Lower temperature for maximum consistency
       max_tokens: 300   // Increased for more detailed analysis
     });
 
@@ -2914,15 +2923,19 @@ async function calculateScore(data) {
   }
   
   // 2. BUSINESS DESCRIPTION (10 pts) - 0/5/10 based on criteria
-  // Check Outscraper first, fallback to AI analysis if Outscraper doesn't have description
+  // DUAL-SOURCE VALIDATION: Check Outscraper first, fallback to AI analysis
   const desc = data.outscraper.description;
   const hasDescriptionFromAI = data.aiAnalysis?.description?.exists || false;
   const descriptionLengthFromAI = data.aiAnalysis?.description?.estimatedLength || 0;
 
-  console.log(`🔍 DESCRIPTION DEBUG: Outscraper="${desc?.substring(0, 50) || 'EMPTY'}", AI.exists=${hasDescriptionFromAI}, AI.length=${descriptionLengthFromAI}`);
+  // Filter out placeholder descriptions like "[Description present - X chars]"
+  const isPlaceholder = desc && desc.startsWith('[Description present');
+  const hasRealOutscraperDesc = desc && desc.length > 0 && !isPlaceholder;
 
-  // If Outscraper has description, analyze it fully
-  if (desc && desc.length > 0) {
+  console.log(`🔍 DESCRIPTION DEBUG: Outscraper="${desc?.substring(0, 50) || 'EMPTY'}" (isPlaceholder=${isPlaceholder}), AI.exists=${hasDescriptionFromAI}, AI.length=${descriptionLengthFromAI}`);
+
+  // Priority 1: If Outscraper has REAL description (not placeholder), analyze it fully
+  if (hasRealOutscraperDesc) {
     const descAnalysis = analyzeDescriptionCriteria(desc, data.businessInfo.businessName, data.businessInfo.location, data.businessInfo.industry);
 
     if (descAnalysis.criteriaCount === 3) {
@@ -2933,7 +2946,7 @@ async function calculateScore(data) {
       details.description = { status: 'NEEDS IMPROVEMENT', message: 'Basic description detected - could be more compelling' };
     }
   }
-  // If Outscraper missing but AI detected description from screenshot
+  // Priority 2: If Outscraper missing/placeholder but AI detected description from screenshot
   else if (hasDescriptionFromAI) {
     // Give partial credit based on length estimate from AI
     if (descriptionLengthFromAI >= 150) {
@@ -2947,7 +2960,7 @@ async function calculateScore(data) {
       details.description = { status: 'NEEDS IMPROVEMENT', message: 'Description present but quality unknown' };
     }
   }
-  // No description found anywhere
+  // No description found in either source
   else {
     scores.description = 0;
     details.description = { status: 'MISSING', message: 'No description found - missing opportunity to tell your story' };
@@ -3001,11 +3014,19 @@ async function calculateScore(data) {
   // Commenting out for historical reference but no longer scoring
 
   // 8. SOCIAL PROFILES (2 pts) - Binary (was #8, now #7 after Q&A removal)
-  console.log(`🔍 SOCIAL DEBUG: social.hasAny=${data.aiAnalysis.social?.hasAny}, count=${data.aiAnalysis.social?.count}, socialLinks.meets2Plus=${data.aiAnalysis.socialLinks?.meets2Plus}`);
+  // DUAL-SOURCE VALIDATION: Check BOTH social and socialLinks fields
+  const hasSocialFromSocial = data.aiAnalysis.social && data.aiAnalysis.social.hasAny;
+  const hasSocialFromLinks = data.aiAnalysis.socialLinks && (data.aiAnalysis.socialLinks.count > 0 || data.aiAnalysis.socialLinks.meets2Plus);
+  const socialCount = Math.max(
+    data.aiAnalysis.social?.count || 0,
+    data.aiAnalysis.socialLinks?.count || 0
+  );
 
-  if (data.aiAnalysis.social && data.aiAnalysis.social.hasAny) {
+  console.log(`🔍 SOCIAL DEBUG: social.hasAny=${data.aiAnalysis.social?.hasAny}, social.count=${data.aiAnalysis.social?.count}, socialLinks.count=${data.aiAnalysis.socialLinks?.count}, socialLinks.meets2Plus=${data.aiAnalysis.socialLinks?.meets2Plus}, finalCount=${socialCount}`);
+
+  if (hasSocialFromSocial || hasSocialFromLinks) {
     scores.social = 2;
-    details.social = { status: 'GOOD', message: 'Social media links help customers connect' };
+    details.social = { status: 'GOOD', message: `Social media links help customers connect${socialCount > 0 ? ` (${socialCount} platform${socialCount > 1 ? 's' : ''} found)` : ''}` };
   } else {
     scores.social = 0;
     details.social = { status: 'MISSING', message: 'No social links - missing connection opportunities' };
@@ -3115,6 +3136,7 @@ async function calculateScore(data) {
       data.businessInfo.businessName,
       data.businessInfo.industry
     );
+    console.log(`🔍 KEYWORD DEBUG: Business="${data.businessInfo.businessName}", Industry="${data.businessInfo.industry}", hasKeywords=${keywordAnalysis?.hasKeywords}, matched=[${keywordAnalysis?.matchedKeywords?.join(', ') || 'none'}]`);
   } catch (error) {
     console.error('⚠️ Keyword analysis failed:', error.message);
     keywordAnalysis = { hasKeywords: false, matchedKeywords: [], missingKeywords: [] };
@@ -3887,7 +3909,7 @@ async function generateCompleteReport(businessName, location, industry, website,
 
       // Product Tiles: Only AI can detect
       productTiles: {
-        hasAny: partialData.aiAnalysis?.productTiles?.meets2Plus || false,
+        hasAny: (partialData.aiAnalysis?.productTiles?.count || 0) > 0,  // Fixed: Check count, not meets2Plus
         count: partialData.aiAnalysis?.productTiles?.count || 0,
         meets2Plus: partialData.aiAnalysis?.productTiles?.meets2Plus || false
       },
@@ -3895,7 +3917,7 @@ async function generateCompleteReport(businessName, location, industry, website,
       // Posts: Prefer AI (has recency data)
       posts: {
         hasRecent: partialData.aiAnalysis?.posts?.meetsLast15Days || false,
-        hasAny: partialData.aiAnalysis?.posts?.hasAny || false,
+        hasAny: (partialData.aiAnalysis?.posts?.count || 0) > 0 || partialData.aiAnalysis?.posts?.hasAny || false,  // Fixed: Check count OR hasAny
         count: partialData.aiAnalysis?.posts?.count || 0,
         meetsLast15Days: partialData.aiAnalysis?.posts?.meetsLast15Days || false
       },
@@ -4376,8 +4398,8 @@ async function generateFastBulkReport(businessName, location, industry, website)
           partialData.outscraper.reviews = partialData.aiAnalysis.reviews?.count || 0;
           partialData.outscraper.rating = partialData.aiAnalysis.reviews?.rating || 0;
           partialData.outscraper.categories = partialData.aiAnalysis.categories?.visible || [];
-          partialData.outscraper.description = partialData.aiAnalysis.description?.exists ?
-            `[Description present - ${partialData.aiAnalysis.description.estimatedLength} chars]` : '';
+          // FIXED: Don't set placeholder description - let scoring logic handle AI fallback
+          // Description will be properly handled by dual-source validation in calculateScore()
         }
       } else {
         console.log(`⚠️ No GBP screenshot available, using fallback data`);
