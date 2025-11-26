@@ -1426,12 +1426,12 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
     const { region } = detectCountryRegion(location);
     const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
 
-    // Google Maps URL that opens directly to the place with Services tab
-    // We'll use JavaScript execution to click the Services tab
+    // Google Maps URL that opens directly to the place
+    // Using MOBILE device emulation to get app-like view where Services are more prominent
     const targetUrl = `https://www.${googleDomain}/maps/place/?q=place_id:${placeId}`;
 
-    // Google Maps URL - requires BOTH custom_google AND premium_proxy
-    // FIX: Use js_scenario instead of js_snippet (js_snippet doesn't work with custom_google)
+    // Google Maps with MOBILE DEVICE EMULATION
+    // Mobile view shows Services section much more prominently (like the app)
     const params = {
       api_key: SCRAPINGBEE_API_KEY,
       url: targetUrl,
@@ -1439,14 +1439,12 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
       premium_proxy: 'true',  // Required for Google Maps specifically
       render_js: 'true',
       screenshot: 'true',
-      screenshot_full_page: 'false', // Don't need full page for Services
-      window_width: 1920,
-      window_height: 1080,
+      screenshot_full_page: 'true', // Capture full mobile page
+      device: 'mobile',  // Emulate mobile device (like Google Maps app)
+      window_width: 390,   // iPhone 14 Pro width
+      window_height: 2532, // Tall viewport to capture Services section
       block_resources: 'false',
       country_code: region.toLowerCase(),
-      // Simplified js_scenario with just wait - don't try to click tab
-      // Services tab click is unreliable and causes HTTP 500 errors
-      // AI will analyze Overview tab and try to detect services mentions
       wait: 8000  // Give page time to fully load
     };
 
@@ -1466,7 +1464,7 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
       await fs.writeFile(filepath, response.data);
 
       console.log(`✅ Services screenshot saved: ${filename}`);
-      console.log(`⚠️ Note: Screenshot shows Overview tab (Services tab click disabled due to reliability issues)`);
+      console.log(`📱 Mobile view: Services section should be more prominent (like Google Maps app)`);
 
       // Cache for 30 minutes
       try {
