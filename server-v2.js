@@ -1294,15 +1294,18 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
 
       // Create js_scenario to scroll the profile panel and wait for content to load
       // Product tiles can be at bottom of page and need scrolling + wait time to load
+      // User confirmed: "Sometimes it is at the bottom of the page"
       const scrollScenario = {
         instructions: [
-          { wait: 3000 },  // Initial wait for page load
-          { scroll_x: 0, scroll_y: 500 },  // Scroll down to reveal more content
-          { wait: 2000 },  // Wait for lazy-loaded content
-          { scroll_x: 0, scroll_y: 1000 },  // Scroll further down
-          { wait: 2000 },  // Wait for more content to load
-          { scroll_x: 0, scroll_y: 1500 },  // Scroll to bottom area where product tiles often are
-          { wait: 2000 }   // Final wait to ensure everything loaded
+          { wait: 4000 },  // Initial wait for page load (increased from 3s)
+          { scroll_x: 0, scroll_y: 700 },  // Scroll down to reveal more content
+          { wait: 2500 },  // Wait for lazy-loaded content
+          { scroll_x: 0, scroll_y: 1400 },  // Scroll further down
+          { wait: 2500 },  // Wait for more content to load
+          { scroll_x: 0, scroll_y: 2100 },  // Scroll to bottom area where product tiles often are
+          { wait: 3000 },   // Final wait to ensure everything loaded
+          { scroll_x: 0, scroll_y: 1200 },  // Scroll back up a bit to center product tiles in view
+          { wait: 1500 }   // Final stabilization
         ]
       };
 
