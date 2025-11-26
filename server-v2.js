@@ -1292,24 +1292,8 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
       targetUrl = `https://www.${googleDomain}/maps/search/?api=1&query=${encodeURIComponent(businessName)}&query_place_id=${placeId}`;
       console.log(`🎯 Using direct Maps URL with place_id for better product tile visibility`);
 
-      // Create js_scenario to scroll the profile panel and wait for content to load
-      // Product tiles can be at bottom of page and need scrolling + wait time to load
-      // User confirmed: "Sometimes it is at the bottom of the page"
-      const scrollScenario = {
-        instructions: [
-          { wait: 4000 },  // Initial wait for page load (increased from 3s)
-          { scroll_x: 0, scroll_y: 700 },  // Scroll down to reveal more content
-          { wait: 2500 },  // Wait for lazy-loaded content
-          { scroll_x: 0, scroll_y: 1400 },  // Scroll further down
-          { wait: 2500 },  // Wait for more content to load
-          { scroll_x: 0, scroll_y: 2100 },  // Scroll to bottom area where product tiles often are
-          { wait: 3000 },   // Final wait to ensure everything loaded
-          { scroll_x: 0, scroll_y: 1200 },  // Scroll back up a bit to center product tiles in view
-          { wait: 1500 }   // Final stabilization
-        ]
-      };
-
       // Google Maps URL - requires BOTH custom_google AND premium_proxy
+      // NOTE: custom_google does NOT support js_scenario (causes HTTP 400)
       params = {
         api_key: SCRAPINGBEE_API_KEY,
         url: targetUrl,
@@ -1317,10 +1301,10 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
         premium_proxy: 'true',  // Required for Google Maps specifically
         render_js: 'true',
         screenshot: 'true',
-        screenshot_full_page: 'true',
-        js_scenario: JSON.stringify(scrollScenario),  // Add scrolling to capture all content
+        screenshot_full_page: 'true',  // Captures full scrollable content
+        wait: 8000,  // Wait for lazy-loaded content
         window_width: 1920,
-        window_height: 1080,
+        window_height: 2400,  // Taller viewport to capture more content
         block_resources: 'false',
         country_code: region.toLowerCase()
       };
@@ -4169,12 +4153,18 @@ async function generateCompleteReport(businessName, location, industry, website,
       const business = selectedProfile.rawData;
 
       // CRITICAL FIX: Extract description from 'about' field (same logic as getOutscraperData)
-      // Outscraper's 'about' field is often an object/array, not a string
+      // NOTE: Outscraper's 'about' field is now structured data (Service options, Accessibility, etc.)
+      // It is NO LONGER a text description - it's an object with attributes
+      // Business descriptions must come from the 'description' field or AI fallback
       let aboutText = '';
       if (business.about) {
+        console.log(`   🔍 Pre-selected about field type: ${typeof business.about}`);
         if (typeof business.about === 'string') {
           aboutText = business.about;
+          console.log(`   ✅ About is string: "${aboutText.substring(0, 80)}..."`);
         } else if (typeof business.about === 'object') {
+          console.log(`   🔍 About is object with keys:`, Object.keys(business.about).join(', '));
+          // Try to extract text if it exists (legacy format)
           if (Array.isArray(business.about) && business.about.length > 0) {
             aboutText = business.about[0].text || business.about[0].description || business.about[0].value || '';
           } else if (business.about.text) {
@@ -4182,11 +4172,16 @@ async function generateCompleteReport(businessName, location, industry, website,
           } else if (business.about.description) {
             aboutText = business.about.description;
           }
+          if (aboutText) {
+            console.log(`   ✅ Extracted text from about object: "${aboutText.substring(0, 80)}..."`);
+          } else {
+            console.log(`   ⚠️ About object contains only structured data (no text description)`);
+          }
         }
       }
 
       const description = business.description || aboutText || '';
-      console.log(`📝 Pre-selected profile description: "${description.substring(0, 100)}..." (${description.length} chars)`);
+      console.log(`📝 Pre-selected profile description: ${description ? `"${description.substring(0, 100)}..."` : 'EMPTY'} (${description.length} chars)`);
 
       foundationPromises.push(Promise.resolve({
         name: business.name || business.title || businessName,
