@@ -1058,9 +1058,10 @@ async function getOutscraperData(businessName, location) {
                   aboutText = business.about.description;
                   console.log(`   ✅ Extracted from about.description: "${aboutText.substring(0, 100)}..."`);
                 } else {
-                  // Try to stringify and extract meaningful text
-                  aboutText = JSON.stringify(business.about);
-                  console.log(`   ⚠️ Stringified about object: "${aboutText.substring(0, 100)}..."`);
+                  // About object contains only structured data (Accessibility, etc.), not text
+                  // Leave aboutText empty - don't stringify the object
+                  aboutText = '';
+                  console.log(`   ⚠️ About object contains only structured data (no text description)`);
                 }
               }
             } else {
