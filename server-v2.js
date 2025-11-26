@@ -8978,6 +8978,46 @@ async function renewLifetimeCredits() {
   }
 }
 
+// Debug endpoint to list recent screenshots (admin only)
+app.get('/api/debug/screenshots', authenticateToken, async (req, res) => {
+  try {
+    // Only allow admin
+    if (req.user.email !== 'trylocality@gmail.com') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+
+    const fs = require('fs').promises;
+    const screenshotsPath = path.join(__dirname, 'public', 'screenshots');
+
+    const files = await fs.readdir(screenshotsPath);
+    const fileDetails = await Promise.all(
+      files
+        .filter(f => f.endsWith('.png'))
+        .map(async (file) => {
+          const stats = await fs.stat(path.join(screenshotsPath, file));
+          return {
+            filename: file,
+            url: `https://app.trylocality.com/screenshots/${file}`,
+            size: stats.size,
+            modified: stats.mtime
+          };
+        })
+    );
+
+    // Sort by modification time (newest first)
+    fileDetails.sort((a, b) => b.modified - a.modified);
+
+    res.json({
+      count: fileDetails.length,
+      screenshots: fileDetails.slice(0, 20) // Return 20 most recent
+    });
+
+  } catch (error) {
+    console.error('Screenshot list error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Run credit renewal daily at 2 AM
 setInterval(renewLifetimeCredits, 24 * 60 * 60 * 1000); // Every 24 hours
 
