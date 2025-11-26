@@ -4207,6 +4207,7 @@ async function generateCompleteReport(businessName, location, industry, website,
     let screenshot = null;
     if (screenshotResult.status === 'fulfilled') {
       screenshot = screenshotResult.value;
+      console.log(`📸 Screenshot URL: https://app.trylocality.com${screenshot.url}`);
     } else {
       console.error('❌ Screenshot failed:', screenshotResult.reason?.message);
       errors.push(`Screenshot: ${screenshotResult.reason?.message}`);
@@ -4216,6 +4217,7 @@ async function generateCompleteReport(businessName, location, industry, website,
     if (servicesScreenshotResult.status === 'fulfilled') {
       servicesScreenshot = servicesScreenshotResult.value;
       console.log(`✅ Services screenshot completed`);
+      console.log(`📸 Services screenshot URL: https://app.trylocality.com${servicesScreenshot.url}`);
     } else {
       console.error('⚠️ Services screenshot failed (non-critical):', servicesScreenshotResult.reason?.message);
     }
