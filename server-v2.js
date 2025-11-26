@@ -4164,6 +4164,27 @@ async function generateCompleteReport(businessName, location, industry, website,
     if (selectedProfile && selectedProfile.rawData) {
       console.log(`✅ Using pre-selected profile: ${selectedProfile.name}`);
       const business = selectedProfile.rawData;
+
+      // CRITICAL FIX: Extract description from 'about' field (same logic as getOutscraperData)
+      // Outscraper's 'about' field is often an object/array, not a string
+      let aboutText = '';
+      if (business.about) {
+        if (typeof business.about === 'string') {
+          aboutText = business.about;
+        } else if (typeof business.about === 'object') {
+          if (Array.isArray(business.about) && business.about.length > 0) {
+            aboutText = business.about[0].text || business.about[0].description || business.about[0].value || '';
+          } else if (business.about.text) {
+            aboutText = business.about.text;
+          } else if (business.about.description) {
+            aboutText = business.about.description;
+          }
+        }
+      }
+
+      const description = business.description || aboutText || '';
+      console.log(`📝 Pre-selected profile description: "${description.substring(0, 100)}..." (${description.length} chars)`);
+
       foundationPromises.push(Promise.resolve({
         name: business.name || business.title || businessName,
         phone: business.phone || '',
@@ -4172,13 +4193,14 @@ async function generateCompleteReport(businessName, location, industry, website,
         rating: parseFloat(business.rating) || 0,
         reviews: parseInt(business.reviews) || parseInt(business.reviews_count) || 0,
         verified: business.verified || business.claimed || false,
-        description: business.description || '',
+        description: description,
         photos_count: parseInt(business.photos_count) || parseInt(business.photos) || 0,
         categories: business.subtypes ? business.subtypes.split(', ') : (business.type ? [business.type] : []),
         hours: business.working_hours || business.hours || null,
         place_id: business.place_id || business.google_id,
         google_id: business.google_id || business.place_id,
-        reviews_link: business.reviews_link
+        reviews_link: business.reviews_link,
+        posts: Array.isArray(business.posts) ? business.posts : []  // Also fix posts here!
       }));
     } else {
       foundationPromises.push(getOutscraperData(businessName, location));
