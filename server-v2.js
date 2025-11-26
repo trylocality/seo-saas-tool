@@ -1038,9 +1038,29 @@ async function getOutscraperData(businessName, location) {
             console.log(`🔍 VERIFICATION STATUS: Verified: ${business.verified}, Claimed: ${business.claimed}, Rating: ${business.rating}, Reviews: ${business.reviews}`);
 
             // Check ALL possible description fields from Outscraper
+            // Note: 'about' field is often an object/array, need to extract text from it
+            let aboutText = '';
+            if (business.about) {
+              if (typeof business.about === 'string') {
+                aboutText = business.about;
+              } else if (typeof business.about === 'object') {
+                // about might be array of objects or single object with description property
+                if (Array.isArray(business.about) && business.about.length > 0) {
+                  aboutText = business.about[0].text || business.about[0].description || business.about[0].value || '';
+                } else if (business.about.text) {
+                  aboutText = business.about.text;
+                } else if (business.about.description) {
+                  aboutText = business.about.description;
+                } else {
+                  // Try to stringify and extract meaningful text
+                  aboutText = JSON.stringify(business.about);
+                }
+              }
+            }
+
             const possibleDescriptions = [
               business.description,
-              business.about,
+              aboutText,  // Use extracted about text
               business.business_description,
               business.business_info,
               business.details,
@@ -1114,9 +1134,29 @@ async function getOutscraperData(businessName, location) {
       console.log(`🔍 VERIFICATION STATUS: Verified: ${business.verified}, Claimed: ${business.claimed}, Rating: ${business.rating}, Reviews: ${business.reviews}`);
 
       // Check ALL possible description fields from Outscraper
+      // Note: 'about' field is often an object/array, need to extract text from it
+      let aboutText = '';
+      if (business.about) {
+        if (typeof business.about === 'string') {
+          aboutText = business.about;
+        } else if (typeof business.about === 'object') {
+          // about might be array of objects or single object with description property
+          if (Array.isArray(business.about) && business.about.length > 0) {
+            aboutText = business.about[0].text || business.about[0].description || business.about[0].value || '';
+          } else if (business.about.text) {
+            aboutText = business.about.text;
+          } else if (business.about.description) {
+            aboutText = business.about.description;
+          } else {
+            // Try to stringify and extract meaningful text
+            aboutText = JSON.stringify(business.about);
+          }
+        }
+      }
+
       const possibleDescriptions = [
         business.description,
-        business.about,
+        aboutText,  // Use extracted about text
         business.business_description,
         business.business_info,
         business.details,
