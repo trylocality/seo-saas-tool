@@ -1227,31 +1227,48 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
     // Use direct Google Maps URL with place_id if available (better for product tiles visibility)
     // Otherwise fall back to search results
     let targetUrl;
+    let params;
+
     if (placeId) {
       targetUrl = `https://www.${googleDomain}/maps/search/?api=1&query=${encodeURIComponent(businessName)}&query_place_id=${placeId}`;
       console.log(`🎯 Using direct Maps URL with place_id for better product tile visibility`);
+      // Google Maps URL - requires BOTH custom_google AND premium_proxy
+      params = {
+        api_key: SCRAPINGBEE_API_KEY,
+        url: targetUrl,
+        custom_google: 'true',  // Required for ANY Google URL
+        premium_proxy: 'true',  // Required for Google Maps specifically
+        render_js: 'true',
+        screenshot: 'true',
+        screenshot_full_page: 'true',
+        wait: 6000,
+        window_width: 1920,
+        window_height: 1080,
+        block_resources: 'false',
+        country_code: region.toLowerCase()
+      };
     } else {
       // Fallback to search if no place_id
       const { city, state, isCounty } = extractCityState(location);
       const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
       targetUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
       console.log(`⚠️ No place_id available, using search results (product tiles may not be visible)`);
+      // Regular Google Search - use custom_google with stealth_proxy
+      params = {
+        api_key: SCRAPINGBEE_API_KEY,
+        url: targetUrl,
+        custom_google: 'true',
+        stealth_proxy: 'true',
+        render_js: 'true',
+        screenshot: 'true',
+        screenshot_full_page: 'true',
+        wait: 6000,
+        window_width: 1920,
+        window_height: 1080,
+        block_resources: 'false',
+        country_code: region.toLowerCase()
+      };
     }
-
-    const params = {
-      api_key: SCRAPINGBEE_API_KEY,
-      url: targetUrl,
-      custom_google: 'true',
-      stealth_proxy: 'true',
-      render_js: 'true',
-      screenshot: 'true',
-      screenshot_full_page: 'true',
-      wait: 6000, // Increased from 4000ms to ensure content loads fully
-      window_width: 1920,
-      window_height: 1080,
-      block_resources: 'false',
-      country_code: region.toLowerCase()
-    };
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
@@ -1352,67 +1369,66 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
     // We'll use JavaScript execution to click the Services tab
     const targetUrl = `https://www.${googleDomain}/maps/place/?q=place_id:${placeId}`;
 
+    // Google Maps URL - requires BOTH custom_google AND premium_proxy
+    // FIX: Use js_scenario instead of js_snippet (js_snippet doesn't work with custom_google)
     const params = {
       api_key: SCRAPINGBEE_API_KEY,
       url: targetUrl,
-      custom_google: 'true',
-      stealth_proxy: 'true',
+      custom_google: 'true',  // Required for ANY Google URL
+      premium_proxy: 'true',  // Required for Google Maps specifically
       render_js: 'true',
       screenshot: 'true',
       screenshot_full_page: 'false', // Don't need full page for Services
-      wait: 8000, // Increased wait time for tabs to load properly
       window_width: 1920,
       window_height: 1080,
       block_resources: 'false',
       country_code: region.toLowerCase(),
-      // Click on Services tab using JavaScript - IMPROVED SELECTORS
-      js_snippet: `
-        async function clickServicesTab() {
-          // Wait for page to fully load
-          await new Promise(r => setTimeout(r, 3000));
-
-          // Try multiple selector strategies
-          const selectors = [
-            'button[aria-label*="Services"]',
-            'button[aria-label*="services"]',
-            'button[data-value="services"]',
-            'button.hh2c6[data-tab-index="1"]',
-            'button[role="tab"]:nth-child(2)',
-            'div[role="tablist"] button:nth-child(2)'
-          ];
-
-          for (const selector of selectors) {
-            const tab = document.querySelector(selector);
-            if (tab) {
-              console.log('Found Services tab with selector:', selector);
-              tab.click();
-              // Wait longer for content to load after click
-              await new Promise(r => setTimeout(r, 4000));
-              return true;
-            }
-          }
-
-          console.log('Services tab not found with any selector');
-          return false;
-        }
-
-        clickServicesTab();
-      `
+      json_response: 'true', // Required for js_scenario execution report
+      // Use js_scenario (compatible with custom_google) to click Services tab
+      js_scenario: JSON.stringify({
+        instructions: [
+          // Wait for page to load
+          { wait: 3000 },
+          // Try multiple selectors for Services tab button
+          { wait_for_and_click: 'button[aria-label*="Services"]' },
+          // Fallback selectors (will try if first fails)
+          { wait_for_and_click: 'button[aria-label*="services"]' },
+          { wait_for_and_click: 'button[data-value="services"]' },
+          { wait_for_and_click: 'button[role="tab"]:nth-child(2)' },
+          { wait_for_and_click: 'div[role="tablist"] button:nth-child(2)' },
+          // Wait for Services content to load after click
+          { wait: 5000 }
+        ]
+      })
     };
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
-      timeout: 180000, // Increased to 3 minutes for better reliability
-      responseType: 'arraybuffer'
+      timeout: 180000 // Increased to 3 minutes for better reliability
+      // Note: Don't set responseType when using json_response
     });
 
-    if (response.status === 200 && response.headers['content-type'].includes('image')) {
+    // With json_response: true, response contains both screenshot and execution report
+    if (response.status === 200 && response.data) {
+      // Log js_scenario execution for debugging
+      if (response.data.js_scenario_result) {
+        console.log(`📋 JS Scenario execution:`, JSON.stringify(response.data.js_scenario_result, null, 2));
+      }
+
+      // Extract screenshot from base64 in JSON response
+      const screenshotBase64 = response.data.screenshot;
+      if (!screenshotBase64) {
+        throw new Error('No screenshot in response despite json_response=true');
+      }
+
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const safeBusinessName = businessName.replace(/[^a-zA-Z0-9]/g, '_');
       const filename = `${safeBusinessName}_services_${timestamp}.png`;
       const filepath = path.join(screenshotsDir, filename);
 
-      await fs.writeFile(filepath, response.data);
+      // Convert base64 to buffer and save
+      const imageBuffer = Buffer.from(screenshotBase64, 'base64');
+      await fs.writeFile(filepath, imageBuffer);
 
       console.log(`✅ Services screenshot saved: ${filename}`);
 
@@ -1431,7 +1447,8 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
         success: true,
         filename: filename,
         filepath: filepath,
-        url: `/screenshots/${filename}`
+        url: `/screenshots/${filename}`,
+        jsScenarioResult: response.data.js_scenario_result // Include for debugging
       };
     } else {
       throw new Error(`Unexpected response: ${response.status}`);
@@ -1457,30 +1474,31 @@ async function scrapeSocialLinksFromGBP(businessName, location, placeId = null) 
     // Detect location for better results
     const { region } = detectCountryRegion(location);
     const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+    const { city, state, isCounty } = extractCityState(location);
+    const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
 
-    // Build target URL - prefer place_id for accuracy
-    let targetUrl;
-    if (placeId) {
-      targetUrl = `https://www.${googleDomain}/maps/search/?api=1&query=${encodeURIComponent(businessName)}&query_place_id=${placeId}`;
-    } else {
-      const { city, state, isCounty } = extractCityState(location);
-      const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
-      targetUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
-    }
+    // DUAL-SOURCE STRATEGY:
+    // 1. Try Web Search view FIRST (description/social visible immediately)
+    // 2. If incomplete data, fallback to Maps view with place_id
 
-    const params = {
+    console.log(`🔍 Strategy: Try Web Search first, fallback to Maps if needed`);
+
+    // FIRST ATTEMPT: Web Search View (description/social are visible)
+    let targetUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
+    let params = {
       api_key: SCRAPINGBEE_API_KEY,
       url: targetUrl,
       custom_google: 'true',
       stealth_proxy: 'true',
       render_js: 'true',
-      wait: 5000, // Increased from 4000ms for better content loading
+      wait: 5000,
       country_code: region.toLowerCase()
     };
 
-    const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
+    console.log(`  📍 Attempt 1: Web Search view for ${businessName}`);
+    let response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
-      timeout: 60000  // Increased back to 60s for reliability
+      timeout: 60000
     });
 
     if (response.status === 200 && response.data) {
@@ -1584,6 +1602,82 @@ async function scrapeSocialLinksFromGBP(businessName, location, placeId = null) 
         console.log(`  ⚠️ No description found in HTML`);
       }
 
+      // CHECK IF WE NEED FALLBACK: Missing description OR less than 2 social links
+      const needsFallback = !extractedDescription || count < 2;
+
+      if (needsFallback && placeId) {
+        console.log(`  🔄 Web Search incomplete (description: ${!!extractedDescription}, socials: ${count}). Trying Maps view fallback...`);
+
+        try {
+          // SECOND ATTEMPT: Maps View with place_id (requires About tab, but let's try)
+          targetUrl = `https://www.${googleDomain}/maps/search/?api=1&query=${encodeURIComponent(businessName)}&query_place_id=${placeId}`;
+          params = {
+            api_key: SCRAPINGBEE_API_KEY,
+            url: targetUrl,
+            custom_google: 'true',
+            premium_proxy: 'true',
+            render_js: 'true',
+            wait: 8000,  // Longer wait for Maps to load
+            country_code: region.toLowerCase()
+          };
+
+          console.log(`  📍 Attempt 2: Maps view with place_id`);
+          const mapsResponse = await axios.get('https://app.scrapingbee.com/api/v1/', {
+            params: params,
+            timeout: 60000
+          });
+
+          if (mapsResponse.status === 200 && mapsResponse.data) {
+            const mapsHtml = typeof mapsResponse.data === 'string' ? mapsResponse.data : mapsResponse.data.toString();
+
+            // Try to extract description from Maps view
+            let mapsDescription = extractedDescription; // Keep existing if we have it
+            if (!mapsDescription) {
+              const fromBusinessMatch = mapsHtml.match(/From the business[:\s]+([^<]{50,1000})/i);
+              if (fromBusinessMatch && fromBusinessMatch[1]) {
+                mapsDescription = fromBusinessMatch[1].trim();
+                console.log(`  ✅ Maps view found description: "${mapsDescription.substring(0, 100)}..."`);
+              }
+            }
+
+            // Try to find additional social links from Maps view
+            const mapsFoundPlatforms = [...foundPlatforms];
+            const mapsFoundLinks = {...foundLinks};
+
+            socialPlatforms.forEach(platform => {
+              if (!mapsFoundPlatforms.includes(platform.name)) {
+                platform.patterns.forEach(pattern => {
+                  const matches = mapsHtml.match(pattern);
+                  if (matches && matches.length > 0) {
+                    const uniqueUrls = [...new Set(matches.map(url => url.split('?')[0].split('&')[0]))];
+                    mapsFoundPlatforms.push(platform.name);
+                    mapsFoundLinks[platform.name] = uniqueUrls[0];
+                  }
+                });
+              }
+            });
+
+            const mapsCount = mapsFoundPlatforms.length;
+            const mapsMeets2Plus = mapsCount >= 2;
+
+            if (mapsCount > count) {
+              console.log(`  ✅ Maps view found ${mapsCount - count} additional social platform(s)`);
+            }
+
+            return {
+              count: mapsCount,
+              meets2Plus: mapsMeets2Plus,
+              platforms: mapsFoundPlatforms,
+              links: mapsFoundLinks,
+              description: mapsDescription
+            };
+          }
+        } catch (fallbackError) {
+          console.log(`  ⚠️ Maps view fallback failed: ${fallbackError.message}`);
+          // Continue with Web Search results
+        }
+      }
+
       return {
         count: count,
         meets2Plus: meets2Plus,
@@ -1664,9 +1758,16 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
        - Try to determine if most recent post is within last 15 days
        - Look for date indicators like "1d ago", "5d ago", "2w ago"
 
-    7. SOCIAL LINKS: Social media profile links
-       - Look for social media icons (Facebook, Instagram, Twitter, LinkedIn, etc.)
-       - Usually in business info section
+    7. SOCIAL LINKS: **CRITICAL - LOOK AT BOTTOM OF PAGE**
+       - Scroll to the BOTTOM of the screenshot
+       - Look for a "PROFILES" tab/section near the bottom
+       - Under PROFILES, you'll see social media ICONS (Facebook, Instagram, Twitter, LinkedIn, TikTok, YouTube, etc.)
+       - Count ONLY the social media icons/links you can see in the PROFILES section
+       - Each icon = one social platform linked
+       - DO NOT count website links or phone numbers as social profiles
+       - Common platforms: Facebook (blue f), Instagram (camera icon), Twitter/X (bird), LinkedIn (in), TikTok, YouTube
+       - If you see the PROFILES section but it's empty, count = 0
+       - Be VERY THOROUGH - check the entire bottom portion of the screenshot
 
     NOTE: Q&A section has been removed from Google Business Profiles - do not look for it.
 
@@ -1878,32 +1979,48 @@ Industry: "${industry}"
 
 Task: Determine if the business name contains keywords that customers would search for when looking for this type of business.
 
-CRITICAL GUIDELINES - READ CAREFULLY:
-1. Look for ANY industry-related words, including:
-   - Core service/product words (e.g., "tire", "plumbing", "restaurant", "dental", "law", "accounting")
-   - Related terms (e.g., "auto", "brake", "wheel" for tire shops; "teeth", "smile" for dentists)
-   - Service descriptors (e.g., "repair", "sales", "service", "care", "consulting", "solutions" when paired with industry terms)
+CRITICAL GUIDELINES - BE VERY SMART ABOUT SEMANTIC MATCHES:
 
-2. Be LENIENT - if there's ANY industry keyword, set hasKeywords=true
-   - Even partial matches count (e.g., "Dent" in "DentCare" for dental industry)
+1. **SEMANTIC MATCHING IS KEY** - Look for words that are DIRECTLY related to the industry:
+   - Exact matches: "Tax" in tax industry, "Dental" in dental industry
+   - Semantic equivalents: "Smile" = dental, "Auto" = automotive, "Tech" = technology
+   - Industry synonyms: "CPA" = accounting/tax, "Attorney" = law, "Doctor" = medical
+   - Service words: "Repair", "Care", "Clean", "Design" when industry-relevant
+
+2. **EXAMPLES OF SMART MATCHING:**
+   - "Vyde Tax" + Tax/Accounting industry → TRUE (contains "Tax") ✅
+   - "Smile Dental" + Dental industry → TRUE (Smile = teeth/dental) ✅
+   - "AutoCare Plus" + Automotive → TRUE (Auto = automotive) ✅
+   - "Supreme Cleaning" + Cleaning → TRUE (Cleaning = industry keyword) ✅
+   - "TechDraft" + Technology → TRUE (Tech = technology) ✅
+   - "Law Office of Smith" + Legal → TRUE (Law = legal) ✅
+   - "CPA Group" + Accounting → TRUE (CPA = accountant) ✅
+
+3. **BE LENIENT - IF UNSURE, LEAN TOWARD TRUE:**
+   - If there's ANY word related to the industry → hasKeywords = true
+   - Partial matches count (e.g., "Dent" in "DentCare" for dental)
    - Compound words count (e.g., "LawFirm", "AutoCare")
+   - Abbreviations count (e.g., "CPA" for accounting, "IT" for tech)
 
-3. DO NOT count as keywords:
-   - Generic modifiers ALONE: "discount", "premium", "express", "quality", "best", "affordable"
-   - Location names: city names, state names, street names
+4. **DO NOT COUNT (only if these appear ALONE without industry terms):**
+   - Generic modifiers: "discount", "premium", "express", "quality", "best"
+   - Location names: city/state/street names
    - Owner names: "Joe's", "Smith's", "Mike's"
-   - Generic business types ALONE: "services", "company", "group", "solutions" (unless paired with industry term)
+   - Generic words ALONE: "services", "company", "group", "solutions"
 
-4. Examples to follow EXACTLY:
-   - "Joe's Plumbing & Heating" → hasKeywords: true, matched: ["plumbing", "heating"]
-   - "ABC Services" → hasKeywords: false (too generic)
-   - "Discount Tire" → hasKeywords: true, matched: ["tire"]
-   - "Sam's Sales Recruiting" → hasKeywords: true, matched: ["sales", "recruiting"]
-   - "TechDraft Solutions" → hasKeywords: false (for recruiting industry - no recruiting keywords)
-   - "Brake Masters" → hasKeywords: true, matched: ["brake"]
-   - "Quick Lube Plus" → hasKeywords: true, matched: ["lube"]
-   - "Smile Dental Care" → hasKeywords: true, matched: ["smile", "dental"]
-   - "Main Street Restaurant" → hasKeywords: true, matched: ["restaurant"]
+   BUT if paired with industry term, COUNT IT:
+   - "Dental Services" → TRUE (has "dental") ✅
+   - "ABC Services" → FALSE (no industry word) ❌
+
+5. **MORE EXAMPLES:**
+   - "Joe's Plumbing" → TRUE ["plumbing"] ✅
+   - "Discount Tire" → TRUE ["tire"] ✅
+   - "TechDraft Solutions" (tech industry) → TRUE ["tech"] ✅
+   - "ABC Services" (any industry) → FALSE (no industry word) ❌
+   - "Smith & Associates" (law) → FALSE (no law keywords) ❌
+   - "Vyde Tax" (accounting) → TRUE ["tax"] ✅
+
+**IMPORTANT:** Think about what customers would TYPE into Google to find this business. If the business name contains those search terms, it has keywords!
 
 Respond ONLY with valid JSON in this EXACT format (no extra text):
 {
@@ -2330,25 +2447,79 @@ async function analyzeWebsite(websiteUrl, location) {
         ])
     ];
     
-    // Check current page content, linked pages, or if site has location directory
-    const hasLocalizedPage = hasLocationDirectory || 
-      localizedIndicators.some(indicator => htmlLower.includes(indicator)) ||
-      links.some(link => localizedIndicators.some(indicator => link.includes(indicator)));
-    
+    // STEP 1: Find if a localized page URL exists
+    let localizedPageUrl = null;
+    let pageFoundMethod = null;
+
+    if (hasLocationDirectory) {
+      localizedPageUrl = 'location-directory-detected';
+      pageFoundMethod = 'directory';
+    } else {
+      // Check current page content for city patterns
+      const foundInCurrentPage = localizedIndicators.some(indicator => htmlLower.includes(indicator));
+      if (foundInCurrentPage) {
+        localizedPageUrl = websiteUrl;
+        pageFoundMethod = 'homepage';
+      } else {
+        // Check linked pages for city patterns
+        const matchingLink = links.find(link =>
+          localizedIndicators.some(indicator => link.includes(indicator))
+        );
+        if (matchingLink) {
+          // Convert relative URL to absolute
+          localizedPageUrl = matchingLink.startsWith('http') ? matchingLink : new URL(matchingLink, baseUrl).href;
+          pageFoundMethod = 'link';
+        }
+      }
+    }
+
+    // STEP 2: If URL found, verify content quality (fetch and analyze)
+    let hasLocalizedPage = false;
+    let landingPageQuality = 'none'; // 'none', 'weak', 'good'
+
+    if (localizedPageUrl) {
+      console.log(`  📍 Found potential localized page via ${pageFoundMethod}: ${localizedPageUrl}`);
+
+      // If we found a directory or the URL is already the homepage, check current HTML
+      if (pageFoundMethod === 'directory' || pageFoundMethod === 'homepage') {
+        landingPageQuality = verifyLocalizedContent(htmlContent, city, state);
+        hasLocalizedPage = landingPageQuality !== 'none';
+      } else {
+        // Fetch the specific localized page to verify content
+        try {
+          console.log(`  🔍 Fetching localized page to verify content...`);
+          const pageResponse = await axios.get(localizedPageUrl, {
+            timeout: 8000,
+            maxRedirects: 3,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+
+          landingPageQuality = verifyLocalizedContent(pageResponse.data, city, state);
+          hasLocalizedPage = landingPageQuality !== 'none';
+        } catch (error) {
+          console.log(`  ⚠️ Could not fetch localized page for verification: ${error.message}`);
+          // URL exists but can't verify content - assume weak
+          hasLocalizedPage = true;
+          landingPageQuality = 'weak';
+        }
+      }
+
+      console.log(`  ${landingPageQuality === 'good' ? '✅' : landingPageQuality === 'weak' ? '⚠️' : '❌'} Content quality: ${landingPageQuality.toUpperCase()}`);
+    } else {
+      console.log(`  ❌ No localized page URL found`);
+    }
+
     // Extract services for smart suggestions
     const services = extractServicesFromHTML(htmlContent);
-    
-    console.log(`${hasGBPEmbed ? '✅' : '❌'} GBP Embed | ${hasLocalizedPage ? '✅' : '❌'} Localized Page | ${services.length} services found`);
-    if (hasLocationDirectory) {
-      console.log(`✅ Found location directory structure on website`);
-    }
-    if (hasLocalizedPage && !hasLocationDirectory) {
-      console.log(`✅ Found localized page references for ${city}`);
-    }
-    
+
+    console.log(`${hasGBPEmbed ? '✅' : '❌'} GBP Embed | ${hasLocalizedPage ? (landingPageQuality === 'good' ? '✅' : '⚠️') : '❌'} Localized Page | ${services.length} services found`);
+
     return {
       hasGBPEmbed: hasGBPEmbed,
       hasLocalizedPage: hasLocalizedPage,
+      landingPageQuality: landingPageQuality, // NEW: 'none', 'weak', 'good'
       services: services,
       content: htmlContent.substring(0, 5000), // First 5000 chars for analysis
       note: 'Website analysis completed'
@@ -2359,10 +2530,60 @@ async function analyzeWebsite(websiteUrl, location) {
     return {
       hasGBPEmbed: false,
       hasLocalizedPage: false,
+      landingPageQuality: 'none',
       services: [],
       content: '',
       note: `Website analysis failed: ${error.message}`
     };
+  }
+}
+
+// Helper: Verify localized content quality on a landing page
+function verifyLocalizedContent(htmlContent, city, state) {
+  const htmlLower = htmlContent.toLowerCase();
+  const cityLower = city.toLowerCase();
+  const stateLower = state.toLowerCase();
+
+  // Extract title and h1 tags for stronger signals
+  const titleMatch = htmlContent.match(/<title[^>]*>(.*?)<\/title>/i);
+  const h1Match = htmlContent.match(/<h1[^>]*>(.*?)<\/h1>/i);
+  const title = titleMatch ? titleMatch[1].toLowerCase() : '';
+  const h1 = h1Match ? h1Match[1].toLowerCase() : '';
+
+  // SCORING CRITERIA for "GOOD" content (8 points):
+  // Must have city/state in prominent locations (title or h1) AND good keyword density
+
+  // Check for city/state in title or h1 (strong signals)
+  const cityInTitle = title.includes(cityLower);
+  const cityInH1 = h1.includes(cityLower);
+  const stateInTitle = title.includes(stateLower);
+  const stateInH1 = h1.includes(stateLower);
+
+  const hasStrongLocationSignals = (cityInTitle || cityInH1) && (stateInTitle || stateInH1);
+
+  // Check for multiple mentions in body content (good keyword density)
+  const cityMentions = (htmlLower.match(new RegExp(cityLower, 'g')) || []).length;
+  const stateMentions = (htmlLower.match(new RegExp(stateLower, 'g')) || []).length;
+
+  const hasGoodDensity = cityMentions >= 3 && stateMentions >= 2;
+
+  // Check for local keywords that indicate quality local content
+  const localKeywords = [
+    'serving', 'local', 'area', 'community', 'neighborhood',
+    'near me', 'nearby', 'in ' + cityLower, 'visit us', 'contact us',
+    'located in', 'based in', 'proudly serving', 'service area'
+  ];
+  const localKeywordMatches = localKeywords.filter(keyword => htmlLower.includes(keyword)).length;
+
+  console.log(`    📊 Content Analysis: City in title/h1=${cityInTitle || cityInH1}, State in title/h1=${stateInTitle || stateInH1}, City mentions=${cityMentions}, State mentions=${stateMentions}, Local keywords=${localKeywordMatches}`);
+
+  // DECISION LOGIC:
+  if (hasStrongLocationSignals && hasGoodDensity && localKeywordMatches >= 2) {
+    return 'good'; // 8 points - Well optimized local page
+  } else if ((cityInTitle || cityInH1 || cityMentions >= 2) && (stateInTitle || stateInH1 || stateMentions >= 1)) {
+    return 'weak'; // 4 points - Page exists but needs optimization
+  } else {
+    return 'none'; // 0 points - No meaningful local content
   }
 }
 
@@ -3076,7 +3297,8 @@ async function calculateScore(data) {
   }
   
   // 6. POSTS (6 pts) - Binary: recent activity
-  if (data.aiAnalysis.posts && data.aiAnalysis.posts.hasRecent) {
+  // Use merged posts data (includes Outscraper fallback), not just AI data
+  if (data.posts && data.posts.hasRecent) {
     scores.posts = 6;
     details.posts = { status: 'GOOD', message: 'Active posting keeps customers engaged' };
   } else {
@@ -3157,10 +3379,14 @@ async function calculateScore(data) {
     details.gbpEmbed = { status: 'MISSING', message: 'No map on website - harder for customers to visit' };
   }
   
-  // 12. LOCAL LANDING PAGE (8 pts) - Binary
-  if (data.websiteAnalysis.hasLocalizedPage) {
+  // 12. LOCAL LANDING PAGE (8 pts) - 3-tier scoring based on content quality
+  const landingPageQuality = data.websiteAnalysis.landingPageQuality || 'none';
+  if (landingPageQuality === 'good') {
     scores.landingPage = 8;
-    details.landingPage = { status: 'GOOD', message: 'Local page targets your community effectively' };
+    details.landingPage = { status: 'GOOD', message: 'Well-optimized local page with strong location signals' };
+  } else if (landingPageQuality === 'weak') {
+    scores.landingPage = 4;
+    details.landingPage = { status: 'NEEDS IMPROVEMENT', message: 'Local page exists but needs better optimization (add city/state to title, increase mentions)' };
   } else {
     scores.landingPage = 0;
     details.landingPage = { status: 'MISSING', message: 'No local page - missing local search traffic' };
@@ -3525,40 +3751,80 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
     
     // 8. Landing Page Optimization (if needed)
     console.log(`🔍 Landing page score: ${scoreData.scores.landingPage}/8`);
+    const landingPageQuality = scoreData.data.websiteAnalysis?.landingPageQuality || 'none';
+
     if (scoreData.scores.landingPage < 8) {
       console.log('🚀 Generating landing page suggestion...');
-      const landingPagePrompt = `
-      Create a complete localized landing page for:
-      Business: ${businessName}
-      Industry: ${industry}
-      Location: ${city}, ${state}
-      Website: ${website}
-      
-      Provide a ready-to-use landing page with:
-      
-      1. SUGGESTED URL: Create a SEO-friendly URL path (e.g., /service-city-state)
-      
-      2. META DESCRIPTION: Write a compelling 150-character meta description that includes the business name, service, and location
-      
-      3. PAGE COPY: Write complete page content including:
-         - Compelling headline with location
-         - 2-3 paragraphs about the business serving the local area
-         - Why choose this business in this specific location
-         - Local trust signals and community connection
-         - Clear call-to-action
-      
-      Format your response clearly with headers for each section.
-      Make it conversion-focused and locally relevant.
-      `;
-      
+
+      let landingPagePrompt;
+
+      if (landingPageQuality === 'weak') {
+        // Page exists but needs optimization
+        landingPagePrompt = `
+        Optimize an existing localized landing page for:
+        Business: ${businessName}
+        Industry: ${industry}
+        Location: ${city}, ${state}
+
+        The business HAS a local landing page, but it needs better optimization.
+
+        Provide OPTIMIZATION recommendations:
+
+        1. TITLE TAG: Write an optimized title that includes city, state, and primary keyword
+           Example: "Premium Tax Services in ${city}, ${state} | ${businessName}"
+
+        2. H1 HEADLINE: Write a compelling H1 that includes the location
+           Example: "${city}'s Most Trusted Tax Preparation Service"
+
+        3. CONTENT IMPROVEMENTS:
+           - Add 2-3 paragraphs specifically about serving ${city} and ${state}
+           - Mention local landmarks, neighborhoods, or community connections
+           - Include "${city}" and "${state}" naturally 3-5 times throughout the page
+           - Add local trust signals (years in ${city}, local testimonials, etc.)
+
+        4. LOCAL KEYWORDS: List 5-7 local keyword phrases to incorporate
+           Example: "tax preparation ${city}", "CPA near ${city}", etc.
+
+        Format as clear, actionable recommendations for improving the existing page.
+        `;
+      } else {
+        // No page exists - need to create from scratch
+        landingPagePrompt = `
+        Create a complete localized landing page for:
+        Business: ${businessName}
+        Industry: ${industry}
+        Location: ${city}, ${state}
+        Website: ${website}
+
+        Provide a ready-to-use landing page with:
+
+        1. SUGGESTED URL: Create a SEO-friendly URL path (e.g., /service-city-state)
+
+        2. META DESCRIPTION: Write a compelling 150-character meta description that includes the business name, service, and location
+
+        3. PAGE COPY: Write complete page content including:
+           - Compelling headline with location
+           - 2-3 paragraphs about the business serving the local area
+           - Why choose this business in this specific location
+           - Local trust signals and community connection
+           - Clear call-to-action
+
+        Format your response clearly with headers for each section.
+        Make it conversion-focused and locally relevant.
+        `;
+      }
+
       try {
         suggestions.landingPage = await callOpenAI(landingPagePrompt, 'landingPage');
       } catch (error) {
         console.error('❌ Landing page suggestion failed:', error.message);
+        const action = landingPageQuality === 'weak' ? 'Optimize your existing' : 'Create a';
         suggestions.landingPage = {
           title: 'Landing Page Recommendation',
-          content: `Create a localized landing page for ${businessName} in ${city}, ${state}. Include your business name and location in the page title, write content about serving the local area, and add local keywords throughout the page.`,
-          instructions: 'Create this landing page on your website using local keywords and content.',
+          content: `${action} localized landing page for ${businessName} in ${city}, ${state}. Include your business name and location in the page title, write content about serving the local area, and add local keywords throughout the page.`,
+          instructions: landingPageQuality === 'weak'
+            ? 'Update your existing landing page with city/state in the title and increase location mentions throughout the content.'
+            : 'Create this landing page on your website using local keywords and content.',
           error: 'AI generation failed - using fallback content'
         };
       }
@@ -3770,6 +4036,7 @@ function getFallbackWebsite() {
   return {
     hasGBPEmbed: false,
     hasLocalizedPage: false,
+    landingPageQuality: 'none',
     services: [],
     content: '',
     note: 'Website analysis failed'
@@ -3943,19 +4210,55 @@ async function generateCompleteReport(businessName, location, industry, website,
     
     console.log(`✅ Group 2 completed: Reviews, Website, AI Analysis`);
 
-    // Merge AI analysis social links with scraped social links for most accurate count
-    // Priority: scrapedSocialLinks (from GBP HTML) > AI analysis (from screenshot)
+    // 3-LAYER SOCIAL LINKS DETECTION STRATEGY:
+    // Layer 1 (Primary): AI Screenshot analyzes PROFILES section at bottom of page
+    // Layer 2 (Secondary): Web Search HTML scraping finds partial links (facebook.com/p)
+    // Layer 3 (Fallback): Outscraper/SerpAPI data
+
+    const aiSocialCount = aiAnalysis?.socialLinks?.count || 0;
+    const scrapedSocialCount = scrapedSocialLinks.count || 0;
+    const outscraperSocial = businessData?.social_media || {};
+
+    // Count Outscraper social links (facebook, instagram, twitter, linkedin, youtube, etc.)
+    const outscraperSocialCount = Object.values(outscraperSocial).filter(url => url && url.trim()).length;
+
+    console.log(`\n🔗 SOCIAL LINKS - 3-LAYER DETECTION:`);
+    console.log(`  Layer 1 (AI Screenshot - PROFILES section): ${aiSocialCount} platforms`);
+    console.log(`  Layer 2 (Web Search HTML - partial links): ${scrapedSocialCount} platforms`);
+    console.log(`  Layer 3 (Outscraper API): ${outscraperSocialCount} platforms`);
+
+    // PRIORITY: AI > Scraped > Outscraper
+    // If AI found social links in PROFILES section, trust that (most reliable)
+    // Else if Web Search found partial links, they likely have profiles
+    // Else check Outscraper as final fallback
+
+    let finalSocialCount = aiSocialCount;
+    let finalSocialPlatforms = aiAnalysis?.socialLinks?.platforms || [];
+    let detectionSource = 'AI Screenshot (PROFILES section)';
+
+    if (aiSocialCount === 0 && scrapedSocialCount > 0) {
+      // AI didn't find any, but Web Search found partial links - trust partial links
+      finalSocialCount = scrapedSocialCount;
+      finalSocialPlatforms = scrapedSocialLinks.platforms || [];
+      detectionSource = 'Web Search HTML (partial links detected)';
+    }
+
+    if (finalSocialCount === 0 && outscraperSocialCount > 0) {
+      // Neither AI nor scraping found any, use Outscraper as final fallback
+      finalSocialCount = outscraperSocialCount;
+      finalSocialPlatforms = Object.keys(outscraperSocial).filter(key => outscraperSocial[key]);
+      detectionSource = 'Outscraper API';
+    }
+
     const mergedSocialLinks = {
-      count: Math.max(scrapedSocialLinks.count, aiAnalysis?.socialLinks?.count || 0),
-      meets2Plus: scrapedSocialLinks.meets2Plus || aiAnalysis?.socialLinks?.meets2Plus || false,
-      platforms: [...new Set([
-        ...(scrapedSocialLinks.platforms || []),
-        ...(aiAnalysis?.socialLinks?.platforms || [])
-      ])],
-      links: scrapedSocialLinks.links || {}
+      count: finalSocialCount,
+      meets2Plus: finalSocialCount >= 2,
+      platforms: finalSocialPlatforms,
+      links: scrapedSocialLinks.links || {},
+      source: detectionSource  // Track which layer detected the links
     };
 
-    console.log(`🔗 Merged social links: ${mergedSocialLinks.count} platforms (Scraped: ${scrapedSocialLinks.count}, AI: ${aiAnalysis?.socialLinks?.count || 0})`);
+    console.log(`  ✅ FINAL: ${mergedSocialLinks.count} platforms from ${detectionSource}\n`);
 
     // Compile data for scoring (same as before)
     const partialData = {
@@ -3988,13 +4291,32 @@ async function generateCompleteReport(businessName, location, industry, website,
         meets2Plus: partialData.aiAnalysis?.productTiles?.meets2Plus || false
       },
 
-      // Posts: Prefer AI (has recency data)
-      posts: {
-        hasRecent: partialData.aiAnalysis?.posts?.meetsLast15Days || false,
-        hasAny: (partialData.aiAnalysis?.posts?.count || 0) > 0 || partialData.aiAnalysis?.posts?.hasAny || false,  // Fixed: Check count OR hasAny
-        count: partialData.aiAnalysis?.posts?.count || 0,
-        meetsLast15Days: partialData.aiAnalysis?.posts?.meetsLast15Days || false
-      },
+      // Posts: DUAL-SOURCE - Use AI if available (has recency data), fallback to Outscraper
+      posts: (() => {
+        const aiPostCount = partialData.aiAnalysis?.posts?.count || 0;
+        const outscraperPosts = partialData.outscraper?.posts || [];
+        const outscraperPostCount = Array.isArray(outscraperPosts) ? outscraperPosts.length : 0;
+
+        // Use AI data if available, otherwise fallback to Outscraper
+        const effectiveCount = aiPostCount > 0 ? aiPostCount : outscraperPostCount;
+
+        // Check recency from Outscraper if AI didn't provide it
+        let hasRecent = partialData.aiAnalysis?.posts?.meetsLast15Days || false;
+        if (!hasRecent && outscraperPostCount > 0) {
+          // Check if Outscraper posts have recent activity (last 15 days)
+          const now = Math.floor(Date.now() / 1000);
+          const fifteenDaysAgo = now - (15 * 24 * 60 * 60);
+          hasRecent = outscraperPosts.some(post => post.timestamp && post.timestamp > fifteenDaysAgo);
+        }
+
+        return {
+          hasRecent: hasRecent,
+          hasAny: effectiveCount > 0,
+          count: effectiveCount,
+          meetsLast15Days: hasRecent,
+          source: aiPostCount > 0 ? 'AI' : (outscraperPostCount > 0 ? 'Outscraper' : 'none')
+        };
+      })(),
 
       // Social: Use MERGED data from both scraped GBP HTML and AI screenshot
       social: {
