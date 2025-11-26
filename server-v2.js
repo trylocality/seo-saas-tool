@@ -1763,9 +1763,49 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
        - Find the star rating and number of reviews
        - Usually shown prominently near business name
 
-    5. PRODUCT/SERVICE TILES: Products or Services section
-       - Look for dedicated "Products" or "Services" section with tiles/cards
-       - Count individual product/service listings
+    5. PRODUCT/SERVICE TILES: **CRITICAL - LOOK VERY CAREFULLY ON RIGHT SIDE OF PAGE**
+
+       LOCATION:
+       - ALWAYS on the RIGHT-HAND SIDE of the screenshot (where profile info is displayed)
+       - Can appear at various vertical positions (top, middle, or BOTTOM of right panel)
+       - Section is ALWAYS clearly labeled "Products" or "Services"
+
+       WHAT TO LOOK FOR:
+       - Section title: "Products" or "Services" (exact wording)
+       - Visual cards/tiles arranged horizontally in a scrollable row
+       - Each tile is a rectangular card with:
+         * A square or rectangular IMAGE at the top (product/service photo)
+         * Text below the image (service/product name)
+         * Name may be TRUNCATED with "..." (e.g., "Physical Ther...", "Chiropractic C...")
+
+       VISUAL CHARACTERISTICS:
+       - Cards are typically 150-250px wide
+       - Usually 2-4 tiles visible at once
+       - Light/white background with subtle borders or shadows
+       - Images are prominent and professional-looking
+       - May have a "View all" link or right arrow (→) indicating more tiles
+
+       COUNTING INSTRUCTIONS:
+       - Count EVERY visible product/service tile you can see
+       - Include partially visible tiles on the edges
+       - If you see "View all" or arrows, there are definitely tiles present
+       - Typical count: 2-10 visible tiles
+       - BE VERY THOROUGH - scan the ENTIRE right side of the screenshot
+
+       COMMON EXAMPLES:
+       - Fitness businesses: "Personal Training", "Physical Therapy", "Massage Therapy"
+       - Lawyers: "Divorce Law", "Criminal Defense", "Estate Planning"
+       - Medical: "Chiropractic Care", "Sports Medicine", "Rehabilitation"
+
+       DO NOT CONFUSE WITH:
+       - Photo gallery (different layout, no service names)
+       - Review cards (have star ratings and user photos)
+       - Social media icons (much smaller, no images)
+       - Posts/Updates (have dates and longer text)
+
+       **IMPORTANT:** If you see the word "Products" or "Services" as a section header
+       on the right side, LOOK EXTREMELY CAREFULLY at that area and count all visible tiles.
+       This is one of the most commonly missed elements - please be thorough!
 
     6. GOOGLE POSTS: Recent posts in the "Posts" or "Updates" section
        - Check if any posts are visible
@@ -1927,7 +1967,7 @@ Notes:
 - Check for both service titles AND description text
 - Include up to 10 example service names in servicesVisible array`;
 
-    const response = await openai.chat.completions.create({
+    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o',
       messages: [
         {
@@ -1946,9 +1986,14 @@ Notes:
       ],
       max_tokens: 500, // Increased for longer service lists
       temperature: 0.1  // Keep low for consistency
+    }, {
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
     });
 
-    const content = response.choices[0].message.content.trim();
+    const content = response.data.choices[0].message.content.trim();
 
     let cleanedResponse = content;
     if (content.includes('```json')) {
