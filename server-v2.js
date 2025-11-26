@@ -2030,7 +2030,7 @@ Respond ONLY with valid JSON in this EXACT format (no extra text):
   "confidence": "high"
 }`;
 
-    const response = await openai.chat.completions.create({
+    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -2040,9 +2040,14 @@ Respond ONLY with valid JSON in this EXACT format (no extra text):
       ],
       temperature: 0.1, // Lower temperature for maximum consistency
       max_tokens: 300   // Increased for more detailed analysis
+    }, {
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
     });
 
-    const content = response.choices[0].message.content.trim();
+    const content = response.data.choices[0].message.content.trim();
 
     // Remove markdown code blocks if present
     let cleanedResponse = content;
