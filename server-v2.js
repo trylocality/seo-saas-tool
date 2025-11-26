@@ -1041,21 +1041,30 @@ async function getOutscraperData(businessName, location) {
             // Note: 'about' field is often an object/array, need to extract text from it
             let aboutText = '';
             if (business.about) {
+              console.log(`   🔍 Outscraper 'about' field type: ${typeof business.about}`);
               if (typeof business.about === 'string') {
                 aboutText = business.about;
+                console.log(`   ✅ About is string: "${aboutText.substring(0, 100)}..."`);
               } else if (typeof business.about === 'object') {
+                console.log(`   🔍 About is object/array, keys:`, Array.isArray(business.about) ? `Array[${business.about.length}]` : Object.keys(business.about).join(', '));
                 // about might be array of objects or single object with description property
                 if (Array.isArray(business.about) && business.about.length > 0) {
                   aboutText = business.about[0].text || business.about[0].description || business.about[0].value || '';
+                  console.log(`   ✅ Extracted from array[0]: "${aboutText.substring(0, 100)}..."`);
                 } else if (business.about.text) {
                   aboutText = business.about.text;
+                  console.log(`   ✅ Extracted from about.text: "${aboutText.substring(0, 100)}..."`);
                 } else if (business.about.description) {
                   aboutText = business.about.description;
+                  console.log(`   ✅ Extracted from about.description: "${aboutText.substring(0, 100)}..."`);
                 } else {
                   // Try to stringify and extract meaningful text
                   aboutText = JSON.stringify(business.about);
+                  console.log(`   ⚠️ Stringified about object: "${aboutText.substring(0, 100)}..."`);
                 }
               }
+            } else {
+              console.log(`   ⚠️ No 'about' field in Outscraper response`);
             }
 
             const possibleDescriptions = [
@@ -1078,6 +1087,16 @@ async function getOutscraperData(businessName, location) {
               console.log(`   Available Outscraper fields:`, Object.keys(business).filter(k => typeof business[k] === 'string' && business[k].length > 20).join(', '));
             }
 
+            // Log posts data for debugging
+            if (business.posts) {
+              console.log(`   📄 Outscraper posts: ${Array.isArray(business.posts) ? `Array[${business.posts.length}]` : typeof business.posts}`);
+              if (Array.isArray(business.posts) && business.posts.length > 0) {
+                console.log(`   ✅ First post:`, JSON.stringify(business.posts[0]).substring(0, 150));
+              }
+            } else {
+              console.log(`   ⚠️ No 'posts' field in Outscraper response`);
+            }
+
             const resultData = {
               name: business.name || business.title || businessName,
               phone: business.phone || '',
@@ -1095,7 +1114,7 @@ async function getOutscraperData(businessName, location) {
               google_id: business.google_id || business.place_id,
               reviews_link: business.reviews_link || '',
               social: {},
-              posts: Array.isArray(business.posts) ? business.posts.length : 0,
+              posts: Array.isArray(business.posts) ? business.posts : [],  // FIXED: Store array, not count!
               questionsAnswers: 0,
               photoCategories: []
             };
@@ -1272,6 +1291,21 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
     if (placeId) {
       targetUrl = `https://www.${googleDomain}/maps/search/?api=1&query=${encodeURIComponent(businessName)}&query_place_id=${placeId}`;
       console.log(`🎯 Using direct Maps URL with place_id for better product tile visibility`);
+
+      // Create js_scenario to scroll the profile panel and wait for content to load
+      // Product tiles can be at bottom of page and need scrolling + wait time to load
+      const scrollScenario = {
+        instructions: [
+          { wait: 3000 },  // Initial wait for page load
+          { scroll_x: 0, scroll_y: 500 },  // Scroll down to reveal more content
+          { wait: 2000 },  // Wait for lazy-loaded content
+          { scroll_x: 0, scroll_y: 1000 },  // Scroll further down
+          { wait: 2000 },  // Wait for more content to load
+          { scroll_x: 0, scroll_y: 1500 },  // Scroll to bottom area where product tiles often are
+          { wait: 2000 }   // Final wait to ensure everything loaded
+        ]
+      };
+
       // Google Maps URL - requires BOTH custom_google AND premium_proxy
       params = {
         api_key: SCRAPINGBEE_API_KEY,
@@ -1281,7 +1315,7 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
         render_js: 'true',
         screenshot: 'true',
         screenshot_full_page: 'true',
-        wait: 6000,
+        js_scenario: JSON.stringify(scrollScenario),  // Add scrolling to capture all content
         window_width: 1920,
         window_height: 1080,
         block_resources: 'false',
