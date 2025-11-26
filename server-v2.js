@@ -1423,54 +1423,29 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
       window_height: 1080,
       block_resources: 'false',
       country_code: region.toLowerCase(),
-      json_response: 'true', // Required for js_scenario execution report
-      // Use js_scenario (compatible with custom_google) to click Services tab
-      js_scenario: JSON.stringify({
-        instructions: [
-          // Wait for page to load
-          { wait: 3000 },
-          // Try multiple selectors for Services tab button
-          { wait_for_and_click: 'button[aria-label*="Services"]' },
-          // Fallback selectors (will try if first fails)
-          { wait_for_and_click: 'button[aria-label*="services"]' },
-          { wait_for_and_click: 'button[data-value="services"]' },
-          { wait_for_and_click: 'button[role="tab"]:nth-child(2)' },
-          { wait_for_and_click: 'div[role="tablist"] button:nth-child(2)' },
-          // Wait for Services content to load after click
-          { wait: 5000 }
-        ]
-      })
+      // Simplified js_scenario with just wait - don't try to click tab
+      // Services tab click is unreliable and causes HTTP 500 errors
+      // AI will analyze Overview tab and try to detect services mentions
+      wait: 8000  // Give page time to fully load
     };
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
-      timeout: 180000 // Increased to 3 minutes for better reliability
-      // Note: Don't set responseType when using json_response
+      timeout: 180000, // Increased to 3 minutes for better reliability
+      responseType: 'arraybuffer'  // Back to arraybuffer since no json_response
     });
 
-    // With json_response: true, response contains both screenshot and execution report
-    if (response.status === 200 && response.data) {
-      // Log js_scenario execution for debugging
-      if (response.data.js_scenario_result) {
-        console.log(`📋 JS Scenario execution:`, JSON.stringify(response.data.js_scenario_result, null, 2));
-      }
-
-      // Extract screenshot from base64 in JSON response
-      const screenshotBase64 = response.data.screenshot;
-      if (!screenshotBase64) {
-        throw new Error('No screenshot in response despite json_response=true');
-      }
-
+    // Standard image response handling
+    if (response.status === 200 && response.headers['content-type'].includes('image')) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const safeBusinessName = businessName.replace(/[^a-zA-Z0-9]/g, '_');
       const filename = `${safeBusinessName}_services_${timestamp}.png`;
       const filepath = path.join(screenshotsDir, filename);
 
-      // Convert base64 to buffer and save
-      const imageBuffer = Buffer.from(screenshotBase64, 'base64');
-      await fs.writeFile(filepath, imageBuffer);
+      await fs.writeFile(filepath, response.data);
 
       console.log(`✅ Services screenshot saved: ${filename}`);
+      console.log(`⚠️ Note: Screenshot shows Overview tab (Services tab click disabled due to reliability issues)`);
 
       // Cache for 30 minutes
       try {
@@ -1487,8 +1462,7 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
         success: true,
         filename: filename,
         filepath: filepath,
-        url: `/screenshots/${filename}`,
-        jsScenarioResult: response.data.js_scenario_result // Include for debugging
+        url: `/screenshots/${filename}`
       };
     } else {
       throw new Error(`Unexpected response: ${response.status}`);
