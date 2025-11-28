@@ -4399,6 +4399,25 @@ async function generateCompleteReport(businessName, location, industry, website,
       ? foundationResults[0].value
       : getFallbackBusinessData(businessName, location);
 
+    // NEW: Get G Maps Extractor data for description (PRIMARY SOURCE)
+    console.log('🗺️  Getting G Maps Extractor data for description...');
+    let gmapsData = null;
+    try {
+      gmapsData = await getGMapsExtractorData(businessName, location);
+      if (gmapsData && gmapsData.description) {
+        console.log(`   ✅ G Maps description: "${gmapsData.description.substring(0, 80)}..." (${gmapsData.description.length} chars)`);
+        // OVERRIDE: G Maps Extractor is PRIMARY for description
+        if (businessData.description) {
+          console.log(`   ⚠️ Overriding pre-selected description with G Maps Extractor (PRIMARY SOURCE)`);
+        }
+        businessData.description = gmapsData.description;
+      } else {
+        console.log(`   ⚠️ G Maps Extractor has no description - will use pre-selected or AI fallback`);
+      }
+    } catch (gmapsError) {
+      console.log(`   ⚠️ G Maps Extractor failed: ${gmapsError.message}`);
+    }
+
     // Now take screenshot and scrape social links with place_id
     const placeId = businessData.place_id || businessData.google_id;
     const website = businessData.website || businessData.site || '';
