@@ -28,6 +28,7 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 const OUTSCRAPER_API_KEY = process.env.OUTSCRAPER_API_KEY;
+const GMAPSEXTRACTOR_KEY = process.env.GMAPSEXTRACTOR_KEY;
 const SCRAPINGBEE_API_KEY = process.env.SCRAPINGBEE_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SERPAPI_KEY = process.env.SERPAPI_KEY;
@@ -1241,6 +1242,199 @@ async function getOutscraperData(businessName, location) {
     throw new Error(`Outscraper failed: ${error.message}`);
   }
 }
+
+// 1B. G MAPS EXTRACTOR - Alternative/supplemental data source with description field
+async function getGMapsExtractorData(businessName, location) {
+  try {
+    // Check cache first (30 minute TTL)
+    const cacheKey = `gmaps_${businessName.toLowerCase()}_${location.toLowerCase()}`;
+    try {
+      const cached = await db.get(
+        'SELECT data, created_at FROM api_cache WHERE cache_key = $1 AND expires_at > NOW()',
+        [cacheKey]
+      );
+
+      if (cached) {
+        const age = Math.round((Date.now() - new Date(cached.created_at)) / 1000 / 60);
+        console.log(`✅ Using cached G Maps Extractor data (age: ${age} minutes)`);
+        return JSON.parse(cached.data);
+      }
+    } catch (cacheError) {
+      console.log(`⚠️ Cache check failed: ${cacheError.message}`);
+    }
+
+    if (!GMAPSEXTRACTOR_KEY) {
+      console.log('⚠️ G Maps Extractor API key not configured, skipping');
+      return null;
+    }
+
+    // Extract city/state for lat/long lookup
+    const { city, state } = extractCityState(location);
+    const query = `${businessName} ${location}`;
+
+    console.log(`🗺️  G Maps Extractor search: ${query}`);
+
+    // Detect country/region from location
+    const { region } = detectCountryRegion(location);
+
+    // Approximate coordinates for common US states (expand as needed)
+    const stateCoords = {
+      'UT': '@40.7608,-111.8910,11z', // Utah (Salt Lake City area)
+      'CA': '@36.7783,-119.4179,11z', // California (center)
+      'NY': '@40.7128,-74.0060,11z',  // New York (NYC)
+      'TX': '@31.9686,-99.9018,11z',  // Texas (center)
+      'FL': '@27.6648,-81.5158,11z',  // Florida (center)
+      'IL': '@40.6331,-89.3985,11z',  // Illinois (center)
+      'PA': '@41.2033,-77.1945,11z',  // Pennsylvania (center)
+      'OH': '@40.4173,-82.9071,11z',  // Ohio (center)
+      'GA': '@32.1656,-82.9001,11z',  // Georgia (center)
+      'NC': '@35.7596,-79.0193,11z',  // North Carolina (center)
+      'MI': '@44.3148,-85.6024,11z',  // Michigan (center)
+      'NJ': '@40.0583,-74.4057,11z',  // New Jersey (center)
+      'VA': '@37.4316,-78.6569,11z',  // Virginia (center)
+      'WA': '@47.7511,-120.7401,11z', // Washington (center)
+      'MA': '@42.4072,-71.3824,11z',  // Massachusetts (center)
+      'AZ': '@34.0489,-111.0937,11z', // Arizona (center)
+      'TN': '@35.5175,-86.5804,11z',  // Tennessee (center)
+      'IN': '@40.2672,-86.1349,11z',  // Indiana (center)
+      'MO': '@37.9643,-91.8318,11z',  // Missouri (center)
+      'MD': '@39.0458,-76.6413,11z',  // Maryland (center)
+      'WI': '@43.7844,-88.7879,11z',  // Wisconsin (center)
+      'CO': '@39.5501,-105.7821,11z', // Colorado (Denver area)
+      'MN': '@46.7296,-94.6859,11z',  // Minnesota (center)
+      'SC': '@33.8361,-81.1637,11z',  // South Carolina (center)
+      'AL': '@32.3182,-86.9023,11z',  // Alabama (center)
+      'LA': '@31.1695,-91.8678,11z',  // Louisiana (center)
+      'KY': '@37.8393,-84.2700,11z',  // Kentucky (center)
+      'OR': '@43.8041,-120.5542,11z', // Oregon (center)
+      'OK': '@35.0078,-97.0929,11z',  // Oklahoma (center)
+      'CT': '@41.6032,-73.0877,11z',  // Connecticut (center)
+      'IA': '@41.8780,-93.0977,11z',  // Iowa (center)
+      'MS': '@32.3547,-89.3985,11z',  // Mississippi (center)
+      'AR': '@35.2010,-91.8318,11z',  // Arkansas (center)
+      'KS': '@39.0119,-98.4842,11z',  // Kansas (center)
+      'NV': '@38.8026,-116.4194,11z', // Nevada (center)
+      'NM': '@34.5199,-105.8701,11z', // New Mexico (center)
+      'NE': '@41.4925,-99.9018,11z',  // Nebraska (center)
+      'WV': '@38.5976,-80.4549,11z',  // West Virginia (center)
+      'ID': '@44.0682,-114.7420,11z', // Idaho (center)
+      'HI': '@19.8968,-155.5828,11z', // Hawaii (center)
+      'NH': '@43.1939,-71.5724,11z',  // New Hampshire (center)
+      'ME': '@45.2538,-69.4455,11z',  // Maine (center)
+      'RI': '@41.5801,-71.4774,11z',  // Rhode Island (center)
+      'MT': '@46.8797,-110.3626,11z', // Montana (center)
+      'DE': '@38.9108,-75.5277,11z',  // Delaware (center)
+      'SD': '@43.9695,-99.9018,11z',  // South Dakota (center)
+      'ND': '@47.5515,-101.0020,11z', // North Dakota (center)
+      'AK': '@64.2008,-149.4937,11z', // Alaska (center)
+      'VT': '@44.5588,-72.5778,11z',  // Vermont (center)
+      'WY': '@43.0760,-107.2903,11z'  // Wyoming (center)
+    };
+
+    const ll = stateCoords[state] || '@40.7128,-74.0060,11z'; // Default to NYC if state not found
+
+    const response = await axios.post('https://cloud.gmapsextractor.com/api/v2/search', {
+      q: query,
+      page: 1,
+      ll: ll,
+      hl: 'en',
+      gl: region,
+      extra: true  // Include emails and social media links
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GMAPSEXTRACTOR_KEY}`
+      },
+      timeout: 15000
+    });
+
+    if (!response.data || !response.data.data || response.data.data.length === 0) {
+      console.log('⚠️ No results from G Maps Extractor');
+      return null;
+    }
+
+    const business = response.data.data[0];
+    console.log(`✅ G Maps Extractor found: ${business.name}`);
+
+    // Extract social media links from arrays
+    const social = {};
+    if (business.instagram_links && business.instagram_links.length > 0) {
+      social.instagram = business.instagram_links[0];
+    }
+    if (business.facebook_links && business.facebook_links.length > 0) {
+      social.facebook = business.facebook_links[0];
+    }
+    if (business.linkedin_links && business.linkedin_links.length > 0) {
+      social.linkedin = business.linkedin_links[0];
+    }
+    if (business.twitter_links && business.twitter_links.length > 0) {
+      social.twitter = business.twitter_links[0];
+    }
+    if (business.youtube_links && business.youtube_links.length > 0) {
+      social.youtube = business.youtube_links[0];
+    }
+
+    // Extract description from meta field
+    const description = business.meta?.description || '';
+
+    if (description) {
+      console.log(`   ✅ G Maps description found: "${description.substring(0, 100)}..." (${description.length} chars)`);
+    } else {
+      console.log(`   ⚠️ No description in G Maps Extractor response`);
+    }
+
+    // Parse categories from comma-separated string to array
+    const categories = business.categories ? business.categories.split(', ').map(c => c.trim()) : [];
+
+    const resultData = {
+      name: business.name || businessName,
+      phone: business.phone || '',
+      address: business.full_address || business.street || '',
+      website: business.website || business.domain || '',
+      rating: parseFloat(business.average_rating) || 0,
+      reviews: parseInt(business.review_count) || 0,
+      verified: business.claimed === 'YES',
+      description: description,
+      photos: 0,  // G Maps Extractor doesn't provide photo count
+      photos_count: 0,
+      categories: categories,
+      hours: business.opening_hours || {},
+      place_id: business.place_id || '',
+      google_id: business.place_id || '',
+      reviews_link: '',
+      social: social,
+      posts: [],  // G Maps Extractor doesn't provide posts
+      questionsAnswers: 0,
+      photoCategories: [],
+      // Additional G Maps Extractor specific fields
+      tracking: {
+        ga4: business.tracking_ids?.google?.ga4 || '',
+        gtm: business.tracking_ids?.google?.gtm || '',
+        facebook_pixel: business.tracking_ids?.meta?.pixelId || '',
+        linkedin_partner: business.tracking_ids?.linkedin?.partnerId || ''
+      }
+    };
+
+    // Cache the result for 30 minutes
+    try {
+      await db.query(
+        'INSERT INTO api_cache (cache_key, data, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'30 minutes\') ON CONFLICT (cache_key) DO UPDATE SET data = $2, expires_at = NOW() + INTERVAL \'30 minutes\'',
+        [cacheKey, JSON.stringify(resultData)]
+      );
+      console.log(`💾 G Maps Extractor data cached for 30 minutes`);
+    } catch (cacheInsertError) {
+      console.log(`⚠️ Failed to cache G Maps Extractor data: ${cacheInsertError.message}`);
+    }
+
+    return resultData;
+
+  } catch (error) {
+    console.error('❌ G Maps Extractor error:', error.message);
+    // Don't throw - return null to allow fallback to Outscraper only
+    return null;
+  }
+}
+
 // 2. SCRAPINGBEE SCREENSHOT - For visual analysis
 async function takeBusinessProfileScreenshot(businessName, location, placeId = null) {
   try {
@@ -4874,6 +5068,73 @@ async function generateFastBulkReport(businessName, location, industry, website)
         questionsAnswers: 0,
         photoCategories: []
       };
+    }
+
+    // Step 1B: Get supplemental data from G Maps Extractor (dual-source validation)
+    console.log('🗺️  Step 1B: Getting G Maps Extractor data for validation...');
+    try {
+      partialData.gmapsExtractor = await getGMapsExtractorData(businessName, location);
+      if (partialData.gmapsExtractor) {
+        console.log('✅ G Maps Extractor data retrieved successfully');
+
+        // DUAL-SOURCE VALIDATION: Compare and merge data from both sources
+        console.log('\n🔍 === DUAL-SOURCE VALIDATION ===');
+
+        // 1. DESCRIPTION: G Maps Extractor provides meta description, Outscraper may have GBP description
+        if (!partialData.outscraper.description && partialData.gmapsExtractor.description) {
+          console.log('   📝 Description: Using G Maps Extractor (Outscraper empty)');
+          partialData.outscraper.description = partialData.gmapsExtractor.description;
+        } else if (partialData.outscraper.description && partialData.gmapsExtractor.description) {
+          console.log('   📝 Description: Both sources available');
+          console.log(`      Outscraper: "${partialData.outscraper.description.substring(0, 80)}..."`);
+          console.log(`      G Maps: "${partialData.gmapsExtractor.description.substring(0, 80)}..."`);
+          // Keep Outscraper's description (GBP) but log both for debugging
+        } else if (partialData.outscraper.description && !partialData.gmapsExtractor.description) {
+          console.log('   📝 Description: Using Outscraper (G Maps empty)');
+        } else {
+          console.log('   ⚠️ Description: Neither source has description');
+        }
+
+        // 2. SOCIAL LINKS: G Maps Extractor has better social media extraction
+        const outscraperSocials = Object.keys(partialData.outscraper.social || {}).length;
+        const gmapsSocials = Object.keys(partialData.gmapsExtractor.social || {}).length;
+
+        if (gmapsSocials > outscraperSocials) {
+          console.log(`   🔗 Social Links: Using G Maps Extractor (${gmapsSocials} vs ${outscraperSocials})`);
+          partialData.outscraper.social = { ...partialData.outscraper.social, ...partialData.gmapsExtractor.social };
+        } else if (outscraperSocials > 0) {
+          console.log(`   🔗 Social Links: Using Outscraper (${outscraperSocials} vs ${gmapsSocials})`);
+        } else {
+          console.log('   ⚠️ Social Links: Neither source has social links');
+        }
+
+        // 3. VERIFICATION: Cross-validate verification status
+        if (partialData.outscraper.verified !== partialData.gmapsExtractor.verified) {
+          console.log(`   ⚠️ Verification Mismatch: Outscraper=${partialData.outscraper.verified}, G Maps=${partialData.gmapsExtractor.verified}`);
+          // Trust whichever says verified=true
+          partialData.outscraper.verified = partialData.outscraper.verified || partialData.gmapsExtractor.verified;
+        } else {
+          console.log(`   ✅ Verification: Both agree (${partialData.outscraper.verified})`);
+        }
+
+        // 4. BASIC DATA: Log any mismatches for debugging
+        if (partialData.outscraper.phone !== partialData.gmapsExtractor.phone && partialData.gmapsExtractor.phone) {
+          console.log(`   📞 Phone mismatch: "${partialData.outscraper.phone}" vs "${partialData.gmapsExtractor.phone}"`);
+        }
+        if (partialData.outscraper.website !== partialData.gmapsExtractor.website && partialData.gmapsExtractor.website) {
+          console.log(`   🌐 Website mismatch: "${partialData.outscraper.website}" vs "${partialData.gmapsExtractor.website}"`);
+        }
+
+        console.log('=================================\n');
+
+      } else {
+        console.log('⚠️ G Maps Extractor returned no data (falling back to Outscraper only)');
+        partialData.gmapsExtractor = null;
+      }
+    } catch (error) {
+      console.error(`⚠️ G Maps Extractor error for ${businessName}:`, error.message);
+      partialData.gmapsExtractor = null;
+      // Don't add to errors array - G Maps is optional, Outscraper is primary
     }
 
     // Step 2: Take screenshot with place_id for better product tile detection
