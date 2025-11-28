@@ -1609,10 +1609,10 @@ async function captureServicesPage(businessName, location, website) {
       params: {
         api_key: SCRAPINGBEE_API_KEY,
         url: mainUrl,
-        custom_google: 'true',
+        // REMOVED: custom_google - conflicts with custom_user_agent (causes 400 error)
         stealth_proxy: 'true',
         render_js: 'true',
-        // Use custom_user_agent + window dimensions (per ScrapingBee support - don't use 'device' parameter with custom_user_agent)
+        // Use custom_user_agent + window dimensions (per ScrapingBee support)
         custom_user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
         window_width: 393,
         window_height: 2532,
@@ -1653,12 +1653,12 @@ async function captureServicesPage(businessName, location, website) {
       params: {
         api_key: SCRAPINGBEE_API_KEY,
         url: servicesUrl,
-        custom_google: 'true',
+        // REMOVED: custom_google - conflicts with custom_user_agent (causes 400 error)
         stealth_proxy: 'true',
         render_js: 'true',
         screenshot: 'true',
         screenshot_full_page: 'true',
-        // Use custom_user_agent + window dimensions (per ScrapingBee support - don't use 'device' parameter with custom_user_agent)
+        // Use custom_user_agent + window dimensions (per ScrapingBee support)
         custom_user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
         window_width: 393,
         window_height: 2532,
