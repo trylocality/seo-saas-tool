@@ -1284,53 +1284,29 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
     const { region } = detectCountryRegion(location);
     const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
 
-    // Use direct Google Maps URL with place_id if available (better for product tiles visibility)
-    // Otherwise fall back to search results
-    let targetUrl;
-    let params;
+    // ALWAYS use Google Search URL to capture Knowledge Panel with product tiles, posts, description
+    // Format: "business name location" (e.g., "prince orthodontics american fork")
+    const { city, state, isCounty } = extractCityState(location);
+    const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
+    const targetUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
+    console.log(`🔍 ✅ NEW CODE: Using Google Search URL (NOT Maps) to capture Knowledge Panel: "${searchQuery}"`);
+    console.log(`📸 Target URL: ${targetUrl}`);
 
-    if (placeId) {
-      targetUrl = `https://www.${googleDomain}/maps/search/?api=1&query=${encodeURIComponent(businessName)}&query_place_id=${placeId}`;
-      console.log(`🎯 Using direct Maps URL with place_id for better product tile visibility`);
-
-      // Google Maps URL - requires BOTH custom_google AND premium_proxy
-      // NOTE: custom_google does NOT support js_scenario (causes HTTP 400)
-      params = {
-        api_key: SCRAPINGBEE_API_KEY,
-        url: targetUrl,
-        custom_google: 'true',  // Required for ANY Google URL
-        premium_proxy: 'true',  // Required for Google Maps specifically
-        render_js: 'true',
-        screenshot: 'true',
-        screenshot_full_page: 'true',  // Captures full scrollable content
-        wait: 8000,  // Wait for lazy-loaded content
-        window_width: 1920,
-        window_height: 2400,  // Taller viewport to capture more content
-        block_resources: 'false',
-        country_code: region.toLowerCase()
-      };
-    } else {
-      // Fallback to search if no place_id
-      const { city, state, isCounty } = extractCityState(location);
-      const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
-      targetUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
-      console.log(`⚠️ No place_id available, using search results (product tiles may not be visible)`);
-      // Regular Google Search - use custom_google with stealth_proxy
-      params = {
-        api_key: SCRAPINGBEE_API_KEY,
-        url: targetUrl,
-        custom_google: 'true',
-        stealth_proxy: 'true',
-        render_js: 'true',
-        screenshot: 'true',
-        screenshot_full_page: 'true',
-        wait: 6000,
-        window_width: 1920,
-        window_height: 1080,
-        block_resources: 'false',
-        country_code: region.toLowerCase()
-      };
-    }
+    // Regular Google Search - use custom_google with stealth_proxy
+    const params = {
+      api_key: SCRAPINGBEE_API_KEY,
+      url: targetUrl,
+      custom_google: 'true',
+      stealth_proxy: 'true',
+      render_js: 'true',
+      screenshot: 'true',
+      screenshot_full_page: 'true',
+      wait: 6000,
+      window_width: 1920,
+      window_height: 1080,
+      block_resources: 'false',
+      country_code: region.toLowerCase()
+    };
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
@@ -1783,49 +1759,7 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
        - Find the star rating and number of reviews
        - Usually shown prominently near business name
 
-    5. PRODUCT/SERVICE TILES: **CRITICAL - LOOK VERY CAREFULLY ON RIGHT SIDE OF PAGE**
-
-       LOCATION:
-       - ALWAYS on the RIGHT-HAND SIDE of the screenshot (where profile info is displayed)
-       - Can appear at various vertical positions (top, middle, or BOTTOM of right panel)
-       - Section is ALWAYS clearly labeled "Products" or "Services"
-
-       WHAT TO LOOK FOR:
-       - Section title: "Products" or "Services" (exact wording)
-       - Visual cards/tiles arranged horizontally in a scrollable row
-       - Each tile is a rectangular card with:
-         * A square or rectangular IMAGE at the top (product/service photo)
-         * Text below the image (service/product name)
-         * Name may be TRUNCATED with "..." (e.g., "Physical Ther...", "Chiropractic C...")
-
-       VISUAL CHARACTERISTICS:
-       - Cards are typically 150-250px wide
-       - Usually 2-4 tiles visible at once
-       - Light/white background with subtle borders or shadows
-       - Images are prominent and professional-looking
-       - May have a "View all" link or right arrow (→) indicating more tiles
-
-       COUNTING INSTRUCTIONS:
-       - Count EVERY visible product/service tile you can see
-       - Include partially visible tiles on the edges
-       - If you see "View all" or arrows, there are definitely tiles present
-       - Typical count: 2-10 visible tiles
-       - BE VERY THOROUGH - scan the ENTIRE right side of the screenshot
-
-       COMMON EXAMPLES:
-       - Fitness businesses: "Personal Training", "Physical Therapy", "Massage Therapy"
-       - Lawyers: "Divorce Law", "Criminal Defense", "Estate Planning"
-       - Medical: "Chiropractic Care", "Sports Medicine", "Rehabilitation"
-
-       DO NOT CONFUSE WITH:
-       - Photo gallery (different layout, no service names)
-       - Review cards (have star ratings and user photos)
-       - Social media icons (much smaller, no images)
-       - Posts/Updates (have dates and longer text)
-
-       **IMPORTANT:** If you see the word "Products" or "Services" as a section header
-       on the right side, LOOK EXTREMELY CAREFULLY at that area and count all visible tiles.
-       This is one of the most commonly missed elements - please be thorough!
+    5. PRODUCT TILES: Product/service tiles or listings in a dedicated products section
 
     6. GOOGLE POSTS: Recent posts in the "Posts" or "Updates" section
        - Check if any posts are visible
