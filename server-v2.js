@@ -1216,7 +1216,7 @@ async function getOutscraperData(businessName, location) {
         google_id: business.google_id || business.place_id,
         reviews_link: business.reviews_link || '',
         social: {},
-        posts: Array.isArray(business.posts) ? business.posts.length : 0,
+        posts: Array.isArray(business.posts) ? business.posts : [],  // FIXED: Store array, not count!
         questionsAnswers: 0,
         photoCategories: []
       };
@@ -1995,10 +1995,17 @@ async function analyzeScreenshotWithAI(screenshotPath, businessName) {
 
     5. PRODUCT TILES: Product/service tiles or listings in a dedicated products section
 
-    6. GOOGLE POSTS: Recent posts in the "Posts" or "Updates" section
-       - Check if any posts are visible
-       - Try to determine if most recent post is within last 15 days
-       - Look for date indicators like "1d ago", "5d ago", "2w ago"
+    6. GOOGLE POSTS: **LOOK CAREFULLY FOR POSTS/UPDATES**
+       - Posts may appear as:
+         * A "Posts" tab or section in the profile
+         * An "Updates" section
+         * Image/text cards showing business updates
+         * Promotional content posted by the business
+       - Scroll through the ENTIRE screenshot - posts could be anywhere
+       - Count ALL visible posts/updates
+       - Check dates: "1d ago", "5d ago", "2w ago", "3 weeks ago", etc.
+       - If most recent post is within 15 days (2 weeks), set meetsLast15Days=true
+       - Even if you see just ONE post, set hasAny=true and count=1
 
     7. SOCIAL LINKS: **CRITICAL - LOOK AT BOTTOM OF PAGE**
        - Scroll to the BOTTOM of the screenshot
@@ -5217,6 +5224,13 @@ async function generateFastBulkReport(businessName, location, industry, website)
       screenshot: partialData.gbpScreenshot ? '✅' : '❌'
     });
 
+    // Enhanced Posts logging
+    const outscraperPostsCount = Array.isArray(outscraperData.posts) ? outscraperData.posts.length : 0;
+    const aiPostsData = aiData?.posts || {};
+    console.log(`\n📄 POSTS DATA VALIDATION:`);
+    console.log(`   Outscraper: ${outscraperPostsCount} posts${outscraperPostsCount > 0 ? ` (${JSON.stringify(outscraperData.posts[0]).substring(0, 100)}...)` : ''}`);
+    console.log(`   AI Analysis: hasAny=${aiPostsData.hasAny}, count=${aiPostsData.count}, recent=${aiPostsData.meetsLast15Days}`);
+
     // Determine which data source to use for the 8 factors
     // Priority: Outscraper API (authoritative) > AI screenshot (visual fallback/supplement)
     const eightFactors = {
@@ -5254,13 +5268,32 @@ async function generateFastBulkReport(businessName, location, industry, website)
         meets2Plus: false
       },
 
-      // Posts: Prefer AI (can check recency), Outscraper only has count
-      posts: aiData?.posts || {
-        hasAny: (outscraperData.posts || 0) > 0,
-        count: outscraperData.posts || 0,
-        mostRecentDaysAgo: null,
-        meetsLast15Days: false
-      },
+      // Posts: Merge AI (recency check) with Outscraper (array of posts)
+      posts: (() => {
+        const outscraperPostsCount = Array.isArray(outscraperData.posts) ? outscraperData.posts.length : 0;
+        const aiPostsData = aiData?.posts || {};
+
+        // If AI detected posts and can check recency, use AI data but also consider Outscraper count
+        if (aiPostsData.hasAny || outscraperPostsCount > 0) {
+          const merged = {
+            hasAny: aiPostsData.hasAny || outscraperPostsCount > 0,
+            count: Math.max(aiPostsData.count || 0, outscraperPostsCount),
+            mostRecentDaysAgo: aiPostsData.mostRecentDaysAgo || null,
+            meetsLast15Days: aiPostsData.meetsLast15Days || false
+          };
+          console.log(`   ✅ MERGED: hasAny=${merged.hasAny}, count=${merged.count}, recent=${merged.meetsLast15Days}`);
+          return merged;
+        }
+
+        // Neither source has posts
+        console.log(`   ❌ NO POSTS from either source`);
+        return {
+          hasAny: false,
+          count: 0,
+          mostRecentDaysAgo: null,
+          meetsLast15Days: false
+        };
+      })(),
 
       // Social Links: Prefer AI (can see visible links), Outscraper may be incomplete
       socialLinks: aiData?.socialLinks || {
