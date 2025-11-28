@@ -1296,7 +1296,8 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
     console.log(`🔍 ✅ NEW CODE: Using Google Search URL (NOT Maps) to capture Knowledge Panel: "${searchQuery}"`);
     console.log(`📸 Target URL: ${targetUrl}`);
 
-    // Regular Google Search - use custom_google with stealth_proxy
+    // CRITICAL: Use MOBILE device emulation - Services tab ONLY appears on actual mobile devices
+    // Desktop "mobile view" does NOT work - must use real mobile User-Agent
     const params = {
       api_key: SCRAPINGBEE_API_KEY,
       url: targetUrl,
@@ -1305,9 +1306,10 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
       render_js: 'true',
       screenshot: 'true',
       screenshot_full_page: 'true',
+      device: 'mobile',  // Emulate actual mobile device (iPhone)
       wait: 6000,
-      window_width: 1920,
-      window_height: 1080,
+      window_width: 393,   // iPhone 14 Pro width (matches user's phone)
+      window_height: 2532, // Tall viewport to capture full Knowledge Panel
       block_resources: 'false',
       country_code: region.toLowerCase()
     };
@@ -1358,21 +1360,17 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
   }
 }
 
-// 2C. TAKE SERVICES TAB SCREENSHOT - Capture the Services section specifically
-async function takeServicesTabScreenshot(businessName, location, placeId = null) {
+// 2D. FIND AND CAPTURE SERVICES PAGE - Two-step process for Services
+// CRITICAL: Services tab ONLY appears on mobile devices, not desktop "mobile view"
+async function captureServicesPage(businessName, location, website) {
   try {
-    console.log(`📋 Taking Services tab screenshot: ${businessName}`);
-
-    await ensureScreenshotsDir();
+    console.log(`📋 Attempting to capture Services page: ${businessName}`);
 
     if (!SCRAPINGBEE_API_KEY) {
       throw new Error('ScrapingBee API key not configured');
     }
 
-    if (!placeId) {
-      console.log(`⚠️ No place_id available - cannot navigate to Services tab directly`);
-      return null;
-    }
+    await ensureScreenshotsDir();
 
     // Check cache first (30 minute TTL)
     const cacheKey = `services_${businessName.toLowerCase()}_${location.toLowerCase()}`;
@@ -1406,46 +1404,83 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
     // Detect location
     const { region } = detectCountryRegion(location);
     const googleDomain = region === 'AE' ? 'google.ae' : region === 'GB' ? 'google.co.uk' : 'google.com';
+    const { city, state, isCounty } = extractCityState(location);
+    const searchQuery = isCounty ? `${businessName} ${city} County ${state}` : `${businessName} ${location}`;
 
-    // Google Maps URL that opens directly to the place
-    // Using MOBILE device emulation to get app-like view where Services are more prominent
-    const targetUrl = `https://www.${googleDomain}/maps/place/?q=place_id:${placeId}`;
+    // STEP 1: Get HTML from mobile Knowledge Panel to find Services link
+    console.log(`  📱 Step 1: Fetching mobile Knowledge Panel HTML to find Services link...`);
+    const mainUrl = `https://www.${googleDomain}/search?q=${encodeURIComponent(searchQuery)}&gl=${region.toLowerCase()}&hl=en`;
 
-    // Google Maps with MOBILE DEVICE EMULATION
-    // Mobile view shows Services section much more prominently (like the app)
-    const params = {
-      api_key: SCRAPINGBEE_API_KEY,
-      url: targetUrl,
-      custom_google: 'true',  // Required for ANY Google URL
-      premium_proxy: 'true',  // Required for Google Maps specifically
-      render_js: 'true',
-      screenshot: 'true',
-      screenshot_full_page: 'true', // Capture full mobile page
-      device: 'mobile',  // Emulate mobile device (like Google Maps app)
-      window_width: 390,   // iPhone 14 Pro width
-      window_height: 2532, // Tall viewport to capture Services section
-      block_resources: 'false',
-      country_code: region.toLowerCase(),
-      wait: 8000  // Give page time to fully load
-    };
-
-    const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
-      params: params,
-      timeout: 180000, // Increased to 3 minutes for better reliability
-      responseType: 'arraybuffer'  // Back to arraybuffer since no json_response
+    const htmlResponse = await axios.get('https://app.scrapingbee.com/api/v1/', {
+      params: {
+        api_key: SCRAPINGBEE_API_KEY,
+        url: mainUrl,
+        custom_google: 'true',
+        stealth_proxy: 'true',
+        render_js: 'true',
+        device: 'mobile',  // CRITICAL: Must use mobile device
+        country_code: region.toLowerCase(),
+        wait: 6000
+      },
+      timeout: 60000
     });
 
-    // Standard image response handling
-    if (response.status === 200 && response.headers['content-type'].includes('image')) {
+    const html = htmlResponse.data;
+
+    // STEP 2: Parse HTML to find Services link
+    // The Services link contains "services+offered+by" in the URL
+    console.log(`  🔍 Step 2: Parsing HTML for Services link...`);
+    const servicesLinkMatch = html.match(/href="([^"]*services\+offered\+by[^"]*)"/i);
+
+    if (!servicesLinkMatch) {
+      console.log(`  ⚠️ No Services link found in Knowledge Panel - business may not have services`);
+      return null;
+    }
+
+    // Decode the URL
+    let servicesUrl = servicesLinkMatch[1];
+    // Handle relative URLs
+    if (servicesUrl.startsWith('/')) {
+      servicesUrl = `https://www.${googleDomain}${servicesUrl}`;
+    }
+    // Decode HTML entities
+    servicesUrl = servicesUrl.replace(/&amp;/g, '&');
+
+    console.log(`  ✅ Found Services link!`);
+    console.log(`  📸 Services URL: ${servicesUrl.substring(0, 100)}...`);
+
+    // STEP 3: Take screenshot of Services page
+    console.log(`  📸 Step 3: Taking screenshot of Services page...`);
+
+    const screenshotResponse = await axios.get('https://app.scrapingbee.com/api/v1/', {
+      params: {
+        api_key: SCRAPINGBEE_API_KEY,
+        url: servicesUrl,
+        custom_google: 'true',
+        stealth_proxy: 'true',
+        render_js: 'true',
+        screenshot: 'true',
+        screenshot_full_page: 'true',
+        device: 'mobile',  // CRITICAL: Must use mobile device
+        window_width: 393,
+        window_height: 2532,
+        block_resources: 'false',
+        country_code: region.toLowerCase(),
+        wait: 8000  // Extra wait for Services content to load
+      },
+      timeout: 180000,
+      responseType: 'arraybuffer'
+    });
+
+    if (screenshotResponse.status === 200 && screenshotResponse.headers['content-type'].includes('image')) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const safeBusinessName = businessName.replace(/[^a-zA-Z0-9]/g, '_');
       const filename = `${safeBusinessName}_services_${timestamp}.png`;
       const filepath = path.join(screenshotsDir, filename);
 
-      await fs.writeFile(filepath, response.data);
+      await fs.writeFile(filepath, screenshotResponse.data);
 
       console.log(`✅ Services screenshot saved: ${filename}`);
-      console.log(`📱 Mobile view: Services section should be more prominent (like Google Maps app)`);
 
       // Cache for 30 minutes
       try {
@@ -1462,14 +1497,15 @@ async function takeServicesTabScreenshot(businessName, location, placeId = null)
         success: true,
         filename: filename,
         filepath: filepath,
-        url: `/screenshots/${filename}`
+        url: `/screenshots/${filename}`,
+        fromCache: false
       };
     } else {
-      throw new Error(`Unexpected response: ${response.status}`);
+      throw new Error(`Unexpected screenshot response: ${screenshotResponse.status}`);
     }
 
   } catch (error) {
-    console.error('❌ Services screenshot error:', error.message);
+    console.error(`❌ Services page capture error: ${error.message}`);
     // Non-critical error - return null and continue
     return null;
   }
@@ -4151,12 +4187,13 @@ async function generateCompleteReport(businessName, location, industry, website,
 
     // Now take screenshot and scrape social links with place_id
     const placeId = businessData.place_id || businessData.google_id;
+    const website = businessData.website || businessData.site || '';
 
     // PERFORMANCE OPTIMIZATION: Run screenshot, services screenshot, social scraping, AND citations in parallel
     console.log(`📸 Taking screenshots (main + services), scraping social links, and checking citations in parallel...`);
     const [screenshotResult, servicesScreenshotResult, socialLinksResult, citationsResult] = await Promise.allSettled([
       takeBusinessProfileScreenshot(businessName, location, placeId),
-      takeServicesTabScreenshot(businessName, location, placeId),
+      captureServicesPage(businessName, location, website),  // NEW: Two-step Services capture
       scrapeSocialLinksFromGBP(businessName, location, placeId),
       checkCitations(businessName, businessData.phone || '')
     ]);
