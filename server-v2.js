@@ -1609,13 +1609,10 @@ async function captureServicesPage(businessName, location, website) {
       params: {
         api_key: SCRAPINGBEE_API_KEY,
         url: mainUrl,
-        // REMOVED: custom_google - conflicts with custom_user_agent (causes 400 error)
-        stealth_proxy: 'true',
+        // Try standard mobile device parameter instead of custom_user_agent
+        // ScrapingBee's device parameter should handle mobile simulation automatically
         render_js: 'true',
-        // Use custom_user_agent + window dimensions (per ScrapingBee support)
-        custom_user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        window_width: 393,
-        window_height: 2532,
+        device: 'mobile',
         country_code: region.toLowerCase(),
         wait: 6000
       },
@@ -1653,15 +1650,12 @@ async function captureServicesPage(businessName, location, website) {
       params: {
         api_key: SCRAPINGBEE_API_KEY,
         url: servicesUrl,
-        // REMOVED: custom_google - conflicts with custom_user_agent (causes 400 error)
-        stealth_proxy: 'true',
+        // Try standard mobile device parameter instead of custom_user_agent
+        // ScrapingBee's device parameter should handle mobile simulation automatically
         render_js: 'true',
+        device: 'mobile',
         screenshot: 'true',
         screenshot_full_page: 'true',
-        // Use custom_user_agent + window dimensions (per ScrapingBee support)
-        custom_user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-        window_width: 393,
-        window_height: 2532,
         block_resources: 'false',
         country_code: region.toLowerCase(),
         wait: 8000  // Extra wait for Services content to load
@@ -2823,7 +2817,7 @@ function verifyLocalizedContent(htmlContent, city, state) {
   const h1 = h1Match ? h1Match[1].toLowerCase() : '';
 
   // SCORING CRITERIA for "GOOD" content (8 points):
-  // Must have city/state in prominent locations (title or h1) AND good keyword density
+  // Must have strong location signals (city/state in title/h1 OR high density) AND good keyword density
 
   // Check for city/state in title or h1 (strong signals)
   const cityInTitle = title.includes(cityLower);
@@ -2831,13 +2825,16 @@ function verifyLocalizedContent(htmlContent, city, state) {
   const stateInTitle = title.includes(stateLower);
   const stateInH1 = h1.includes(stateLower);
 
-  const hasStrongLocationSignals = (cityInTitle || cityInH1) && (stateInTitle || stateInH1);
+  // FIX: Make criteria more flexible - city in title/h1 is required, but state can be in title/h1 OR heavily mentioned
+  const hasCityInProminentPlace = cityInTitle || cityInH1;
+  const hasStateInProminentPlace = stateInTitle || stateInH1;
 
   // Check for multiple mentions in body content (good keyword density)
   const cityMentions = (htmlLower.match(new RegExp(cityLower, 'g')) || []).length;
   const stateMentions = (htmlLower.match(new RegExp(stateLower, 'g')) || []).length;
 
   const hasGoodDensity = cityMentions >= 3 && stateMentions >= 2;
+  const hasExcellentDensity = cityMentions >= 10 && stateMentions >= 10; // NEW: Very well-optimized pages
 
   // Check for local keywords that indicate quality local content
   const localKeywords = [
@@ -2849,7 +2846,10 @@ function verifyLocalizedContent(htmlContent, city, state) {
 
   console.log(`    📊 Content Analysis: City in title/h1=${cityInTitle || cityInH1}, State in title/h1=${stateInTitle || stateInH1}, City mentions=${cityMentions}, State mentions=${stateMentions}, Local keywords=${localKeywordMatches}`);
 
-  // DECISION LOGIC:
+  // DECISION LOGIC (updated to be more lenient):
+  // GOOD if: (City in title/h1 AND state in title/h1 AND good density) OR (City in title/h1 AND excellent density)
+  const hasStrongLocationSignals = hasCityInProminentPlace && (hasStateInProminentPlace || hasExcellentDensity);
+
   if (hasStrongLocationSignals && hasGoodDensity && localKeywordMatches >= 2) {
     return 'good'; // 8 points - Well optimized local page
   } else if ((cityInTitle || cityInH1 || cityMentions >= 2) && (stateInTitle || stateInH1 || stateMentions >= 1)) {
@@ -4699,18 +4699,20 @@ async function generateCompleteReport(businessName, location, industry, website,
     
     try {
       // Await the smart suggestions to ensure they're included in the report
+      // FIX: Add null checking for partialData.websiteAnalysis
+      const services = partialData?.websiteAnalysis?.services || [];
       smartSuggestions = await generateSmartSuggestions(
         { businessName, location, industry, website },
         scoreData,
-        partialData.websiteAnalysis.services || []
+        services
       );
       console.log('✅ Smart suggestions completed successfully');
     } catch (error) {
       console.error('⚠️ Smart suggestions failed (non-critical):', error.message);
-      smartSuggestions = { 
+      smartSuggestions = {
         error: error.message,
         message: 'Smart suggestions could not be generated',
-        suggestions: {} 
+        suggestions: {}
       };
     }
     
