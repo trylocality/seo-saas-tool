@@ -2505,10 +2505,19 @@ async function analyzeWebsite(websiteUrl, location) {
       return {
         hasGBPEmbed: false,
         hasLocalizedPage: false,
+        landingPageQuality: 'none',
         services: [],
         content: '',
         note: 'No website provided'
       };
+    }
+
+    // FIX: Decode URL-encoded characters (some GBP sites have double-encoded URLs like %3F instead of ?)
+    try {
+      websiteUrl = decodeURIComponent(websiteUrl);
+    } catch (e) {
+      // If decoding fails, use original URL
+      console.log(`  ⚠️ URL decode failed, using original: ${e.message}`);
     }
 
     // Ensure URL has protocol
