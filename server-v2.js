@@ -879,7 +879,7 @@ async function getBusinessProfileOptions(businessName, location) {
         region: region,
         limit: 5,  // Get up to 5 results for user selection
         extractContacts: true,  // Extract additional data including posts
-        fields: 'query,name,full_address,borough,street,city,state,postal_code,country_code,country,us_state,latitude,longitude,time_zone,plus_code,area_service,rating,reviews,reviews_link,reviews_id,reviews_per_score,reviews_per_score_1,reviews_per_score_2,reviews_per_score_3,reviews_per_score_4,reviews_per_score_5,photos_count,photo,street_view,located_in,working_hours,other_hours,popular_times,site,phone,type,logo,description,located_google_id,subtypes,posts,verified,owner_id,owner_title,owner_link,business_status,about,range,reviews_tags'  // Request posts and all other useful fields
+        fields: 'query,name,full_address,borough,street,city,state,postal_code,country_code,country,us_state,latitude,longitude,time_zone,plus_code,area_service,rating,reviews,reviews_link,reviews_id,reviews_per_score,reviews_per_score_1,reviews_per_score_2,reviews_per_score_3,reviews_per_score_4,reviews_per_score_5,photos_count,photo,street_view,located_in,working_hours,other_hours,popular_times,site,phone,type,logo,description,place_id,google_id,located_google_id,subtypes,posts,verified,owner_id,owner_title,owner_link,business_status,about,range,reviews_tags'  // Request posts and all other useful fields
       },
       headers: {
         'X-API-KEY': OUTSCRAPER_API_KEY
@@ -1001,7 +1001,7 @@ async function getOutscraperData(businessName, location) {
         region: region,
         limit: 3,  // Get top 3 results for better matching
         extractContacts: true,  // Extract additional data including posts
-        fields: 'query,name,full_address,borough,street,city,state,postal_code,country_code,country,us_state,latitude,longitude,time_zone,plus_code,area_service,rating,reviews,reviews_link,reviews_id,reviews_per_score,reviews_per_score_1,reviews_per_score_2,reviews_per_score_3,reviews_per_score_4,reviews_per_score_5,photos_count,photo,street_view,located_in,working_hours,other_hours,popular_times,site,phone,type,logo,description,located_google_id,subtypes,posts,verified,owner_id,owner_title,owner_link,business_status,about,range,reviews_tags'  // Request posts and all other useful fields
+        fields: 'query,name,full_address,borough,street,city,state,postal_code,country_code,country,us_state,latitude,longitude,time_zone,plus_code,area_service,rating,reviews,reviews_link,reviews_id,reviews_per_score,reviews_per_score_1,reviews_per_score_2,reviews_per_score_3,reviews_per_score_4,reviews_per_score_5,photos_count,photo,street_view,located_in,working_hours,other_hours,popular_times,site,phone,type,logo,description,place_id,google_id,located_google_id,subtypes,posts,verified,owner_id,owner_title,owner_link,business_status,about,range,reviews_tags'  // Request posts and all other useful fields
       },
       headers: {
         'X-API-KEY': OUTSCRAPER_API_KEY
@@ -4173,8 +4173,12 @@ async function generateCompleteReport(businessName, location, industry, website,
     let servicesScreenshot = null;
     if (servicesScreenshotResult.status === 'fulfilled') {
       servicesScreenshot = servicesScreenshotResult.value;
-      console.log(`✅ Services screenshot completed`);
-      console.log(`📸 Services screenshot URL: https://app.trylocality.com${servicesScreenshot.url}`);
+      if (servicesScreenshot && servicesScreenshot.url) {
+        console.log(`✅ Services screenshot completed`);
+        console.log(`📸 Services screenshot URL: https://app.trylocality.com${servicesScreenshot.url}`);
+      } else {
+        console.log(`⚠️ Services screenshot skipped (no place_id available)`);
+      }
     } else {
       console.error('⚠️ Services screenshot failed (non-critical):', servicesScreenshotResult.reason?.message);
     }
