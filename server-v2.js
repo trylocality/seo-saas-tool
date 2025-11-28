@@ -1612,7 +1612,10 @@ async function captureServicesPage(businessName, location, website) {
         custom_google: 'true',
         stealth_proxy: 'true',
         render_js: 'true',
-        device: 'mobile',  // CRITICAL: Must use mobile device
+        // Use custom_user_agent + window dimensions (per ScrapingBee support - don't use 'device' parameter with custom_user_agent)
+        custom_user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        window_width: 393,
+        window_height: 2532,
         country_code: region.toLowerCase(),
         wait: 6000
       },
@@ -1655,7 +1658,8 @@ async function captureServicesPage(businessName, location, website) {
         render_js: 'true',
         screenshot: 'true',
         screenshot_full_page: 'true',
-        device: 'mobile',  // CRITICAL: Must use mobile device
+        // Use custom_user_agent + window dimensions (per ScrapingBee support - don't use 'device' parameter with custom_user_agent)
+        custom_user_agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
         window_width: 393,
         window_height: 2532,
         block_resources: 'false',
@@ -4643,6 +4647,7 @@ async function generateCompleteReport(businessName, location, industry, website,
       businessInfo: { businessName, location, industry, website },
       outscraper: partialData.outscraper,
       aiAnalysis: transformedAiAnalysis,
+      posts: transformedAiAnalysis.posts,  // FIX: Add posts at top level for scoring function
       citations: partialData.citations,
       websiteAnalysis: partialData.websiteAnalysis,
       reviewsAnalysis: partialData.reviewsAnalysis,
