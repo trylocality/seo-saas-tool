@@ -4347,27 +4347,37 @@ async function generateCompleteReport(businessName, location, industry, website,
       // Posts: DUAL-SOURCE - Use AI if available (has recency data), fallback to Outscraper
       posts: (() => {
         const aiPostCount = partialData.aiAnalysis?.posts?.count || 0;
+        const aiHasRecent = partialData.aiAnalysis?.posts?.meetsLast15Days || false;
         const outscraperPosts = partialData.outscraper?.posts || [];
         const outscraperPostCount = Array.isArray(outscraperPosts) ? outscraperPosts.length : 0;
+
+        console.log(`🔍 POSTS DEBUG: AI count=${aiPostCount}, AI recent=${aiHasRecent}, Outscraper count=${outscraperPostCount}`);
 
         // Use AI data if available, otherwise fallback to Outscraper
         const effectiveCount = aiPostCount > 0 ? aiPostCount : outscraperPostCount;
 
         // Check recency from Outscraper if AI didn't provide it
-        let hasRecent = partialData.aiAnalysis?.posts?.meetsLast15Days || false;
+        let hasRecent = aiHasRecent;
         if (!hasRecent && outscraperPostCount > 0) {
           // Check if Outscraper posts have recent activity (last 15 days)
           const now = Math.floor(Date.now() / 1000);
           const fifteenDaysAgo = now - (15 * 24 * 60 * 60);
           hasRecent = outscraperPosts.some(post => post.timestamp && post.timestamp > fifteenDaysAgo);
+          console.log(`   🔍 Outscraper posts recency check: hasRecent=${hasRecent}`);
+          if (hasRecent && outscraperPosts.length > 0) {
+            console.log(`   ✅ Most recent Outscraper post: ${JSON.stringify(outscraperPosts[0]).substring(0, 100)}`);
+          }
         }
+
+        const source = aiPostCount > 0 ? 'AI' : (outscraperPostCount > 0 ? 'Outscraper' : 'none');
+        console.log(`   📊 POSTS FINAL: count=${effectiveCount}, hasRecent=${hasRecent}, source=${source}`);
 
         return {
           hasRecent: hasRecent,
           hasAny: effectiveCount > 0,
           count: effectiveCount,
           meetsLast15Days: hasRecent,
-          source: aiPostCount > 0 ? 'AI' : (outscraperPostCount > 0 ? 'Outscraper' : 'none')
+          source: source
         };
       })(),
 
