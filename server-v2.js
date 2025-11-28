@@ -877,7 +877,9 @@ async function getBusinessProfileOptions(businessName, location) {
         query: query,
         language: language,
         region: region,
-        limit: 5  // Get up to 5 results for user selection
+        limit: 5,  // Get up to 5 results for user selection
+        extractContacts: true,  // Extract additional data including posts
+        fields: 'query,name,full_address,borough,street,city,state,postal_code,country_code,country,us_state,latitude,longitude,time_zone,plus_code,area_service,rating,reviews,reviews_link,reviews_id,reviews_per_score,reviews_per_score_1,reviews_per_score_2,reviews_per_score_3,reviews_per_score_4,reviews_per_score_5,photos_count,photo,street_view,located_in,working_hours,other_hours,popular_times,site,phone,type,logo,description,located_google_id,subtypes,posts,verified,owner_id,owner_title,owner_link,business_status,about,range,reviews_tags'  // Request posts and all other useful fields
       },
       headers: {
         'X-API-KEY': OUTSCRAPER_API_KEY
@@ -997,7 +999,9 @@ async function getOutscraperData(businessName, location) {
         query: query,
         language: language,
         region: region,
-        limit: 3  // Get top 3 results for better matching
+        limit: 3,  // Get top 3 results for better matching
+        extractContacts: true,  // Extract additional data including posts
+        fields: 'query,name,full_address,borough,street,city,state,postal_code,country_code,country,us_state,latitude,longitude,time_zone,plus_code,area_service,rating,reviews,reviews_link,reviews_id,reviews_per_score,reviews_per_score_1,reviews_per_score_2,reviews_per_score_3,reviews_per_score_4,reviews_per_score_5,photos_count,photo,street_view,located_in,working_hours,other_hours,popular_times,site,phone,type,logo,description,located_google_id,subtypes,posts,verified,owner_id,owner_title,owner_link,business_status,about,range,reviews_tags'  // Request posts and all other useful fields
       },
       headers: {
         'X-API-KEY': OUTSCRAPER_API_KEY
