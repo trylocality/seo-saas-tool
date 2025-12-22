@@ -4876,8 +4876,9 @@
             
             // Try to get from AI suggestions
             const suggestionKey = getSuggestionKey(factor.id);
-            if (smartSuggestions && smartSuggestions.suggestions && smartSuggestions.suggestions[suggestionKey]) {
-                return smartSuggestions.suggestions[suggestionKey].content;
+            // smartSuggestions is already the suggestions object (passed from displayFactorsCompact)
+            if (smartSuggestions && smartSuggestions[suggestionKey]) {
+                return smartSuggestions[suggestionKey].content;
             }
             
             // If no AI suggestion was generated (likely because score was GOOD/full points),

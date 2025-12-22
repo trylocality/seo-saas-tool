@@ -93,13 +93,19 @@ const db = new DatabaseAdapter();
 // ==========================================
 
 // CORS configuration - only allow your domains
+// In production, localhost is automatically excluded for security
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : [
-      'https://app.trylocality.com',
-      'https://seo-saas-tool.onrender.com',
-      'http://localhost:3000'
-    ];
+  : process.env.NODE_ENV === 'production'
+    ? [
+        'https://app.trylocality.com',
+        'https://seo-saas-tool.onrender.com'
+      ]
+    : [
+        'https://app.trylocality.com',
+        'https://seo-saas-tool.onrender.com',
+        'http://localhost:3000'
+      ];
 
 app.use(cors({
   origin: function(origin, callback) {
@@ -144,6 +150,14 @@ const reportLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10, // Max 10 reports per minute per IP
   message: 'Generating reports too quickly, please slow down.',
+});
+
+const bulkAuditLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 3, // Max 3 bulk audits per 5 minutes per IP/user
+  message: 'Too many bulk audit requests. Please wait a few minutes before trying again.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // Apply general rate limiting to all API routes
@@ -261,10 +275,10 @@ async function ensureScreenshotsDir() {
 async function cleanupExpiredCache() {
   try {
     // Use NOW() for PostgreSQL compatibility, DATETIME('now') for SQLite
-    const query = db.dbType === 'postgresql' 
+    const query = db.dbType === 'postgresql'
       ? 'DELETE FROM screenshot_cache WHERE expires_at < NOW()'
       : 'DELETE FROM screenshot_cache WHERE expires_at < datetime("now")';
-    
+
     const result = await db.run(query);
     if (result.changes > 0) {
       console.log(`🧹 Cleaned up ${result.changes} expired cached screenshots`);
@@ -274,8 +288,11 @@ async function cleanupExpiredCache() {
   }
 }
 
-// Run cleanup every 24 hours
-setInterval(cleanupExpiredCache, 24 * 60 * 60 * 1000);
+// Run cleanup every hour (changed from 24 hours for better cache management)
+setInterval(cleanupExpiredCache, 60 * 60 * 1000); // 1 hour
+
+// Run cleanup on startup
+setTimeout(cleanupExpiredCache, 5000); // 5 seconds after startup
 
 // ==========================================
 // DATA COLLECTION FUNCTIONS
@@ -1698,6 +1715,10 @@ async function captureServicesPage(businessName, location, website) {
 
   } catch (error) {
     console.error(`❌ Services page capture error: ${error.message}`);
+    if (error.response) {
+      console.error(`   Response status: ${error.response.status}`);
+      console.error(`   Response data:`, error.response.data?.toString().substring(0, 500));
+    }
     // Non-critical error - return null and continue
     return null;
   }
@@ -3861,14 +3882,14 @@ function analyzeDescriptionCriteria(description, businessName, location, industr
 }
 
 // 8. SMART SUGGESTION GENERATION
-async function generateSmartSuggestions(businessInfo, scoreData, websiteServices) {
+async function generateSmartSuggestions(businessInfo, scoreData, websiteServices, websiteAnalysis = null) {
   try {
     console.log(`🧠 Generating smart suggestions for: ${businessInfo.businessName}`);
-    
+
     if (!OPENAI_API_KEY) {
       throw new Error('OpenAI API key not configured for smart suggestions');
     }
-    
+
     const suggestions = {};
     const { businessName, location, industry, website } = businessInfo;
     const { city, state } = extractCityState(location);
@@ -4023,7 +4044,7 @@ async function generateSmartSuggestions(businessInfo, scoreData, websiteServices
     
     // 8. Landing Page Optimization (if needed)
     console.log(`🔍 Landing page score: ${scoreData.scores.landingPage}/8`);
-    const landingPageQuality = scoreData.data.websiteAnalysis?.landingPageQuality || 'none';
+    const landingPageQuality = websiteAnalysis?.landingPageQuality || 'none';
 
     if (scoreData.scores.landingPage < 8) {
       console.log('🚀 Generating landing page suggestion...');
@@ -4704,7 +4725,8 @@ async function generateCompleteReport(businessName, location, industry, website,
       smartSuggestions = await generateSmartSuggestions(
         { businessName, location, industry, website },
         scoreData,
-        services
+        services,
+        partialData?.websiteAnalysis  // Pass the full websiteAnalysis object
       );
       console.log('✅ Smart suggestions completed successfully');
     } catch (error) {
@@ -4765,7 +4787,7 @@ async function generateCompleteReport(businessName, location, industry, website,
       smartSuggestions: {
         title: "Smart Optimization Recommendations",
         subtitle: "AI-generated content tailored to your business",
-        suggestions: smartSuggestions
+        suggestions: smartSuggestions?.suggestions || {}
       },
       
       // Citations Analysis
@@ -4799,7 +4821,7 @@ async function generateCompleteReport(businessName, location, industry, website,
           outscraper: 0.01,
           scrapingbee: partialData.screenshot ? 0.015 : 0,
           openai_analysis: partialData.aiAnalysis ? 0.02 : 0,
-          openai_suggestions: Object.keys(smartSuggestions).length * 0.01,
+          openai_suggestions: Object.keys(smartSuggestions?.suggestions || {}).length * 0.01,
           serpapi_citations: 0.02,
           serpapi_reviews: 0.02,
           serpapi_qa: partialData.qaAnalysis ? 0.02 : 0,
@@ -6506,25 +6528,48 @@ app.post('/api/generate-report', reportLimiter, authenticateToken, async (req, r
       // Generate complete report with all features
       report = await generateCompleteReport(businessName, finalLocation, finalIndustry, website, req.user, selectedProfile);
     } catch (reportError) {
-      console.error('❌ Report generation failed, creating fallback locked report:', reportError);
-      
+      console.error('❌ Report generation failed:', reportError);
+
       // If report generation fails for users without credits, create a minimal locked report
       if (!hasCredits) {
         console.log('🔒 Creating fallback locked report for user without credits');
-        report = await generateFallbackLockedReport(businessName, finalLocation, finalIndustry, website, req.user);
-      } else {
-        // If user paid for the report but it failed, refund the credit and throw error
-        console.log('💰 Refunding credit due to report generation failure');
         try {
-          await db.query(
-            'UPDATE users SET credits_remaining = credits_remaining + 1 WHERE id = $1',
+          report = await generateFallbackLockedReport(businessName, finalLocation, finalIndustry, website, req.user);
+        } catch (fallbackError) {
+          console.error('❌ Even fallback report generation failed:', fallbackError);
+          return res.status(500).json({
+            error: 'Unable to generate report at this time. Please try again later.',
+            details: 'Service temporarily unavailable'
+          });
+        }
+      } else {
+        // If user paid for the report but it failed, refund the credit and provide detailed error
+        console.log('💰 Refunding credit due to report generation failure');
+        let refundSuccess = false;
+
+        try {
+          const refundResult = await db.query(
+            'UPDATE users SET credits_remaining = credits_remaining + 1 WHERE id = $1 RETURNING credits_remaining',
             [req.user.id]
           );
-          console.log('✅ Credit refunded successfully');
+
+          if (refundResult.rows && refundResult.rows.length > 0) {
+            refundSuccess = true;
+            console.log(`✅ Credit refunded successfully. User now has ${refundResult.rows[0].credits_remaining} credits`);
+          }
         } catch (refundError) {
-          console.error('❌ Failed to refund credit:', refundError);
+          console.error('❌ CRITICAL: Failed to refund credit:', refundError);
+          // Log this for manual review
+          console.error(`🚨 MANUAL REFUND NEEDED - User ID: ${req.user.id}, Email: ${req.user.email}`);
         }
-        throw reportError;
+
+        // Return detailed error to user
+        return res.status(500).json({
+          error: 'Report generation failed. Your credit has been refunded.',
+          refunded: refundSuccess,
+          message: 'Please try again in a few minutes. If the problem persists, contact support.',
+          technical: reportError.message
+        });
       }
     }
     
@@ -6587,7 +6632,7 @@ app.post('/api/generate-report', reportLimiter, authenticateToken, async (req, r
 });
 
 // Fast Bulk Scan endpoint - optimized for speed
-app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => {
+app.post('/api/generate-fast-bulk-scan', bulkAuditLimiter, authenticateToken, async (req, res) => {
   try {
     const { industry, location, count, startFrom } = req.body;
 
@@ -6819,15 +6864,24 @@ app.post('/api/generate-fast-bulk-scan', authenticateToken, async (req, res) => 
       console.error('Error saving fast bulk scan:', dbError);
     }
 
-    // Deduct credits
+    // Deduct credits - atomic operation with verification
+    let creditsDeducted = false;
     try {
-      await db.query(
-        'UPDATE users SET credits_remaining = credits_remaining - $1 WHERE id = $2',
+      const result = await db.query(
+        'UPDATE users SET credits_remaining = credits_remaining - $1 WHERE id = $2 AND credits_remaining >= $1 RETURNING credits_remaining',
         [creditsUsed, req.user.id]
       );
-      console.log(`💳 ${creditsUsed} credits deducted for fast scan`);
+
+      if (result.rows && result.rows.length > 0) {
+        creditsDeducted = true;
+        console.log(`💳 ${creditsUsed} credits deducted. User now has ${result.rows[0].credits_remaining} credits remaining`);
+      } else {
+        console.error('❌ CRITICAL: Credit deduction failed - insufficient credits during bulk scan');
+        // This shouldn't happen as we checked credits at the start, but log for monitoring
+      }
     } catch (creditError) {
-      console.error('Error updating credits:', creditError);
+      console.error('❌ Error updating credits:', creditError);
+      console.error(`🚨 MANUAL CREDIT ADJUSTMENT NEEDED - User ID: ${req.user.id}, Credits to deduct: ${creditsUsed}`);
     }
 
     console.log(`\n⚡ Fast bulk scan complete! Analyzed ${auditResults.length} businesses in fast mode`);
@@ -8243,14 +8297,30 @@ app.post('/api/create-citation-checkout', authenticateToken, async (req, res) =>
 // ADMIN ENDPOINTS
 // ==========================================
 
+// Admin authorization middleware
+function requireAdmin(req, res, next) {
+  const adminEmails = process.env.ADMIN_EMAILS
+    ? process.env.ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase())
+    : ['trylocality@gmail.com'];
+
+  // Verify email is verified
+  const emailVerified = db.dbType === 'postgresql' ? req.user.email_verified : req.user.email_verified === 1;
+
+  if (!emailVerified) {
+    return res.status(403).json({ error: 'Email verification required for admin access' });
+  }
+
+  // Check if user email is in admin list
+  if (!adminEmails.includes(req.user.email.toLowerCase())) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  next();
+}
+
 // Get all users (admin endpoint - protect this in production!)
-app.get('/api/admin/users', authenticateToken, async (req, res) => {
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Check if user is admin (you should implement proper admin authentication)
-    // For now, only allow specific email
-    if (req.user.email !== 'trylocality@gmail.com') {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
     
     const users = await db.all(`
       SELECT 
@@ -8293,8 +8363,14 @@ app.get('/api/admin/users/export', async (req, res) => {
     }
     
     // Check if user is admin
-    if (!user || user.email !== 'trylocality@gmail.com') {
-      return res.status(403).json({ error: 'Unauthorized' });
+    const adminEmails = process.env.ADMIN_EMAILS
+      ? process.env.ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase())
+      : ['trylocality@gmail.com'];
+
+    const emailVerified = db.dbType === 'postgresql' ? user.email_verified : user.email_verified === 1;
+
+    if (!user || !emailVerified || !adminEmails.includes(user.email.toLowerCase())) {
+      return res.status(403).json({ error: 'Admin access required' });
     }
     
     const users = await db.all(`
@@ -8332,12 +8408,8 @@ app.get('/api/admin/users/export', async (req, res) => {
 });
 
 // Get user analytics
-app.get('/api/admin/analytics', authenticateToken, async (req, res) => {
+app.get('/api/admin/analytics', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Check if user is admin
-    if (req.user.email !== 'trylocality@gmail.com') {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
     
     const stats = await db.get(`
       SELECT 
