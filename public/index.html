@@ -1890,9 +1890,12 @@
             .detailed-result-item { padding: 6px 8px; font-size: 0.75rem; }
 
             /* Report form - stack on mobile */
-            #reportFormSection > div[style*="grid-template-columns"] {
+            #reportFormSection {
                 grid-template-columns: 1fr !important;
                 gap: 20px !important;
+            }
+            #reportFormSection > div[style*="width: 400px"] {
+                width: 100% !important;
             }
         }
         /* Upsell Box */
@@ -2629,58 +2632,41 @@
         </div>
 
         <!-- Report Form -->
-        <div id="reportFormSection" class="card hidden">
-            <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Generate SEO Audit Report</h2>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start;">
-                <!-- Left Column: Form -->
-                <div>
-                    <form id="reportForm">
-                        <div class="form-group">
-                            <label for="businessName">Business Name <span class="required">*</span></label>
-                            <input type="text" id="businessName" required placeholder="Exactly as shown on your Google Business Profile">
-                        </div>
-                        <div class="form-group">
-                            <label for="location">Location <span class="required">*</span></label>
-                            <input type="text" id="location" required placeholder="123 Main St, Miami, FL">
-                            <small style="color: #666; font-size: 0.85rem; margin-top: 5px; display: block;">
-                                 You can use city/state (Miami, FL), county/state (Utah County, UT), or full address
-                            </small>
-                        </div>
-                        <div class="form-group">
-                            <label for="industry">Industry <span class="required">*</span></label>
-                            <input type="text" id="industry" required placeholder="e.g., Accountant or House Cleaner">
-                        </div>
-                        <div class="form-group">
-                            <label for="website">Website (Optional)</label>
-                            <input type="url" id="website" placeholder="https://www.example.com">
-                        </div>
-                        <button type="submit" class="btn">Generate Audit (1 Credit)</button>
-                        <div style="text-align: center; margin-top: 15px;">
-                            <a href="#" onclick="showDashboard(); return false;" style="color: #666; font-size: 0.9rem; text-decoration: none;">Return to dashboard</a>
-                        </div>
-                        <div id="reportError" class="error hidden"></div>
-                    </form>
-                </div>
-
-                <!-- Right Column: Example Image -->
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border: 2px solid #e9ecef;">
-                        <h3 style="margin: 0 0 15px 0; color: #0e192b; font-size: 1.1rem; text-align: center;">Where to find this information</h3>
-                        <img src="locality-nap-example.png" alt="Google Business Profile Example" style="width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                        <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 8px; border-left: 4px solid #17a2b8;">
-                            <p style="margin: 0 0 10px 0; color: #495057; font-size: 0.9rem; line-height: 1.6;">
-                                <strong style="color: #0e192b;">Business Name:</strong> Use the exact name shown at the top of your Google Business Profile
-                            </p>
-                            <p style="margin: 0 0 10px 0; color: #495057; font-size: 0.9rem; line-height: 1.6;">
-                                <strong style="color: #0e192b;">Category/Industry:</strong> Look for "Marketing agency" or similar category
-                            </p>
-                            <p style="margin: 0; color: #495057; font-size: 0.9rem; line-height: 1.6;">
-                                <strong style="color: #0e192b;">Address:</strong> Copy the full address exactly as it appears
-                            </p>
-                        </div>
+        <div id="reportFormSection" style="display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: start;" class="hidden">
+            <!-- Left Column: Form in white card -->
+            <div class="card">
+                <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Generate SEO Audit Report</h2>
+                <form id="reportForm">
+                    <div class="form-group">
+                        <label for="businessName">Business Name <span class="required">*</span></label>
+                        <input type="text" id="businessName" required placeholder="Exactly as shown on your Google Business Profile">
                     </div>
-                </div>
+                    <div class="form-group">
+                        <label for="location">Location <span class="required">*</span></label>
+                        <input type="text" id="location" required placeholder="123 Main St, Miami, FL">
+                        <small style="color: #666; font-size: 0.85rem; margin-top: 5px; display: block;">
+                             You can use city/state (Miami, FL), county/state (Utah County, UT), or full address
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="industry">Industry <span class="required">*</span></label>
+                        <input type="text" id="industry" required placeholder="e.g., Accountant or House Cleaner">
+                    </div>
+                    <div class="form-group">
+                        <label for="website">Website (Optional)</label>
+                        <input type="url" id="website" placeholder="https://www.example.com">
+                    </div>
+                    <button type="submit" class="btn">Generate Audit (1 Credit)</button>
+                    <div style="text-align: center; margin-top: 15px;">
+                        <a href="#" onclick="showDashboard(); return false;" style="color: #666; font-size: 0.9rem; text-decoration: none;">Return to dashboard</a>
+                    </div>
+                    <div id="reportError" class="error hidden"></div>
+                </form>
+            </div>
+
+            <!-- Right Column: Example Image (outside white box) -->
+            <div style="width: 400px;">
+                <img src="locality-nap-example.png" alt="Google Business Profile Example" style="width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
             </div>
         </div>
 
