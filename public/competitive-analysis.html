@@ -149,11 +149,43 @@
                 </div>
             </div>
 
-            <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Fast Competitive Analysis</h2>
-            <p style="text-align: center; color: #666; margin-bottom: 40px; font-size: 1.1rem;">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Competitive Analysis</h2>
+
+            <!-- Analysis Type Tabs -->
+            <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e1e5e9;">
+                <button class="analysis-type-tab active" onclick="switchAnalysisType('industry')" id="industryTab" style="
+                    padding: 12px 30px;
+                    background: none;
+                    border: none;
+                    border-bottom: 3px solid #0e192b;
+                    color: #0e192b;
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                ">
+                    Industry/Location Based
+                </button>
+                <button class="analysis-type-tab" onclick="switchAnalysisType('business')" id="businessTab" style="
+                    padding: 12px 30px;
+                    background: none;
+                    border: none;
+                    border-bottom: 3px solid transparent;
+                    color: #666;
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                ">
+                    Specific Business
+                </button>
+            </div>
+
+            <p style="text-align: center; color: #666; margin-bottom: 40px; font-size: 1.1rem;" id="analysisDescription">
                 Quickly analyze up to 25 local businesses in your industry to identify ranking opportunities
             </p>
 
+            <!-- Industry/Location Based Form -->
             <form id="analysisForm" class="analysis-form">
                 <div class="form-row">
                     <div class="form-group">
@@ -198,6 +230,40 @@
                     </p>
                 </div>
             </form>
+
+            <!-- Business-Specific Form -->
+            <form id="businessAnalysisForm" class="analysis-form hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="businessName">Business Name <span class="required">*</span></label>
+                        <input type="text" id="businessName" required placeholder="Exactly as shown on Google Business Profile">
+                    </div>
+                    <div class="form-group">
+                        <label for="businessLocation">Location <span class="required">*</span></label>
+                        <input type="text" id="businessLocation" required placeholder="123 Main St, Miami, FL">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="businessIndustry">Industry <span class="required">*</span></label>
+                        <input type="text" id="businessIndustry" required placeholder="e.g., Accountant or House Cleaner">
+                    </div>
+                    <div class="form-group">
+                        <label for="businessWebsite">Website (Optional)</label>
+                        <input type="url" id="businessWebsite" placeholder="https://www.example.com">
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button type="submit" class="btn" style="font-size: 1.2rem; padding: 15px 40px;" id="businessSubmitBtn">
+                         ANALYZE COMPETITORS (11 Credits)
+                    </button>
+                    <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
+                        Analyzes your business + 5 above + 5 below (11 total businesses)
+                    </p>
+                </div>
+            </form>
         </div>
 
         <!-- Loading Section -->
@@ -207,17 +273,10 @@
                 <div class="progress-text" id="progressText">Running Bulk Audit. This can take up to 10 minutes</div>
                 <div class="progress-subtext" id="progressSubtext"></div>
 
-                <div style="margin-top: 30px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
-                    <h4 style="color: #0e192b; margin-bottom: 15px;">Fast scan includes:</h4>
-                    <ul style="color: #666; line-height: 1.6;">
-                        <li>✓ Google Business Profile data</li>
-                        <li>✓ Review quantity and ratings</li>
-                        <li>✓ Photo counts and categories</li>
-                        <li>✓ Citation checking (top 5 directories)</li>
-                        <li>✓ Social media presence</li>
-                        <li>✓ Local landing pages, posts, and engagement</li>
-                        <li> Optimized for speed (no AI analysis)</li>
-                    </ul>
+                <div style="margin-top: 30px; text-align: center; max-width: 500px; margin-left: auto; margin-right: auto;">
+                    <p style="color: #666; line-height: 1.8; font-size: 1.05rem;">
+                        A competitive analysis will display a group of business that rank next to each other, and whether or not they have optimized for key ranking factors in their GBP.
+                    </p>
                 </div>
             </div>
         </div>
@@ -398,6 +457,43 @@
             window.location.href = '/';
         }
 
+        // Switch between analysis types
+        function switchAnalysisType(type) {
+            const industryTab = document.getElementById('industryTab');
+            const businessTab = document.getElementById('businessTab');
+            const industryForm = document.getElementById('analysisForm');
+            const businessForm = document.getElementById('businessAnalysisForm');
+            const description = document.getElementById('analysisDescription');
+
+            if (type === 'industry') {
+                // Update tabs
+                industryTab.style.borderBottom = '3px solid #0e192b';
+                industryTab.style.color = '#0e192b';
+                businessTab.style.borderBottom = '3px solid transparent';
+                businessTab.style.color = '#666';
+
+                // Show industry form, hide business form
+                industryForm.classList.remove('hidden');
+                businessForm.classList.add('hidden');
+
+                // Update description
+                description.textContent = 'Quickly analyze up to 25 local businesses in your industry to identify ranking opportunities';
+            } else {
+                // Update tabs
+                businessTab.style.borderBottom = '3px solid #0e192b';
+                businessTab.style.color = '#0e192b';
+                industryTab.style.borderBottom = '3px solid transparent';
+                industryTab.style.color = '#666';
+
+                // Show business form, hide industry form
+                businessForm.classList.remove('hidden');
+                industryForm.classList.add('hidden');
+
+                // Update description
+                description.textContent = 'Analyze a specific business and see how it compares to the 5 businesses ranked above and 5 below it';
+            }
+        }
+
         function showSection(sectionId) {
             const sections = ['setupSection', 'loadingSection', 'resultsSection'];
             sections.forEach(id => {
@@ -428,6 +524,90 @@
 
             startAnalysis(industry, location, count, startFrom);
         });
+
+        // Business-specific form submission
+        document.getElementById('businessAnalysisForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const businessName = document.getElementById('businessName').value;
+            const businessLocation = document.getElementById('businessLocation').value;
+            const businessIndustry = document.getElementById('businessIndustry').value;
+            const businessWebsite = document.getElementById('businessWebsite').value;
+
+            if (!businessName || !businessLocation || !businessIndustry) {
+                showToast('Please fill in all required fields', 'error');
+                return;
+            }
+
+            if (!authToken) {
+                showToast('Please log in to run analysis', 'error');
+                setTimeout(() => window.location.href = '/', 2000);
+                return;
+            }
+
+            startBusinessAnalysis(businessName, businessLocation, businessIndustry, businessWebsite);
+        });
+
+        // Start business-specific analysis
+        async function startBusinessAnalysis(businessName, location, industry, website) {
+            showSection('loadingSection');
+
+            // Set progress text
+            document.getElementById('progressText').textContent = "Finding your business and analyzing competitors...";
+
+            try {
+                // Call our business-specific competitive analysis API
+                const response = await fetch('/api/competitive-analysis-around-business', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        businessName,
+                        location,
+                        industry,
+                        website
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Map the business data similar to industry analysis
+                    const basicResults = data.businesses.map(business => ({
+                        rank: business.ranking.position,
+                        name: business.businessName,
+                        address: business.data.business.address,
+                        phone: business.data.business.phone,
+                        website: business.data.business.website,
+                        rating: business.data.reviews.rating,
+                        reviews: business.data.reviews.total,
+                        score: business.score,
+                        coreMetrics: business.coreMetrics,
+                        data: business.data,
+                        isTargetBusiness: business.isTargetBusiness // Mark the target business
+                    }));
+
+                    // Calculate opportunity scores
+                    currentResults = calculateOpportunityScores(basicResults);
+
+                    showResults(industry, location, data);
+                } else {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+
+            } catch (error) {
+                console.error('Business analysis error:', error);
+                showToast(error.message || 'Failed to analyze competitors', 'error');
+                showSection('setupSection');
+            }
+        }
 
         // Start analysis
         async function startAnalysis(industry, location, count, startFrom) {
@@ -566,6 +746,22 @@
                     factorsScore
                 };
             });
+
+            // Limit HIGH opportunities to only 2 per competitive analysis
+            // Sort by opportunityScore descending to get the top candidates
+            const highOpportunities = sorted
+                .map((business, index) => ({ business, index }))
+                .filter(item => item.business.opportunityLevel === 'high')
+                .sort((a, b) => b.business.opportunityScore - a.business.opportunityScore);
+
+            // Downgrade all but top 2 HIGH opportunities to MEDIUM
+            if (highOpportunities.length > 2) {
+                for (let i = 2; i < highOpportunities.length; i++) {
+                    sorted[highOpportunities[i].index].opportunityLevel = 'medium';
+                }
+            }
+
+            return sorted;
         }
 
         // Display a stored bulk report from the database
@@ -625,10 +821,19 @@
                 // Rank with special styling for top 3
                 const rankClass = result.rank <= 3 ? `rank-${result.rank}` : '';
 
+                // Check if this is the target business
+                let isTargetBusiness = result.isTargetBusiness || false;
+                let targetBadge = '';
+
                 // Opportunity highlighting - add background color based on level
                 let rowStyle = '';
                 let opportunityBadge = '';
-                if (result.opportunityLevel === 'high') {
+
+                if (isTargetBusiness) {
+                    // Highlight target business in blue
+                    rowStyle = 'background-color: #d1ecf1; border-left: 6px solid #0c5460; border-right: 6px solid #0c5460;';
+                    targetBadge = '<span style="background: #0c5460; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; margin-left: 8px;">📍 YOUR BUSINESS</span>';
+                } else if (result.opportunityLevel === 'high') {
                     rowStyle = 'background-color: #fff3cd; border-left: 4px solid #ffc107;';
                     opportunityBadge = '<span style="background: #ffc107; color: #000; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 700; margin-left: 8px;">🎯 HIGH OPPORTUNITY</span>';
                 } else if (result.opportunityLevel === 'medium') {
@@ -686,6 +891,7 @@
                     <td class="business-info">
                         <div class="business-name">
                             ${result.name}
+                            ${targetBadge}
                             ${opportunityBadge}
                         </div>
                         <div class="business-address" style="font-size: 0.85rem; color: #666;">${result.address || 'Address not available'}</div>

@@ -441,7 +441,7 @@ async function sendEmailWithWebhook(to, subject, htmlContent, textContent, webho
     console.log('To:', to);
     console.log('Subject:', subject);
     console.log('Body:', textContent || htmlContent);
-    
+
     // Method 2: Try to use a webhook service (like Zapier, n8n, or similar)
     if (webhookUrl) {
       const webhookData = {
@@ -453,23 +453,36 @@ async function sendEmailWithWebhook(to, subject, htmlContent, textContent, webho
         emailType: emailType,
         timestamp: new Date().toISOString()
       };
-      
+
       console.log(`🔗 Sending to webhook: ${webhookUrl}`);
-      
-      await axios.post(webhookUrl, webhookData, {
+
+      const response = await axios.post(webhookUrl, webhookData, {
         timeout: 5000,
         headers: { 'Content-Type': 'application/json' }
       });
-      
-      console.log(`✅ ${emailType} webhook sent successfully`);
+
+      console.log(`✅ ${emailType} webhook sent successfully - Status: ${response.status}`);
+      return true;
     } else {
       console.warn(`⚠️ No webhook URL configured for ${emailType}`);
+      console.warn(`⚠️ To enable email notifications, set one of these in .env:`);
+      console.warn(`   - BULK_AUDIT_WEBHOOK_URL (for bulk audit emails)`);
+      console.warn(`   - EMAIL_WEBHOOK_URL (for general emails)`);
+      console.warn(`   - FEEDBACK_WEBHOOK_URL (fallback)`);
+      return false;
     }
-    
-    return true;
+
   } catch (error) {
     console.error(`❌ ${emailType} webhook failed:`, error.message);
-    throw error;
+    if (error.response) {
+      console.error(`❌ Webhook response status: ${error.response.status}`);
+      console.error(`❌ Webhook response data:`, error.response.data);
+    }
+    if (error.code === 'ECONNREFUSED') {
+      console.error(`❌ Could not connect to webhook URL - please verify it's correct`);
+    }
+    // Don't throw - just return false so we don't break the calling function
+    return false;
   }
 }
 
@@ -6902,6 +6915,12 @@ app.post('/api/generate-fast-bulk-scan', bulkAuditLimiter, authenticateToken, as
       console.log(`📧 Bulk audit completion email sent to ${req.user.email}`);
     } catch (emailError) {
       console.error('⚠️ Failed to send bulk audit completion email:', emailError);
+      console.error('⚠️ Email error details:', {
+        message: emailError.message,
+        stack: emailError.stack,
+        userEmail: req.user.email,
+        webhookConfigured: !!(process.env.BULK_AUDIT_WEBHOOK_URL || process.env.EMAIL_WEBHOOK_URL || process.env.FEEDBACK_WEBHOOK_URL)
+      });
       // Don't fail the request if email fails, just log it
     }
 
@@ -7269,18 +7288,58 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
       }
     }
     
-    // Extract score from each report's JSON data
-    const reportsWithScores = reports.map(report => {
+    // Extract score from each report's JSON data and apply factor overrides
+    const reportsWithScores = await Promise.all(reports.map(async (report) => {
       let score = null;
       try {
         if (report.report_data) {
           const reportData = JSON.parse(report.report_data);
           score = reportData.auditOverview?.overallScore?.score || reportData.finalScore || null;
+
+          // Check if this is a regular report (not bulk) and has factors
+          const isBulkReport = reportData.type === 'fast_bulk_scan';
+          if (!isBulkReport && reportData.auditOverview && reportData.auditOverview.factors) {
+            // Check for factor overrides and recalculate score if any exist
+            try {
+              const overrides = await db.all(
+                'SELECT factor_name, override_status FROM factor_overrides WHERE report_id = $1',
+                [report.id]
+              );
+
+              if (overrides && overrides.length > 0) {
+                // Create a map of overrides
+                const overrideMap = {};
+                overrides.forEach(override => {
+                  overrideMap[override.factor_name] = override.override_status;
+                });
+
+                // Apply overrides to factors (clone the factors array)
+                const updatedFactors = reportData.auditOverview.factors.map(factor => {
+                  if (overrideMap[factor.id]) {
+                    const newStatus = overrideMap[factor.id].toUpperCase().replace('_', ' ');
+                    return { ...factor, status: newStatus };
+                  }
+                  return factor;
+                });
+
+                // Recalculate score based on overridden factors
+                const totalFactors = updatedFactors.length;
+                const goodFactors = updatedFactors.filter(f => f.status === 'GOOD').length;
+                const needsImprovementFactors = updatedFactors.filter(f => f.status === 'NEEDS IMPROVEMENT').length;
+
+                // Score calculation: GOOD = 100%, NEEDS IMPROVEMENT = 50%, MISSING = 0%
+                score = Math.round(((goodFactors * 100) + (needsImprovementFactors * 50)) / totalFactors);
+              }
+            } catch (overrideError) {
+              console.error(`Error fetching overrides for report ${report.id}:`, overrideError);
+              // Continue with original score if there's an error
+            }
+          }
         }
       } catch (parseError) {
         console.error(`Error parsing report data for report ${report.id}:`, parseError);
       }
-      
+
       return {
         id: report.id,
         business_name: report.business_name,
@@ -7291,7 +7350,7 @@ app.get('/api/user-reports', authenticateToken, async (req, res) => {
         score: score,
         was_paid: report.was_paid
       };
-    });
+    }));
     
     console.log(`✅ Found ${reports.length} reports for user ${req.user.id}`);
     

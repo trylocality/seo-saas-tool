@@ -13,8 +13,8 @@
         body.has-email-banner { padding-top: 60px; }
         .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; color: #333; margin-bottom: 30px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .dashboard-header { text-align: center; margin-bottom: 20px; background: transparent; padding: 0; }
-        .dashboard-logo-header { text-align: left; margin-bottom: 10px; background: transparent; padding: 0; display: flex; justify-content: flex-start; }
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; background: transparent; padding: 0; }
+        .dashboard-logo-header { text-align: left; margin-bottom: 0; background: transparent; padding: 0; display: flex; justify-content: flex-start; align-items: center; }
         
         /* Email Verification Banner - Yellow Warning Style */
         .email-verification-banner {
@@ -558,8 +558,7 @@
             text-decoration: underline;
         }
         
-        /* Enhanced Dashboard */
-        .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
+        /* Enhanced Dashboard - consolidated above */
         
         /* Account Menu */
         .account-menu {
@@ -791,7 +790,8 @@
         
         /* Reports Table Styles */
         .reports-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .reports-table th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6; }
+        .reports-table th { background: #f8f9fa; padding: 15px; text-align: left; font-weight: 600; color: #495057; border-bottom: 1px solid #dee2e6; transition: background 0.2s ease; }
+        .reports-table th:hover { background: #e9ecef; }
         .reports-table td { padding: 15px; border-bottom: 1px solid #f8f9fa; vertical-align: middle; white-space: nowrap; }
         .reports-table td:first-child { white-space: normal; }
         .reports-table td:last-child { white-space: nowrap; min-width: 180px; }
@@ -1255,19 +1255,28 @@
         
         /* Print-specific styles for optimized PDF layout */
         @media print {
-            body { 
-                font-size: 11px; 
-                line-height: 1.2;
-                color: #000 !important;
+            body {
+                font-size: 11px;
+                line-height: 1.4;
+                color: #2c3e50;
                 background: white !important;
                 margin: 0;
-                padding: 0;
+                padding: 15px;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
             }
-            
-            .container { 
-                max-width: none; 
-                padding: 0; 
+
+            .container {
+                max-width: none;
+                padding: 0;
                 margin: 0;
+            }
+
+            /* Professional header with brand color */
+            #reportSection {
+                border-top: 6px solid #0e192b !important;
+                padding-top: 10px !important;
             }
             
             /* Hide non-essential elements for print */
@@ -1278,22 +1287,33 @@
                 display: none !important;
             }
             
-            /* Keep business header layout consistent with webapp */
+            /* Professional business header */
             .business-info-header {
                 display: flex !important;
                 justify-content: space-between !important;
                 align-items: flex-start !important;
-                padding: 8px 0 !important;
-                margin-bottom: 8px !important;
-                border-bottom: 1px solid #e9ecef !important;
+                padding: 15px !important;
+                margin-bottom: 15px !important;
+                border-bottom: 3px solid #0e192b !important;
                 flex-direction: row !important;
                 text-align: left !important;
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+                border-radius: 8px !important;
             }
 
             .business-details {
-                font-size: 10px !important;
-                color: #495057 !important;
-                line-height: 1.3 !important;
+                font-size: 11px !important;
+                color: #2c3e50 !important;
+                line-height: 1.6 !important;
+            }
+
+            .business-details > div {
+                margin-bottom: 3px !important;
+            }
+
+            .business-details strong {
+                color: #0e192b !important;
+                font-weight: 700 !important;
             }
 
             .logo-container {
@@ -1302,9 +1322,28 @@
             }
 
             .logo {
-                height: 45px !important;
+                height: 50px !important;
                 width: auto !important;
-                max-width: 150px !important;
+                max-width: 180px !important;
+            }
+
+            /* Section titles with color */
+            .section-title {
+                font-size: 13px !important;
+                margin-bottom: 8px !important;
+                color: #0e192b !important;
+                font-weight: 700 !important;
+                padding-bottom: 5px !important;
+                border-bottom: 2px solid #17a2b8 !important;
+            }
+
+            /* Make sections stand out */
+            .section {
+                margin: 12px 0 !important;
+                padding: 12px !important;
+                border: 1px solid #e1e5e9 !important;
+                border-radius: 8px !important;
+                background: #fafbfc !important;
             }
             
             /* Page 1: Fit 12 audit points + score */
@@ -1321,58 +1360,163 @@
             }
             
             .factor-card {
-                padding: 8px !important;
+                padding: 10px !important;
                 margin: 0 !important;
                 font-size: 10px !important;
+                border: 1px solid #e1e5e9 !important;
+                border-radius: 6px !important;
+                background: white !important;
             }
-            
+
+            /* Keep colored borders for factor cards */
+            .factor-card.good {
+                border-left: 4px solid #27ae60 !important;
+                background: #f0f9f4 !important;
+            }
+
+            .factor-card.needs-improvement {
+                border-left: 4px solid #f39c12 !important;
+                background: #fef9f0 !important;
+            }
+
+            .factor-card.missing {
+                border-left: 4px solid #e74c3c !important;
+                background: #fef5f5 !important;
+            }
+
             .factor-title {
                 font-size: 11px !important;
-                margin-bottom: 4px !important;
+                margin-bottom: 5px !important;
+                font-weight: 600 !important;
+                color: #2c3e50 !important;
             }
-            
+
             .factor-status {
                 font-size: 9px !important;
-                padding: 2px 6px !important;
+                padding: 3px 8px !important;
+                border-radius: 4px !important;
+                font-weight: 600 !important;
+            }
+
+            .factor-status.good {
+                background: #27ae60 !important;
+                color: white !important;
+            }
+
+            .factor-status.needs-improvement {
+                background: #f39c12 !important;
+                color: white !important;
+            }
+
+            .factor-status.missing {
+                background: #e74c3c !important;
+                color: white !important;
             }
             
-            /* Score section compact */
+            /* Score section compact with colors */
             .score-donut-container {
-                width: 120px !important;
-                height: 120px !important;
-                margin: 10px auto !important;
+                width: 140px !important;
+                height: 140px !important;
+                margin: 15px auto !important;
+                padding: 15px !important;
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+                border-radius: 12px !important;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
             }
-            
+
             .score-donut-container h3 {
                 font-size: 16px !important;
                 margin-bottom: 10px !important;
+                color: #0e192b !important;
+                font-weight: 700 !important;
+            }
+
+            /* Keep donut chart colors */
+            .donut-fill {
+                stroke-width: 12 !important;
+            }
+
+            .score-number {
+                color: #0e192b !important;
+                font-weight: 800 !important;
+            }
+
+            .score-message {
+                color: #495057 !important;
+                font-weight: 600 !important;
             }
             
-            /* Citations pagination logic */
+            /* Citations with professional styling */
             .citations-page-1 {
                 display: block;
                 page-break-inside: avoid;
             }
-            
+
             .citations-page-2 {
                 display: none;
                 page-break-before: always;
                 page-break-after: auto;
             }
-            
+
+            .citation-item-simple {
+                border: 1px solid #e1e5e9 !important;
+                border-radius: 6px !important;
+                padding: 8px !important;
+                background: white !important;
+            }
+
+            .citation-item-simple.found {
+                border-left: 4px solid #27ae60 !important;
+                background: #f0f9f4 !important;
+            }
+
+            .citation-item-simple.missing {
+                border-left: 4px solid #e74c3c !important;
+                background: #fef5f5 !important;
+            }
+
+            .citation-name-simple {
+                color: #2c3e50 !important;
+                font-weight: 600 !important;
+            }
+
             /* When detailed analysis is run, move all citations to page 2 */
             .detailed-analysis-active .citations-page-1 {
                 display: none !important;
             }
-            
+
             .detailed-analysis-active .citations-page-2 {
                 display: block !important;
             }
-            
-            /* Action plan always on last page */
+
+            /* Action plan with professional styling */
             .action-plan-section {
                 page-break-before: always;
                 margin-top: 0 !important;
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+                padding: 20px !important;
+                border-radius: 10px !important;
+                border: 2px solid #0e192b !important;
+            }
+
+            .action-item {
+                margin-bottom: 15px !important;
+                padding: 12px !important;
+                background: white !important;
+                border-left: 4px solid #17a2b8 !important;
+                border-radius: 6px !important;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important;
+            }
+
+            .action-item h4 {
+                color: #0e192b !important;
+                font-weight: 700 !important;
+                margin-bottom: 8px !important;
+            }
+
+            .action-item p {
+                color: #495057 !important;
+                line-height: 1.6 !important;
             }
             
             /* Page 1: Score and Factors */
@@ -1724,8 +1868,9 @@
         @media (max-width: 768px) {
             .container { padding: 10px; }
             .header h1 { font-size: 2rem; }
-            .dashboard-header { flex-direction: column; align-items: stretch; }
-            .account-menu { align-self: flex-end; margin-top: 20px; }
+            .dashboard-header { flex-direction: row; align-items: center; gap: 15px; }
+            .dashboard-logo-header img { height: 45px !important; }
+            .account-menu { margin-top: 0; }
             .dropdown-menu {
                 right: 0;
                 left: 0;
@@ -1743,6 +1888,12 @@
             .citation-name-simple { font-size: 0.7rem; }
             .detailed-results-grid { grid-template-columns: repeat(5, 1fr); gap: 6px; }
             .detailed-result-item { padding: 6px 8px; font-size: 0.75rem; }
+
+            /* Report form - stack on mobile */
+            #reportFormSection > div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+                gap: 20px !important;
+            }
         }
         /* Upsell Box */
 .upsell-box {
@@ -2304,8 +2455,8 @@
 
             <div class="dashboard-header">
                 <!-- Logo on left -->
-                <div class="dashboard-logo-header" style="margin-bottom: 0;">
-                    <img src="locality-logo.png" alt="Locality" class="logo">
+                <div class="dashboard-logo-header">
+                    <img src="locality-logo.png" alt="Locality" style="height: 60px; width: auto;">
                 </div>
 
                 <!-- Account Menu on right -->
@@ -2412,7 +2563,7 @@
                 <button class="btn" onclick="window.location.href='competitive-analysis.html'" style="
                     width: auto;
                     padding: 20px 40px;
-                    font-size: 1.3rem;
+                    font-size: 1.5rem;
                     font-weight: bold;
                     background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
                     box-shadow: 0 8px 25px rgba(23, 162, 184, 0.3);
@@ -2420,20 +2571,58 @@
                     transition: all 0.3s ease;
                     margin-top: 20px;
                 " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                     Bulk Audit
+                     Competitive Analysis
                 </button>
                 <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
                     Comprehensive 12-factor analysis with AI-powered suggestions
                 </p>
             </div>
 
-            <!-- Previous Reports Table -->
+            <!-- Reports Tabs Section -->
             <div class="reports-table-section">
-                <h3 style="margin-bottom: 20px; color: #0e192b; font-size: 1.3rem;">Your Audits</h3>
-                <div id="reportsTableContainer">
+                <!-- Tab Navigation -->
+                <div class="reports-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e1e5e9;">
+                    <button class="report-tab active" onclick="switchReportTab('audits')" id="auditsTab" style="
+                        padding: 12px 24px;
+                        background: none;
+                        border: none;
+                        border-bottom: 3px solid #0e192b;
+                        color: #0e192b;
+                        font-size: 1.1rem;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                    ">
+                        Your Audits
+                    </button>
+                    <button class="report-tab" onclick="switchReportTab('competitive')" id="competitiveTab" style="
+                        padding: 12px 24px;
+                        background: none;
+                        border: none;
+                        border-bottom: 3px solid transparent;
+                        color: #666;
+                        font-size: 1.1rem;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                    ">
+                        Your Competitive Analyses
+                    </button>
+                </div>
+
+                <!-- Audits Table Container -->
+                <div id="auditsTableContainer" class="tab-content">
                     <div class="no-reports" style="text-align: center; padding: 40px; color: #666; background: #f8f9fa; border-radius: 10px;">
-                        <h4>No reports yet</h4>
+                        <h4>No audits yet</h4>
                         <p>Generate your first SEO audit to get started!</p>
+                    </div>
+                </div>
+
+                <!-- Competitive Analyses Table Container -->
+                <div id="competitiveTableContainer" class="tab-content hidden">
+                    <div class="no-reports" style="text-align: center; padding: 40px; color: #666; background: #f8f9fa; border-radius: 10px;">
+                        <h4>No competitive analyses yet</h4>
+                        <p>Run your first competitive analysis to get started!</p>
                     </div>
                 </div>
             </div>
@@ -2442,32 +2631,57 @@
         <!-- Report Form -->
         <div id="reportFormSection" class="card hidden">
             <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Generate SEO Audit Report</h2>
-            <form id="reportForm">
-                <div class="form-group">
-                    <label for="businessName">Business Name <span class="required">*</span></label>
-                    <input type="text" id="businessName" required placeholder="Exactly as shown on your Google Business Profile">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start;">
+                <!-- Left Column: Form -->
+                <div>
+                    <form id="reportForm">
+                        <div class="form-group">
+                            <label for="businessName">Business Name <span class="required">*</span></label>
+                            <input type="text" id="businessName" required placeholder="Exactly as shown on your Google Business Profile">
+                        </div>
+                        <div class="form-group">
+                            <label for="location">Location <span class="required">*</span></label>
+                            <input type="text" id="location" required placeholder="123 Main St, Miami, FL">
+                            <small style="color: #666; font-size: 0.85rem; margin-top: 5px; display: block;">
+                                 You can use city/state (Miami, FL), county/state (Utah County, UT), or full address
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label for="industry">Industry <span class="required">*</span></label>
+                            <input type="text" id="industry" required placeholder="e.g., Accountant or House Cleaner">
+                        </div>
+                        <div class="form-group">
+                            <label for="website">Website (Optional)</label>
+                            <input type="url" id="website" placeholder="https://www.example.com">
+                        </div>
+                        <button type="submit" class="btn">Generate Audit (1 Credit)</button>
+                        <div style="text-align: center; margin-top: 15px;">
+                            <a href="#" onclick="showDashboard(); return false;" style="color: #666; font-size: 0.9rem; text-decoration: none;">Return to dashboard</a>
+                        </div>
+                        <div id="reportError" class="error hidden"></div>
+                    </form>
                 </div>
-                <div class="form-group">
-                    <label for="location">Location <span class="required">*</span></label>
-                    <input type="text" id="location" required placeholder="123 Main St, Miami, FL">
-                    <small style="color: #666; font-size: 0.85rem; margin-top: 5px; display: block;">
-                         You can use city/state (Miami, FL), county/state (Utah County, UT), or full address
-                    </small>
+
+                <!-- Right Column: Example Image -->
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border: 2px solid #e9ecef;">
+                        <h3 style="margin: 0 0 15px 0; color: #0e192b; font-size: 1.1rem; text-align: center;">Where to find this information</h3>
+                        <img src="locality-nap-example.png" alt="Google Business Profile Example" style="width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 8px; border-left: 4px solid #17a2b8;">
+                            <p style="margin: 0 0 10px 0; color: #495057; font-size: 0.9rem; line-height: 1.6;">
+                                <strong style="color: #0e192b;">Business Name:</strong> Use the exact name shown at the top of your Google Business Profile
+                            </p>
+                            <p style="margin: 0 0 10px 0; color: #495057; font-size: 0.9rem; line-height: 1.6;">
+                                <strong style="color: #0e192b;">Category/Industry:</strong> Look for "Marketing agency" or similar category
+                            </p>
+                            <p style="margin: 0; color: #495057; font-size: 0.9rem; line-height: 1.6;">
+                                <strong style="color: #0e192b;">Address:</strong> Copy the full address exactly as it appears
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="industry">Industry <span class="required">*</span></label>
-                    <input type="text" id="industry" required placeholder="e.g., Accountant or House Cleaner">
-                </div>
-                <div class="form-group">
-                    <label for="website">Website (Optional)</label>
-                    <input type="url" id="website" placeholder="https://www.example.com">
-                </div>
-                <button type="submit" class="btn">Generate Audit (1 Credit)</button>
-                <div style="text-align: center; margin-top: 15px;">
-                    <a href="#" onclick="showDashboard(); return false;" style="color: #666; font-size: 0.9rem; text-decoration: none;">Return to dashboard</a>
-                </div>
-                <div id="reportError" class="error hidden"></div>
-            </form>
+            </div>
         </div>
 
 
@@ -3218,6 +3432,8 @@
         let authToken = localStorage.getItem('authToken');
         let currentReportData = null;
         let userReports = [];
+        let currentSortColumn = 'date'; // Default sort by date
+        let currentSortDirection = 'desc'; // Most recent first
         
         // Clear report state function
         function clearReportState() {
@@ -3827,66 +4043,243 @@
             }
         }
 
-        // Display reports as a table
+        // Switch between report tabs
+        function switchReportTab(tabType) {
+            // Update tab button styles
+            const auditsTab = document.getElementById('auditsTab');
+            const competitiveTab = document.getElementById('competitiveTab');
+
+            if (tabType === 'audits') {
+                auditsTab.style.borderBottom = '3px solid #0e192b';
+                auditsTab.style.color = '#0e192b';
+                competitiveTab.style.borderBottom = '3px solid transparent';
+                competitiveTab.style.color = '#666';
+
+                document.getElementById('auditsTableContainer').classList.remove('hidden');
+                document.getElementById('competitiveTableContainer').classList.add('hidden');
+            } else {
+                competitiveTab.style.borderBottom = '3px solid #0e192b';
+                competitiveTab.style.color = '#0e192b';
+                auditsTab.style.borderBottom = '3px solid transparent';
+                auditsTab.style.color = '#666';
+
+                document.getElementById('competitiveTableContainer').classList.remove('hidden');
+                document.getElementById('auditsTableContainer').classList.add('hidden');
+            }
+        }
+
+        // Sort reports by column
+        function sortReports(column) {
+            // Toggle direction if clicking same column, otherwise default to desc/asc based on column
+            if (currentSortColumn === column) {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortColumn = column;
+                // Default sort directions
+                if (column === 'name') {
+                    currentSortDirection = 'asc'; // A-Z
+                } else if (column === 'score') {
+                    currentSortDirection = 'desc'; // High to low
+                } else if (column === 'date') {
+                    currentSortDirection = 'desc'; // Most recent first
+                }
+            }
+
+            // Re-display with new sort
+            displayReportsTable();
+        }
+
+        // Get sort arrow indicator
+        function getSortArrow(column) {
+            if (currentSortColumn !== column) {
+                return '↕'; // Unsorted indicator
+            }
+            return currentSortDirection === 'asc' ? '↑' : '↓';
+        }
+
+        // Display reports as a table (updated to separate audits from competitive analyses)
         function displayReportsTable() {
-            const container = document.getElementById('reportsTableContainer');
-            
             if (!userReports || userReports.length === 0) {
-                container.innerHTML = `
+                document.getElementById('auditsTableContainer').innerHTML = `
                     <div style="text-align: center; padding: 40px; color: #666; background: #f8f9fa; border-radius: 10px;">
-                        <h4>No reports yet</h4>
+                        <h4>No audits yet</h4>
                         <p>Generate your first SEO audit to get started!</p>
+                    </div>
+                `;
+                document.getElementById('competitiveTableContainer').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666; background: #f8f9fa; border-radius: 10px;">
+                        <h4>No competitive analyses yet</h4>
+                        <p>Run your first competitive analysis to get started!</p>
                     </div>
                 `;
                 return;
             }
 
-            let tableHTML = `
-                <table class="reports-table">
-                    <thead>
-                        <tr>
-                            <th>Business</th>
-                            <th>Score</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            userReports.forEach(report => {
-                const date = new Date(report.created_at).toLocaleDateString();
-                
-                // Display actual score if available, otherwise show placeholder
-                const score = report.score || 'N/A';
-                const scoreClass = score === 'N/A' ? 'score-neutral' : 
-                                 score >= 80 ? 'score-good' : 
-                                 score >= 60 ? 'score-fair' : 'score-poor';
-                
-                const lockIcon = !report.was_paid ? '<span class="lock-icon"></span>' : '';
-                
-                tableHTML += `
-                    <tr>
-                        <td>
-                            <div class="business-name">${report.business_name} ${lockIcon}</div>
-                            <div class="business-location">${report.city} • ${report.industry}</div>
-                        </td>
-                        <td>
-                            <div class="table-score-display ${scoreClass}">${score}${score !== 'N/A' ? '/100' : ''}</div>
-                        </td>
-                        <td>${date}</td>
-                        <td>
-                            <button class="report-action-btn view-btn" onclick="viewStoredReport(${report.id})">VIEW</button>
-                            <button class="report-action-btn run-again-btn" onclick="runReportAgain('${report.business_name}', '${report.city}', '${report.industry}', '${report.website || ''}')">
-                                RUN AGAIN
-                            </button>
-                        </td>
-                    </tr>
-                `;
+            // Separate reports by type
+            let singleAudits = userReports.filter(report => {
+                // Bulk audits have business names starting with "Fast Bulk:" or "Bulk:"
+                return !report.business_name.startsWith('Fast Bulk:') && !report.business_name.startsWith('Bulk:');
             });
-            
-            tableHTML += `</tbody></table>`;
-            container.innerHTML = tableHTML;
+
+            let competitiveAnalyses = userReports.filter(report => {
+                return report.business_name.startsWith('Fast Bulk:') || report.business_name.startsWith('Bulk:');
+            });
+
+            // Sort single audits
+            if (singleAudits.length > 0) {
+                singleAudits.sort((a, b) => {
+                    let aVal, bVal;
+
+                    if (currentSortColumn === 'name') {
+                        aVal = a.business_name.toLowerCase();
+                        bVal = b.business_name.toLowerCase();
+                        return currentSortDirection === 'asc'
+                            ? aVal.localeCompare(bVal)
+                            : bVal.localeCompare(aVal);
+                    } else if (currentSortColumn === 'score') {
+                        aVal = a.score || 0;
+                        bVal = b.score || 0;
+                        return currentSortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                    } else if (currentSortColumn === 'date') {
+                        aVal = new Date(a.created_at).getTime();
+                        bVal = new Date(b.created_at).getTime();
+                        return currentSortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                    }
+                    return 0;
+                });
+            }
+
+            // Sort competitive analyses
+            if (competitiveAnalyses.length > 0) {
+                competitiveAnalyses.sort((a, b) => {
+                    let aVal, bVal;
+
+                    if (currentSortColumn === 'name') {
+                        aVal = a.business_name.toLowerCase();
+                        bVal = b.business_name.toLowerCase();
+                        return currentSortDirection === 'asc'
+                            ? aVal.localeCompare(bVal)
+                            : bVal.localeCompare(aVal);
+                    } else if (currentSortColumn === 'date') {
+                        aVal = new Date(a.created_at).getTime();
+                        bVal = new Date(b.created_at).getTime();
+                        return currentSortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+                    }
+                    return 0;
+                });
+            }
+
+            // Display single audits
+            if (singleAudits.length === 0) {
+                document.getElementById('auditsTableContainer').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666; background: #f8f9fa; border-radius: 10px;">
+                        <h4>No audits yet</h4>
+                        <p>Generate your first SEO audit to get started!</p>
+                    </div>
+                `;
+            } else {
+                let auditsTableHTML = `
+                    <table class="reports-table">
+                        <thead>
+                            <tr>
+                                <th onclick="sortReports('name')" style="cursor: pointer; user-select: none;">
+                                    Business ${getSortArrow('name')}
+                                </th>
+                                <th onclick="sortReports('score')" style="cursor: pointer; user-select: none;">
+                                    Score ${getSortArrow('score')}
+                                </th>
+                                <th onclick="sortReports('date')" style="cursor: pointer; user-select: none;">
+                                    Date ${getSortArrow('date')}
+                                </th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                singleAudits.forEach(report => {
+                    const date = new Date(report.created_at).toLocaleDateString();
+                    const score = report.score || 'N/A';
+                    const scoreClass = score === 'N/A' ? 'score-neutral' :
+                                     score >= 80 ? 'score-good' :
+                                     score >= 60 ? 'score-fair' : 'score-poor';
+                    const lockIcon = !report.was_paid ? '<span class="lock-icon"></span>' : '';
+
+                    auditsTableHTML += `
+                        <tr>
+                            <td>
+                                <div class="business-name">${report.business_name} ${lockIcon}</div>
+                                <div class="business-location">${report.city} • ${report.industry}</div>
+                            </td>
+                            <td>
+                                <div class="table-score-display ${scoreClass}">${score}${score !== 'N/A' ? '/100' : ''}</div>
+                            </td>
+                            <td>${date}</td>
+                            <td>
+                                <button class="report-action-btn view-btn" onclick="viewStoredReport(${report.id})">VIEW</button>
+                                <button class="report-action-btn run-again-btn" onclick="runReportAgain('${report.business_name}', '${report.city}', '${report.industry}', '${report.website || ''}')">
+                                    RUN AGAIN
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                auditsTableHTML += `</tbody></table>`;
+                document.getElementById('auditsTableContainer').innerHTML = auditsTableHTML;
+            }
+
+            // Display competitive analyses
+            if (competitiveAnalyses.length === 0) {
+                document.getElementById('competitiveTableContainer').innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666; background: #f8f9fa; border-radius: 10px;">
+                        <h4>No competitive analyses yet</h4>
+                        <p>Run your first competitive analysis to get started!</p>
+                    </div>
+                `;
+            } else {
+                let competitiveTableHTML = `
+                    <table class="reports-table">
+                        <thead>
+                            <tr>
+                                <th onclick="sortReports('name')" style="cursor: pointer; user-select: none;">
+                                    Analysis ${getSortArrow('name')}
+                                </th>
+                                <th>Businesses</th>
+                                <th onclick="sortReports('date')" style="cursor: pointer; user-select: none;">
+                                    Date ${getSortArrow('date')}
+                                </th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                competitiveAnalyses.forEach(report => {
+                    const date = new Date(report.created_at).toLocaleDateString();
+                    // Extract industry from business_name (format: "Fast Bulk: Industry")
+                    const industry = report.business_name.replace('Fast Bulk: ', '').replace('Bulk: ', '');
+
+                    competitiveTableHTML += `
+                        <tr>
+                            <td>
+                                <div class="business-name">${industry}</div>
+                                <div class="business-location">${report.city}</div>
+                            </td>
+                            <td style="text-align: center; font-weight: 600; color: #17a2b8;">
+                                View Report
+                            </td>
+                            <td>${date}</td>
+                            <td>
+                                <button class="report-action-btn view-btn" onclick="viewStoredBulkReport(${report.id})">VIEW</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                competitiveTableHTML += `</tbody></table>`;
+                document.getElementById('competitiveTableContainer').innerHTML = competitiveTableHTML;
+            }
         }
 
         // Function to pre-fill form with previous report data
@@ -3898,6 +4291,12 @@
             document.getElementById('location').value = location;
             document.getElementById('industry').value = industry;
             document.getElementById('website').value = website;
+        }
+
+        // View a stored bulk report - redirects to competitive analysis page
+        async function viewStoredBulkReport(reportId) {
+            // Use the same function as viewStoredReport - it handles bulk reports automatically
+            return viewStoredReport(reportId);
         }
 
         // View a stored report - fetch the full report data
