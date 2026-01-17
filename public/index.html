@@ -514,7 +514,15 @@
         .btn-secondary { background: #6c757d; }
         .btn-success { background: #28a745; }
         .btn-warning { background: #ffc107; color: #212529; }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
+
+        /* Report form grid layout */
+        #reportFormSection {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 40px;
+            align-items: start;
+        }
         .error { color: #dc3545; margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 5px; }
         .success { color: #155724; margin-top: 10px; padding: 10px; background: #d4edda; border-radius: 5px; }
         .auth-switch { text-align: center; margin-top: 20px; color: #666; }
@@ -1283,7 +1291,8 @@
             .btn, .report-actions, .how-to-fix-btn, .view-details-btn,
             .copy-suggestion-btn, .order-citations-btn, .order-citations-cta-btn,
             .factor-expand-arrow, .action-arrow, .detailed-analysis-btn,
-            .detailed-analysis-subtext, #detailedCitationSummary {
+            .detailed-analysis-subtext, #detailedCitationSummary,
+            #loginSection, #signupSection, #dashboardSection, #reportFormSection, #loadingSection {
                 display: none !important;
             }
             
@@ -2632,10 +2641,10 @@
         </div>
 
         <!-- Report Form -->
-        <div id="reportFormSection" style="display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: start;" class="hidden">
+        <div id="reportFormSection" class="hidden">
             <!-- Left Column: Form in white card -->
             <div class="card">
-                <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Generate SEO Audit Report</h2>
+                <h2 style="text-align: center; margin-bottom: 30px; color: #0e192b;">Generate GBP Audit</h2>
                 <form id="reportForm">
                     <div class="form-group">
                         <label for="businessName">Business Name <span class="required">*</span></label>
