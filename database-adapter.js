@@ -122,8 +122,8 @@ class DatabaseAdapter {
       // SQLite
       return new Promise((resolve, reject) => {
         const sqliteQuery = this.convertQuery(text, 'sqlite');
-        
-        if (text.toUpperCase().startsWith('SELECT') || text.toUpperCase().includes('RETURNING')) {
+
+        if (text.toUpperCase().startsWith('SELECT') || text.toUpperCase().startsWith('PRAGMA') || text.toUpperCase().includes('RETURNING')) {
           this.sqliteDb.all(sqliteQuery, params, (err, rows) => {
             if (err) {
               reject(err);
@@ -369,20 +369,6 @@ class DatabaseAdapter {
       )
     `);
 
-    // AppSumo codes table
-    await this.query(`
-      CREATE TABLE IF NOT EXISTS appsumo_codes (
-        id SERIAL PRIMARY KEY,
-        code TEXT UNIQUE NOT NULL,
-        plan_id TEXT NOT NULL,
-        plan_name TEXT NOT NULL,
-        monthly_credits INTEGER NOT NULL,
-        is_redeemed BOOLEAN DEFAULT FALSE,
-        redeemed_by_user_id INTEGER REFERENCES users(id),
-        redeemed_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
 
     // Factor overrides table - for user manual adjustments
     await this.query(`
@@ -416,8 +402,6 @@ class DatabaseAdapter {
       'CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC)',
       'CREATE INDEX IF NOT EXISTS idx_reports_was_paid ON reports(was_paid)',
       'CREATE INDEX IF NOT EXISTS idx_feedback_user_id ON feedback(user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_appsumo_codes_code ON appsumo_codes(code)',
-      'CREATE INDEX IF NOT EXISTS idx_appsumo_codes_redeemed ON appsumo_codes(is_redeemed)',
       'CREATE INDEX IF NOT EXISTS idx_factor_overrides_report ON factor_overrides(report_id)',
       'CREATE INDEX IF NOT EXISTS idx_factor_overrides_user ON factor_overrides(user_id)'
     ];
@@ -442,24 +426,19 @@ class DatabaseAdapter {
       { name: 'custom_contact_name', definition: 'TEXT DEFAULT NULL' },
       { name: 'custom_contact_email', definition: 'TEXT DEFAULT NULL' },
       { name: 'custom_contact_phone', definition: 'TEXT DEFAULT NULL' },
-      { name: 'white_label_enabled', definition: 'BOOLEAN DEFAULT FALSE' },
-      { name: 'appsumo_code', definition: 'TEXT DEFAULT NULL' },
-      { name: 'appsumo_plan_id', definition: 'TEXT DEFAULT NULL' },
-      { name: 'is_lifetime', definition: 'BOOLEAN DEFAULT FALSE' },
-      { name: 'lifetime_monthly_credits', definition: 'INTEGER DEFAULT NULL' },
-      { name: 'last_credit_renewal', definition: 'TIMESTAMP DEFAULT NULL' }
+      { name: 'white_label_enabled', definition: 'BOOLEAN DEFAULT FALSE' }
     ];
 
     for (const column of columnsToAdd) {
       try {
         // Check if column exists first
         const columnCheck = await this.query(`
-          SELECT column_name 
-          FROM information_schema.columns 
+          SELECT column_name
+          FROM information_schema.columns
           WHERE table_name = 'users' AND column_name = $1
         `, [column.name]);
-        
-        if (columnCheck.length === 0) {
+
+        if (columnCheck.rows.length === 0) {
           await this.query(`ALTER TABLE users ADD COLUMN ${column.name} ${column.definition}`);
           console.log(`✅ Added column: ${column.name}`);
         }
@@ -471,12 +450,12 @@ class DatabaseAdapter {
     // Add was_paid column to reports table if it doesn't exist
     try {
       const reportColumnCheck = await this.query(`
-        SELECT column_name 
-        FROM information_schema.columns 
+        SELECT column_name
+        FROM information_schema.columns
         WHERE table_name = 'reports' AND column_name = 'was_paid'
       `);
-      
-      if (reportColumnCheck.length === 0) {
+
+      if (reportColumnCheck.rows.length === 0) {
         await this.query(`ALTER TABLE reports ADD COLUMN was_paid BOOLEAN DEFAULT FALSE`);
         console.log(`✅ Added was_paid column to reports table`);
       }
@@ -487,12 +466,12 @@ class DatabaseAdapter {
     // Add detailed_citation_analysis column to reports table if it doesn't exist
     try {
       const detailedColumnCheck = await this.query(`
-        SELECT column_name 
-        FROM information_schema.columns 
+        SELECT column_name
+        FROM information_schema.columns
         WHERE table_name = 'reports' AND column_name = 'detailed_citation_analysis'
       `);
-      
-      if (detailedColumnCheck.length === 0) {
+
+      if (detailedColumnCheck.rows.length === 0) {
         await this.query(`ALTER TABLE reports ADD COLUMN detailed_citation_analysis TEXT DEFAULT NULL`);
         console.log(`✅ Added detailed_citation_analysis column to reports table`);
       }
@@ -554,45 +533,7 @@ class DatabaseAdapter {
       console.log(`⚠️ Migration warning (api_cache): ${error.message}`);
     }
 
-    // Migration 4: Create appsumo_codes table if it doesn't exist
-    try {
-      await this.query(`
-        CREATE TABLE IF NOT EXISTS appsumo_codes (
-          id SERIAL PRIMARY KEY,
-          code TEXT UNIQUE NOT NULL,
-          plan_id TEXT NOT NULL,
-          plan_name TEXT NOT NULL,
-          monthly_credits INTEGER NOT NULL,
-          is_redeemed BOOLEAN DEFAULT FALSE,
-          redeemed_by_user_id INTEGER REFERENCES users(id),
-          redeemed_at TIMESTAMP,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      console.log('✅ Migration: appsumo_codes table created');
-    } catch (error) {
-      console.log(`⚠️ Migration warning (appsumo_codes): ${error.message}`);
-    }
-
-    // Migration 5: Add AppSumo columns to users table
-    const appsumoColumns = [
-      { name: 'appsumo_code', type: 'TEXT DEFAULT NULL' },
-      { name: 'appsumo_plan_id', type: 'TEXT DEFAULT NULL' },
-      { name: 'is_lifetime', type: 'BOOLEAN DEFAULT FALSE' },
-      { name: 'lifetime_monthly_credits', type: 'INTEGER DEFAULT NULL' },
-      { name: 'last_credit_renewal', type: 'TIMESTAMP DEFAULT NULL' }
-    ];
-
-    for (const col of appsumoColumns) {
-      try {
-        await this.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
-        console.log(`✅ Migration: Added ${col.name} column to users table`);
-      } catch (error) {
-        console.log(`⚠️ Migration warning (${col.name}): ${error.message}`);
-      }
-    }
-
-    // Migration 6: Fix screenshot_cache table schema (drop and recreate with correct columns)
+    // Migration 4: Fix screenshot_cache table schema (drop and recreate with correct columns)
     try {
       // Check if the table has the wrong schema
       const columns = await this.query(`
@@ -788,8 +729,8 @@ class DatabaseAdapter {
       try {
         // Check if column exists first using PRAGMA table_info
         const columnCheck = await this.query('PRAGMA table_info(users)');
-        const columnExists = columnCheck.some(col => col.name === column.name);
-        
+        const columnExists = columnCheck.rows.some(col => col.name === column.name);
+
         if (!columnExists) {
           await this.query(`ALTER TABLE users ADD COLUMN ${column.name} ${column.definition}`);
           console.log(`✅ Added column: ${column.name}`);
@@ -802,8 +743,8 @@ class DatabaseAdapter {
     // Add was_paid column to reports table if it doesn't exist
     try {
       const reportColumnCheck = await this.query('PRAGMA table_info(reports)');
-      const columnExists = reportColumnCheck.some(col => col.name === 'was_paid');
-      
+      const columnExists = reportColumnCheck.rows.some(col => col.name === 'was_paid');
+
       if (!columnExists) {
         await this.query(`ALTER TABLE reports ADD COLUMN was_paid INTEGER DEFAULT 0`);
         console.log(`✅ Added was_paid column to reports table`);
@@ -815,8 +756,8 @@ class DatabaseAdapter {
     // Add detailed_citation_analysis column to reports table if it doesn't exist
     try {
       const reportColumnCheck = await this.query('PRAGMA table_info(reports)');
-      const detailedColumnExists = reportColumnCheck.some(col => col.name === 'detailed_citation_analysis');
-      
+      const detailedColumnExists = reportColumnCheck.rows.some(col => col.name === 'detailed_citation_analysis');
+
       if (!detailedColumnExists) {
         await this.query(`ALTER TABLE reports ADD COLUMN detailed_citation_analysis TEXT DEFAULT NULL`);
         console.log(`✅ Added detailed_citation_analysis column to reports table`);

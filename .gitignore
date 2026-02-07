@@ -14,6 +14,34 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 server.log
+*.log
+
+# Test files
+test-*.js
+*-test.js
+verify-*.js
+debug-*.js
+*-debug.js
+diagnose-*.sh
+
+# Test output and debug files
+test-output.log
+bulk-audit-test-output.log
+*-debug-html.txt
+*-html-dump.txt
+services-debug-html.txt
+supreme-*.html
+test-button-layout.html
+
+# Temporary/scratch directories
+services/
+seo-tool-clean/
+
+# Development documentation (optional - remove if you want to commit these)
+APPIUM_IMPLEMENTATION_GUIDE.md
+DEVICE_FARM_SETUP_CHECKLIST.md
+.env.devicefarm.template
+package.json.appium-additions
 
 # Runtime data
 pids
