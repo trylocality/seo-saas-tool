@@ -36,6 +36,7 @@ test-button-layout.html
 # Temporary/scratch directories
 services/
 seo-tool-clean/
+archive/
 
 # Development documentation (optional - remove if you want to commit these)
 APPIUM_IMPLEMENTATION_GUIDE.md

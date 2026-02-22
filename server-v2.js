@@ -1540,7 +1540,7 @@ async function takeBusinessProfileScreenshot(businessName, location, placeId = n
 
     const response = await axios.get('https://app.scrapingbee.com/api/v1/', {
       params: params,
-      timeout: 180000, // Increased to 3 minutes for better reliability
+      timeout: 60000, // 60 seconds - reduced for faster report generation
       responseType: 'arraybuffer'
     });
 
@@ -1690,7 +1690,7 @@ async function captureServicesPage(businessName, location, website) {
         country_code: region.toLowerCase(),
         wait: 8000  // Extra wait for Services content to load
       },
-      timeout: 180000,
+      timeout: 60000, // 60 seconds - reduced for faster report generation
       responseType: 'arraybuffer'
     });
 
@@ -4433,34 +4433,15 @@ async function generateCompleteReport(businessName, location, industry, website,
       ? foundationResults[0].value
       : getFallbackBusinessData(businessName, location);
 
-    // NEW: Get G Maps Extractor data for description (PRIMARY SOURCE)
-    console.log('🗺️  Getting G Maps Extractor data for description...');
-    let gmapsData = null;
-    try {
-      gmapsData = await getGMapsExtractorData(businessName, location);
-      if (gmapsData && gmapsData.description) {
-        console.log(`   ✅ G Maps description: "${gmapsData.description.substring(0, 80)}..." (${gmapsData.description.length} chars)`);
-        // OVERRIDE: G Maps Extractor is PRIMARY for description
-        if (businessData.description) {
-          console.log(`   ⚠️ Overriding pre-selected description with G Maps Extractor (PRIMARY SOURCE)`);
-        }
-        businessData.description = gmapsData.description;
-      } else {
-        console.log(`   ⚠️ G Maps Extractor has no description - will use pre-selected or AI fallback`);
-      }
-    } catch (gmapsError) {
-      console.log(`   ⚠️ G Maps Extractor failed: ${gmapsError.message}`);
-    }
-
     // Now take screenshot and scrape social links with place_id
     const placeId = businessData.place_id || businessData.google_id;
     const website = businessData.website || businessData.site || '';
 
-    // PERFORMANCE OPTIMIZATION: Run screenshot, services screenshot, social scraping, AND citations in parallel
-    console.log(`📸 Taking screenshots (main + services), scraping social links, and checking citations in parallel...`);
-    const [screenshotResult, servicesScreenshotResult, socialLinksResult, citationsResult] = await Promise.allSettled([
+    // PERFORMANCE OPTIMIZATION: Run screenshot, G Maps Extractor, social scraping, AND citations in parallel
+    console.log(`📸 Taking screenshot, getting G Maps data, scraping social links, and checking citations in parallel...`);
+    const [screenshotResult, gmapsResult, socialLinksResult, citationsResult] = await Promise.allSettled([
       takeBusinessProfileScreenshot(businessName, location, placeId),
-      captureServicesPage(businessName, location, website),  // NEW: Two-step Services capture
+      getGMapsExtractorData(businessName, location),  // MOVED: Now runs in parallel for speed
       scrapeSocialLinksFromGBP(businessName, location, placeId),
       checkCitations(businessName, businessData.phone || '')
     ]);
@@ -4474,17 +4455,18 @@ async function generateCompleteReport(businessName, location, industry, website,
       errors.push(`Screenshot: ${screenshotResult.reason?.message}`);
     }
 
-    let servicesScreenshot = null;
-    if (servicesScreenshotResult.status === 'fulfilled') {
-      servicesScreenshot = servicesScreenshotResult.value;
-      if (servicesScreenshot && servicesScreenshot.url) {
-        console.log(`✅ Services screenshot completed`);
-        console.log(`📸 Services screenshot URL: https://app.trylocality.com${servicesScreenshot.url}`);
+    // Handle G Maps Extractor result and update description
+    let gmapsData = null;
+    if (gmapsResult.status === 'fulfilled') {
+      gmapsData = gmapsResult.value;
+      if (gmapsData && gmapsData.description) {
+        console.log(`✅ G Maps description: "${gmapsData.description.substring(0, 80)}..." (${gmapsData.description.length} chars)`);
+        businessData.description = gmapsData.description;
       } else {
-        console.log(`⚠️ Services screenshot skipped (no place_id available)`);
+        console.log(`⚠️ G Maps Extractor has no description - using pre-selected or AI fallback`);
       }
     } else {
-      console.error('⚠️ Services screenshot failed (non-critical):', servicesScreenshotResult.reason?.message);
+      console.log(`⚠️ G Maps Extractor failed (non-critical): ${gmapsResult.reason?.message}`);
     }
 
     let scrapedSocialLinks = { count: 0, meets2Plus: false, platforms: [] };
@@ -4533,15 +4515,6 @@ async function generateCompleteReport(businessName, location, industry, website,
       analysisPromises.push(Promise.resolve(getFallbackAIAnalysis()));
     }
 
-    // Add Services analysis if we have services screenshot
-    if (servicesScreenshot && servicesScreenshot.filepath) {
-      console.log(`🛠️ Adding Services screenshot analysis to queue`);
-      analysisPromises.push(analyzeServicesFromScreenshot(servicesScreenshot.filepath, businessName));
-    } else {
-      console.log(`⚡ Skipping Services analysis (no services screenshot available)`);
-      analysisPromises.push(Promise.resolve({ hasServices: false, servicesCount: 0, hasDescriptions: false, servicesVisible: [] }));
-    }
-
     const analysisResults = await Promise.allSettled(analysisPromises);
 
     // Extract analysis results with fallbacks
@@ -4557,13 +4530,11 @@ async function generateCompleteReport(businessName, location, industry, website,
       ? analysisResults[2].value
       : getFallbackAIAnalysis();
 
-    const servicesAnalysis = analysisResults[3].status === 'fulfilled'
-      ? analysisResults[3].value
-      : { hasServices: false, servicesCount: 0, hasDescriptions: false, servicesVisible: [] };
+    // Services analysis removed - no longer taking services screenshots
 
     // Log any analysis failures with detailed debugging
     analysisResults.forEach((result, index) => {
-      const stepNames = ['Reviews', 'Website', 'AI Analysis', 'Services Analysis'];
+      const stepNames = ['Reviews', 'Website', 'AI Analysis'];
       if (result.status === 'rejected') {
         errors.push(`${stepNames[index]}: ${result.reason?.message || 'Unknown error'}`);
         console.log(`❌ ${stepNames[index]} FAILED: ${result.reason?.message}`);
